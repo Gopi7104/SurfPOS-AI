@@ -85,3 +85,17 @@ A change is **done** only when all of the following are true:
 - [ ] [projectStatus.md](projectStatus.md), [docs/11_CHANGELOG.md](../docs/11_CHANGELOG.md), and [docs/09_PROMPT_HISTORY.md](../docs/09_PROMPT_HISTORY.md) are updated.
 - [ ] Any non-trivial decision made along the way is recorded in [decision.md](decision.md) (and, if architectural, in [docs/08_ARCHITECTURE_DECISIONS.md](../docs/08_ARCHITECTURE_DECISIONS.md)).
 - [ ] Nothing was committed or pushed without being asked.
+- [ ] The Mandatory Verification Sequence (§14) has been run and its exact-format report given — a task is never described as "done"/"complete" without this.
+
+## 14. Mandatory Verification Sequence (Frontend/Flutter Work)
+
+**In force as of 2026-07-29 — applies to every Flutter task from now on, before it is considered complete.** Run in this exact order:
+
+1. **Format:** `dart format .` (equivalently `flutter format .`) from `frontend/`.
+2. **Analyze:** `flutter analyze` (whole project — not scoped to `lib/` only; `test/` must be clean too).
+3. **If analyze reports *anything*** — error, warning, info, or lint (including `prefer_const_constructors`-style INFO lints) — **the task is not done.** Fix every reported item (adding `const` wherever the analyzer suggests it is a required fix here, not optional, as long as it doesn't change UI/behavior), then re-run format + analyze. Repeat until the output is exactly `No issues found!`.
+4. **Test:** only after analyze is fully clean, run `flutter test`. If it cannot run (e.g. the `impellerc.exe` Application Control block — see [projectStatus.md § Known Issues #5](projectStatus.md#known-issues)), state that plainly and do not claim a pass. If it runs, report the *actual* pass/fail outcome — never assume or extrapolate from a previous run. Note: on this machine, test outcomes have been observed to be inconsistent across runs even with no code changes (see Known Issues #5) — a pass is informative, but re-verify rather than assuming a prior pass still holds.
+5. **Build:** only after test has been attempted and its real outcome reported, run a build check appropriate to what's implemented (e.g. `flutter build web`, `flutter build apk --debug`). If it fails for an environment reason, state the *exact* underlying error, not a vague "build failed."
+6. **Report:** give the Final Report in the exact fixed format defined in [commands.md § Verify & Report](commands.md#verify--report) — every time, not just when explicitly asked for a report.
+
+**Never say "done"/"complete" before step 3 reaches a clean analyze.** Never report a test or build as passed without it having actually, successfully run.

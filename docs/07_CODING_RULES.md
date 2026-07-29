@@ -6,7 +6,7 @@
 
 ## 1. Code Style
 
-- **Dart/Flutter:** `dart format` is authoritative; `flutter_lints`/`analysis_options.yaml` must pass with zero warnings before a change is considered done.
+- **Dart/Flutter:** `dart format .` is authoritative; `flutter analyze` must report exactly `No issues found!` before a change is considered done — zero errors, zero warnings, and zero infos/lints (including `prefer_const_constructors`-style suggestions), not just zero warnings. This is enforced as a mandatory, non-negotiable sequence (format → analyze-until-clean → test → build → fixed-format report) — see `.claude/workflow.md § 14` and `.claude/commands.md § Verify & Report` for the exact steps and report format to follow after every Flutter task.
 - **Node.js/Express:** Prettier + ESLint (Airbnb-base or equivalent, finalized in [08_ARCHITECTURE_DECISIONS.md](08_ARCHITECTURE_DECISIONS.md) once tooling is set up) — no code merges with lint errors.
 - No commented-out code left in commits. Delete it — git history is the record, not a code comment.
 - No `console.log`/`print` left in committed code — use the logging convention in §9.

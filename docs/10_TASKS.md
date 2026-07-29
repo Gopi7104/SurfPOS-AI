@@ -25,6 +25,7 @@ Every task has: **Priority** (P0 = blocking/critical, P1 = important, P2 = nice-
 
 | # | Task | Priority | Status | Dependencies | Est. Time | Owner |
 |---|---|---|---|---|---|---|
+| 1.0 | Premium Flutter UI: design system (done) + 26 screens, one at a time (1/26 — Splash — done; see [09_PROMPT_HISTORY.md](09_PROMPT_HISTORY.md) and `.claude/projectStatus.md`) | P0 | In Progress | 0.6 | ~10 days (26 screens) | Claude |
 | 1.1 | Firebase Auth integration (sign-up/sign-in, email + phone OTP) | P0 | Not Started | 0.3 | 2 days | Unassigned |
 | 1.2 | Merchant Registration flow (`POST /auth/register`, onboarding wizard UI) | P0 | Not Started | 1.1, 0.4 | 3 days | Unassigned |
 | 1.3 | Product catalog CRUD (backend + UI) | P0 | Not Started | 0.3 | 3 days | Unassigned |

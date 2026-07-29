@@ -111,12 +111,14 @@ Full coding standards: [docs/07_CODING_RULES.md](../docs/07_CODING_RULES.md).
 
 ## Current Development Phase
 
-**Phase 0 — Foundations** (see [docs/10_TASKS.md](../docs/10_TASKS.md)):
+**Phase 0 — Foundations, transitioning into Phase 1 frontend UI** (see [docs/10_TASKS.md](../docs/10_TASKS.md)):
 - ✅ Documentation system complete (`/docs`, 18 files)
 - ✅ Enterprise repository folder structure scaffolded (`frontend/`, `backend/`, `firebase/`, etc. — placeholders only)
 - ✅ `.claude/` Claude knowledge base created (this folder)
+- ✅ Frontend design system + reusable widget library complete (`frontend/lib/app/themes/`, `frontend/lib/core/widgets/`) — verified with `flutter analyze`
+- 🔄 26-screen premium UI build, one screen at a time — Splash done (1/26), Login next (see [projectStatus.md](projectStatus.md))
 - ⬜ Firebase project setup, Surfboard sandbox credentials, Gemini API key provisioning
-- ⬜ Resolve pending technical decisions (OCR provider, validation/logging libraries, font — see [decision.md](decision.md))
+- ⬜ Resolve pending technical decisions (OCR provider, validation/logging libraries — see [decision.md](decision.md); font is now settled as Inter, see D-012)
 
 Live, authoritative status: [projectStatus.md](projectStatus.md).
 

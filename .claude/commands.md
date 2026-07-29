@@ -97,3 +97,61 @@ Every command below assumes the session-start reading order in [project.md](proj
 2. Append a new entry to [decision.md § Decision Log](decision.md#decision-log) using the [Decision Template](decision.md#decision-template), with the next sequential `D-0XX` number. Never renumber or delete existing entries.
 3. If the decision is architecturally significant (technology choice, major pattern), also add a corresponding ADR entry to [docs/08_ARCHITECTURE_DECISIONS.md](../docs/08_ARCHITECTURE_DECISIONS.md), cross-referenced from the `decision.md` entry.
 4. If the decision reverses an earlier one, mark the earlier entry's Status as `Superseded by D-0YY` rather than editing it away.
+
+### Verify & Report
+
+**In force as of 2026-07-29 — run this after every Flutter task, before considering it complete or telling the user it's done.** See [workflow.md § 14](workflow.md#14-mandatory-verification-sequence-frontendflutter-work) for full detail.
+
+**What Claude should do:**
+1. `dart format .` from `frontend/`.
+2. `flutter analyze` (whole project, not scoped to `lib/`).
+3. If analyze reports anything at all — including INFO-level lints like `prefer_const_constructors` — fix every item (adding `const` wherever suggested, without changing UI/behavior), then repeat format + analyze until the output is exactly `No issues found!`. The task is **not done** before this.
+4. Run `flutter test`. Report the real outcome. If it can't run (environment restriction, e.g. the `impellerc.exe` Application Control block — see [projectStatus.md § Known Issues #5](projectStatus.md#known-issues)), say so exactly, and don't assume a prior pass still holds — this project has observed inconsistent test outcomes across runs with zero code changes.
+5. Run a build check appropriate to what's implemented (`flutter build web`, `flutter build apk --debug`, etc.). Report the real outcome; if blocked by environment, give the exact underlying error.
+6. Give the Final Report in **exactly** this format (do not paraphrase the field names or omit any):
+
+```
+====================================================
+FINAL REPORT
+====================================================
+
+Task Completed
+✔ Yes / No
+
+Files Created
+
+Files Modified
+
+Flutter Format
+✔ Passed / Failed
+
+Flutter Analyze
+✔ Passed / Failed
+
+Issue Count
+
+Flutter Test
+✔ Passed
+✔ Failed
+✔ Not Executed (with reason)
+
+Build Verification
+✔ Passed
+✔ Failed
+✔ Not Executed (with reason)
+
+Architecture Updated
+Yes / No
+
+Documentation Updated
+Yes / No
+
+Project Status Updated
+Yes / No
+
+Known Limitations
+
+Next Recommended Task
+```
+
+Never say "Done"/"Completed" until `flutter analyze` genuinely returns `No issues found!`. Never hide analyzer warnings. Never claim a test or build passed unless it was actually executed and actually succeeded.

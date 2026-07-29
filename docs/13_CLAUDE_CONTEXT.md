@@ -17,12 +17,14 @@
 
 ## 3. Current Status
 
-**As of 2026-07-29: documentation + repository-architecture scaffold only. No application logic exists yet.** The repository now contains the full folder tree from [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md) (`frontend/`, `backend/`, `firebase/`, `scripts/`, `api-testing/`, `design/`, `.github/`, `.vscode/`, plus root config files), but every file in it is a placeholder — `README.md`/`.gitkeep`/stub entry points with no real code, no dependencies installed, no Firebase project connected. See [11_CHANGELOG.md](11_CHANGELOG.md) for the authoritative "what's actually built" record — trust that file over assumptions.
+**As of 2026-07-29: the frontend has real, first application code.** Documentation and repository scaffolding are complete (see [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md)), and a `.claude/` Claude-specific knowledge base now sits alongside `/docs` (read it first — see `.claude/project.md`). Beyond that, the frontend now has a complete custom design system and reusable widget library (`frontend/lib/app/themes/`, `frontend/lib/core/widgets/`) and the first of 26 planned screens (Splash). The backend, Firebase project, and Surfboard/Gemini integrations remain entirely unimplemented. See [11_CHANGELOG.md](11_CHANGELOG.md) and `.claude/projectStatus.md` for the authoritative "what's actually built" record — trust those over assumptions.
 
 ## 4. Completed Work
 
 - Full documentation system (18 files in `/docs`), covering product overview, architecture, database design, API spec, feature specs, UI/UX system, coding rules, ADRs, prompt history, roadmap, changelog, README, this context file, developer guide, Surfboard integration guide, AI module guide, folder structure, and contributing guide.
 - Full enterprise repository folder structure scaffolded per [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md) — folders, placeholder READMEs, and stub config files only, no functionality implemented.
+- `.claude/` Claude Code knowledge base (project.md, decision.md, projectStatus.md, workflow.md, commands.md, memory.md) — read this **before** this file in a fresh session, per `.claude/project.md`'s reading order.
+- Frontend design system + reusable widget library (see `.claude/projectStatus.md § Completed` for the full file list) and the Splash screen — the first of 26 planned screens in a premium-UI rebuild of the frontend, built one screen at a time per explicit user instruction.
 
 ## 5. Pending Work
 
