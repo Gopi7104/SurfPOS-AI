@@ -2,7 +2,7 @@
 
 **An AI-powered, mobile-first cloud Point-of-Sale platform for small retailers, fully integrated with Surfboard Payments.**
 
-> Note: this file is maintained at `docs/12_README.md` as part of the documentation set; copy/symlink it to the repository root as `README.md` once the codebase is scaffolded (see [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md)).
+> Note: this file is maintained at `docs/12_README.md` as part of the numbered documentation set; the repository root [`README.md`](../README.md) is the public-facing copy GitHub renders by default. Keep both in sync when the project structure changes.
 
 ---
 
@@ -53,10 +53,14 @@ Full architecture, data flow, and security model: [02_ARCHITECTURE.md](02_ARCHIT
 ## Folder Structure
 
 ```
-surfpos-ai/
+SurfPOS-AI/
 ├── docs/          # This documentation system — start here
-├── mobile/        # Flutter application
-└── backend/       # Node.js + Express API
+├── frontend/      # Flutter application
+├── backend/       # Node.js + Express API
+├── firebase/      # Firebase project config
+├── scripts/       # Setup, deployment, migration, utility scripts
+├── api-testing/   # Postman/Bruno API collections
+└── design/        # Figma/branding/UI source material
 ```
 
 Full annotated tree: [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md).

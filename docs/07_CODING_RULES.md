@@ -33,7 +33,7 @@ Full tree in [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md). Non-negotiable ru
 
 - **Flutter:** feature-first (`lib/features/<feature>/{data,domain,presentation}`), never "type-first" (no top-level `screens/`, `models/` catch-all folders spanning unrelated features).
 - **Node:** layered (`routes/ → controllers/ → services/`), one file per resource per layer (`products.routes.js`, `products.controller.js`, `products.service.js`). A controller **never** talks to Firebase directly — only through a service.
-- Shared/reusable code lives in `lib/shared/` (Flutter) or `src/utils/` + `src/services/` (Node) — see §8.
+- Shared/reusable code lives in `lib/core/` (Flutter) or `src/utils/` + `src/services/` (Node) — see §8.
 - Tests mirror the source tree (e.g. `test/features/inventory/...` mirrors `lib/features/inventory/...`).
 
 ## 4. Component Size Limits

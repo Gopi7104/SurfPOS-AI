@@ -1,0 +1,9 @@
+{
+  "//": "Placeholder — not yet configured. See docs/14_DEVELOPER_GUIDE.md § 5.",
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  }
+}

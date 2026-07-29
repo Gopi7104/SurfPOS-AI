@@ -1,0 +1,5 @@
+{
+  "//": "Placeholder reference list of .indexOn declarations — see docs/03_DATABASE_DESIGN.md § 7.",
+  "//_note": "Actual indexes are declared inside database.rules.json; this file is a human-readable changelog of what's expected there.",
+  "indexes": []
+}

@@ -19,7 +19,7 @@ Every task has: **Priority** (P0 = blocking/critical, P1 = important, P2 = nice-
 | 0.3 | Firebase project setup (Auth, RTDB, Storage) + `database.rules.json` skeleton | P0 | Not Started | 0.2 | 0.5 day | Unassigned |
 | 0.4 | Surfboard Payments sandbox/developer account + API credentials | P0 | Not Started | — | Depends on Surfboard onboarding time | Unassigned |
 | 0.5 | Gemini API key provisioning | P0 | Not Started | — | 0.25 day | Unassigned |
-| 0.6 | Repo scaffolding: `mobile/` (Flutter) + `backend/` (Node/Express) per [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md) | P0 | Not Started | 0.2 | 0.5 day | Unassigned |
+| 0.6 | Repo scaffolding: `frontend/` (Flutter) + `backend/` (Node/Express) per [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md) | P0 | Done | 0.2 | 0.5 day | Claude |
 
 ## Phase 1 — MVP (Single Store, Core POS Loop)
 

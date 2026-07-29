@@ -1,0 +1,7 @@
+{
+  "//": "Placeholder — deny-all default. See docs/03_DATABASE_DESIGN.md § 8 before authoring real rules.",
+  "rules": {
+    ".read": false,
+    ".write": false
+  }
+}

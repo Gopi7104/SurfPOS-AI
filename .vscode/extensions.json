@@ -1,0 +1,10 @@
+{
+  "//": "Recommended VS Code extensions for SurfPOS AI. See docs/14_DEVELOPER_GUIDE.md.",
+  "recommendations": [
+    "Dart-Code.dart-code",
+    "Dart-Code.flutter",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "firebase.vscode-firebase-explorer"
+  ]
+}

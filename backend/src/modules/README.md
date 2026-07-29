@@ -1,0 +1,15 @@
+# modules/
+
+Domain-specific service modules — one folder per business domain, each containing its own service (and, as implementation begins, its own sub-validators/helpers where a module's logic grows large enough to warrant it). This is the backend's equivalent of the frontend's `lib/features/` (see [../../../frontend/lib/features/README.md](../../../../frontend/lib/features/README.md)).
+
+| Module | Purpose | Docs |
+|---|---|---|
+| `auth/` | Firebase ID token verification support, staff invite logic | [docs/05_FEATURES.md § 2](../../../../docs/05_FEATURES.md#2-authentication) |
+| `merchant/` | Merchant/store registration and profile logic | [docs/05_FEATURES.md § 1](../../../../docs/05_FEATURES.md#1-merchant-registration) |
+| `inventory/` | Product catalog + stock mutation — the **only** place inventory is written (see [docs/07_CODING_RULES.md § 8](../../../../docs/07_CODING_RULES.md#8-never-duplicate-logic--always-reuse-services)) | [docs/05_FEATURES.md § 4](../../../../docs/05_FEATURES.md#4-inventory-management) |
+| `billing/` | Sale/cart validation and total computation — the **only** place sale totals are computed | [docs/05_FEATURES.md § 7](../../../../docs/05_FEATURES.md#7-billing) |
+| `payments/` | Payment record management, webhook reconciliation | [docs/05_FEATURES.md § 9](../../../../docs/05_FEATURES.md#9-payments) |
+| `receipts/` | Receipt PDF generation and sharing | [docs/05_FEATURES.md § 10](../../../../docs/05_FEATURES.md#10-receipt) |
+| `analytics/` | Rollup aggregation jobs, insights retrieval | [docs/05_FEATURES.md §§ 11-12](../../../../docs/05_FEATURES.md#11-reports) |
+| `ai/` | OCR, Gemini structuring/insights, product matching | [docs/16_AI_MODULE.md](../../../../docs/16_AI_MODULE.md) |
+| `surfboard/` | All Surfboard Payments API orchestration | [docs/15_SURFBOARD_INTEGRATION.md](../../../../docs/15_SURFBOARD_INTEGRATION.md) |

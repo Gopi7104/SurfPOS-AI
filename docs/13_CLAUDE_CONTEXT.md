@@ -17,17 +17,18 @@
 
 ## 3. Current Status
 
-**As of 2026-07-29: documentation-only phase. No application code exists yet.** The repository currently contains only `/docs`. See [11_CHANGELOG.md](11_CHANGELOG.md) for the authoritative "what's actually built" record — trust that file over assumptions.
+**As of 2026-07-29: documentation + repository-architecture scaffold only. No application logic exists yet.** The repository now contains the full folder tree from [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md) (`frontend/`, `backend/`, `firebase/`, `scripts/`, `api-testing/`, `design/`, `.github/`, `.vscode/`, plus root config files), but every file in it is a placeholder — `README.md`/`.gitkeep`/stub entry points with no real code, no dependencies installed, no Firebase project connected. See [11_CHANGELOG.md](11_CHANGELOG.md) for the authoritative "what's actually built" record — trust that file over assumptions.
 
 ## 4. Completed Work
 
 - Full documentation system (18 files in `/docs`), covering product overview, architecture, database design, API spec, feature specs, UI/UX system, coding rules, ADRs, prompt history, roadmap, changelog, README, this context file, developer guide, Surfboard integration guide, AI module guide, folder structure, and contributing guide.
+- Full enterprise repository folder structure scaffolded per [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md) — folders, placeholder READMEs, and stub config files only, no functionality implemented.
 
 ## 5. Pending Work
 
-Everything in [10_TASKS.md](10_TASKS.md), starting with **Phase 0 (Foundations)**:
+Everything in [10_TASKS.md](10_TASKS.md), starting with the remainder of **Phase 0 (Foundations)**:
 - Resolve the open ADR items in [08_ARCHITECTURE_DECISIONS.md § ADR-009](08_ARCHITECTURE_DECISIONS.md#adr-009--pending-decisions-to-record-here-once-made) (OCR provider, validation/logging libraries, font) **before** writing code that depends on them.
-- Scaffold the actual `mobile/` and `backend/` folders per [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md).
+- ~~Scaffold the `frontend/` and `backend/` folders~~ — done, see [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md) for the current repository tree (placeholders only, no code yet).
 - Set up Firebase project, Surfboard sandbox credentials, Gemini API key.
 - Then proceed through Phase 1 (MVP core POS loop) → Phase 2 (AI layer) → Phase 3 (polish/hardening).
 

@@ -1,0 +1,15 @@
+{
+  "name": "surfpos-ai-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SurfPOS AI backend API (Node.js + Express). See docs/02_ARCHITECTURE.md and docs/04_API_DOCUMENTATION.md.",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "echo \"Not yet implemented — see docs/14_DEVELOPER_GUIDE.md\" && exit 1",
+    "start": "echo \"Not yet implemented — see docs/14_DEVELOPER_GUIDE.md\" && exit 1",
+    "test": "echo \"Not yet implemented — see docs/18_CONTRIBUTING.md\" && exit 1",
+    "lint": "echo \"Not yet implemented\" && exit 1"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

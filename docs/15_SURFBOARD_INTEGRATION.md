@@ -31,7 +31,7 @@
 ### 4.2 Collecting payment (client-side)
 
 - Depending on which rails Surfboard supports for this merchant/device (card-present tap-to-pay, UPI/QR, wallet), the Flutter app either invokes a Surfboard-provided mobile SDK flow or displays a QR/deep-link for the customer to complete payment.
-- **To confirm against official docs:** whether Surfboard provides a Flutter/Dart SDK directly, a platform-native SDK requiring a plugin wrapper, or a purely server-driven flow (QR/link) with no client SDK at all — this materially affects [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md) (whether a `surfboard_sdk` wrapper package is needed in `mobile/`).
+- **To confirm against official docs:** whether Surfboard provides a Flutter/Dart SDK directly, a platform-native SDK requiring a plugin wrapper, or a purely server-driven flow (QR/link) with no client SDK at all — this materially affects [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md) (whether a `surfboard_sdk` wrapper package is needed in `frontend/`).
 
 ### 4.3 Confirming payment status
 

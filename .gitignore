@@ -1,0 +1,53 @@
+# ===== Environment / Secrets =====
+.env
+.env.*
+!.env.example
+*.pem
+serviceAccountKey.json
+firebase-adminsdk-*.json
+
+# ===== Node (backend/) =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+backend/src/logs/*
+!backend/src/logs/.gitkeep
+!backend/src/logs/README.md
+dist/
+coverage/
+
+# ===== Flutter (frontend/) =====
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
+frontend/build/
+frontend/android/**/gradle-wrapper.jar
+frontend/android/.gradle
+frontend/android/local.properties
+frontend/ios/Flutter/.last_build_id
+frontend/ios/Pods/
+frontend/**/*.g.dart
+frontend/**/*.freezed.dart
+
+# ===== Firebase =====
+firebase/.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+
+# ===== Logs (general) =====
+*.log

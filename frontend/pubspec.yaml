@@ -1,0 +1,27 @@
+name: surfpos_ai
+description: "SurfPOS AI — AI-powered mobile-first cloud POS for small retailers. See docs/01_PROJECT_OVERVIEW.md."
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+# Placeholder manifest only — no dependencies have been added yet.
+# Dependencies (Riverpod, go_router, dio, firebase_auth, firebase_database,
+# firebase_storage, camera/barcode scanning, etc.) are added when
+# implementation begins. See docs/08_ARCHITECTURE_DECISIONS.md and
+# docs/10_TASKS.md Phase 0 before adding packages.
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  # assets: and fonts: entries are added once frontend/assets/ is populated
+  # — see frontend/assets/README.md.

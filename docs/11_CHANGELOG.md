@@ -8,9 +8,10 @@
 
 ### Added
 - Complete project documentation system in `/docs` (18 files): project overview, architecture, database design, API reference, feature specs, UI/UX guide, coding rules, architecture decisions, prompt history, task roadmap, README, Claude context file, developer guide, Surfboard integration guide, AI module guide, folder structure, and contributing guide.
+- Complete enterprise repository folder structure: `frontend/` (Flutter, feature-first), `backend/` (Node/Express, layered + module-based), `firebase/` (Security Rules config), `scripts/`, `api-testing/`, `design/`, `.github/` (workflows, issue/PR templates), `.vscode/`, plus root `.gitignore`, `LICENSE` (placeholder — unchosen), `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, and `package.json`. Every folder currently holds only placeholder READMEs/`.gitkeep`/stub entry-point files — no functionality implemented.
 
 ### Changed
-- N/A (no prior application state to change)
+- Renamed the planned frontend folder from `mobile/` to `frontend/` across the documentation set to match the actual scaffolded structure (see [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md)).
 
 ### Removed
 - N/A

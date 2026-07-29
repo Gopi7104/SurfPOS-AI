@@ -95,7 +95,7 @@ A neutral, retail-appropriate palette with a single accent used consistently for
 
 ## 9. Design System (Component Inventory)
 
-Baseline reusable widget set every screen composes from (see [07_CODING_RULES.md § Folder Conventions](07_CODING_RULES.md#3-folder-conventions) for where these live in `lib/shared/widgets/`):
+Baseline reusable widget set every screen composes from (see [07_CODING_RULES.md § Folder Conventions](07_CODING_RULES.md#3-folder-conventions) for where these live in `lib/core/widgets/`):
 
 - `PrimaryButton` / `SecondaryButton` / `DestructiveButton`
 - `AppCard`
