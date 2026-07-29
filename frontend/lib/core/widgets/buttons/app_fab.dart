@@ -1,0 +1,59 @@
+import 'package:flutter/material.dart';
+
+import '../../../app/themes/app_colors.dart';
+import '../../../app/themes/app_shadows.dart';
+import '../../../app/themes/app_spacing.dart';
+import '../../../app/themes/app_typography.dart';
+
+/// The app's single floating action button: **Start New Sale**. Gradient
+/// fill, glow shadow, pill-shaped, docked/notched into
+/// [AppBottomNavBar] via [AppMainScaffold]. See docs/17_FOLDER_STRUCTURE.md
+/// (bottom navigation) and the BOTTOM NAVIGATION design brief.
+class AppFab extends StatelessWidget {
+  const AppFab({
+    required this.onPressed,
+    this.icon = Icons.add_rounded,
+    this.label = 'New Sale',
+    super.key,
+  });
+
+  final VoidCallback onPressed;
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        gradient: AppColors.primaryGradient,
+        boxShadow: AppShadows.primaryGlow,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.sm + 4,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: AppColors.white, size: 22),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  label,
+                  style:
+                      AppTypography.buttonMD.copyWith(color: AppColors.white),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
