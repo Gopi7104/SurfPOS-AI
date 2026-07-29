@@ -1,6 +1,6 @@
 # 06 — UI/UX Guide
 
-> Prerequisite reading: [01_PROJECT_OVERVIEW.md](01_PROJECT_OVERVIEW.md), [05_FEATURES.md](05_FEATURES.md). This is the design system every Flutter screen must follow. Related: [07_CODING_RULES.md](07_CODING_RULES.md) for Flutter code conventions.
+> **Reviewed during the Surfboard-alignment documentation pass — unaffected in substance.** This design system is agnostic to which backend system of record answers a given screen's data (see [02_ARCHITECTURE.md § 4](02_ARCHITECTURE.md#4-data-ownership-surfboard-vs-firebase)); only new Settings sub-sections were added (§ 8) for the new Store Capabilities/Device/Branding features. Prerequisite reading: [01_PROJECT_OVERVIEW.md](01_PROJECT_OVERVIEW.md), [05_FEATURES.md](05_FEATURES.md). Related: [07_CODING_RULES.md](07_CODING_RULES.md) for Flutter code conventions.
 
 ---
 
@@ -90,7 +90,7 @@ Derived tints/shades (primary variants, semantic containers, gradients, shadow t
 
 ## 8. Navigation
 
-- **Bottom navigation bar** (3–5 top-level destinations): Dashboard, Billing, Inventory, Reports, Settings (Scanner is reached from within Billing/Inventory, not a separate tab, since it's an input method rather than a destination).
+- **Bottom navigation bar** (3–5 top-level destinations): Dashboard, Billing, Inventory, Reports, Settings (Scanner is reached from within Billing/Inventory, not a separate tab, since it's an input method rather than a destination). Settings now also contains Store Capabilities/Payment Methods, Devices, and Branding sub-sections (see [05_FEATURES.md §§ 14–16](05_FEATURES.md#14-store-capabilities--payment-methods)) — these remain sub-sections of Settings, not new top-level nav destinations, to keep the nav bar within the 3–5 item limit.
 - **Role-based visibility:** staff accounts may see a reduced nav set (e.g. no Settings) per [05_FEATURES.md § 2 Authentication](05_FEATURES.md#2-authentication) future permission model.
 - **Deep, task-focused flows** (checkout, invoice scan review, onboarding) use a **full-screen modal/stack** with an explicit back/close and no bottom nav visible — signaling "you're in a task, not browsing."
 - **Back behavior:** Android hardware/gesture back always mirrors the in-app back button; never trap the user without an exit.

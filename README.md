@@ -2,7 +2,7 @@
 
 **An AI-powered, mobile-first cloud Point-of-Sale platform for small retailers, fully integrated with Surfboard Payments.**
 
-> **Status:** documentation + repository-architecture scaffold only. No application code has been written yet — see [docs/13_CLAUDE_CONTEXT.md](docs/13_CLAUDE_CONTEXT.md) for current status and [docs/10_TASKS.md](docs/10_TASKS.md) for the roadmap.
+> **Status:** documentation realigned to Surfboard-as-system-of-record (2026-07-29); backend foundation (Phase 1) is the only application code that exists. See [docs/13_CLAUDE_CONTEXT.md](docs/13_CLAUDE_CONTEXT.md) for current status and [docs/22_DEVELOPMENT_ROADMAP.md](docs/22_DEVELOPMENT_ROADMAP.md) for the roadmap.
 
 ---
 
@@ -14,14 +14,16 @@ Full product context: [docs/01_PROJECT_OVERVIEW.md](docs/01_PROJECT_OVERVIEW.md)
 
 ## Features
 
-- 🧾 Merchant self-serve registration & onboarding
+- 🧾 Merchant registration (creates the Merchant + Store directly in Surfboard)
 - 🔐 Firebase Authentication (owner + staff roles)
 - 📊 Daily dashboard with AI business insights
 - 📦 Inventory management with low-stock alerts
 - 📷 Camera-based barcode scanning (no external hardware)
 - 🤖 AI invoice scanner (OCR + Gemini)
 - 🛒 Cart & barcode billing
-- 💳 Payments via Surfboard Payments (card / UPI / wallet)
+- 💳 Payments, Tips, and Payment Methods via Surfboard
+- 🔌 Device management (Surfboard card readers)
+- 🎨 Branding configuration (Surfboard checkout surfaces)
 - 🧾 Digital, shareable receipts
 - 📈 Reports & analytics
 
@@ -30,13 +32,17 @@ Full detail per feature: [docs/05_FEATURES.md](docs/05_FEATURES.md).
 ## Architecture
 
 ```
-Flutter (frontend/) ──Firebase SDKs──> Firebase (Auth · Realtime DB · Storage)
-       │
-       └──REST (HTTPS)──> Node.js/Express Backend (backend/) ──> Gemini API / OCR
-                                                             └──> Surfboard Payments
+Flutter (mobile) ──REST (HTTPS)──> Node.js/Express Backend
+                                        │
+                       ┌────────────────┴────────────────┐
+                       ▼                                  ▼
+            Repositories (Firebase)          Surfboard Integration Layer
+            Inventory · Product ·            Merchant · Store · Device ·
+            Sale · Order · Receipt ·         Payment · Branding · Tips ·
+            Analytics · Settings             Payment Methods
 ```
 
-Full architecture, data flow, and security model: [docs/02_ARCHITECTURE.md](docs/02_ARCHITECTURE.md).
+**Two systems of record, one gatekeeper:** Surfboard owns Merchant/Store/Device/Payment/Branding/Tips/Payment Methods; Firebase owns application data. The backend is the only thing that talks to either. Full architecture: [docs/02_ARCHITECTURE.md](docs/02_ARCHITECTURE.md). Entity definitions: [docs/20_DOMAIN_MODEL.md](docs/20_DOMAIN_MODEL.md).
 
 ## Tech Stack
 
@@ -44,11 +50,11 @@ Full architecture, data flow, and security model: [docs/02_ARCHITECTURE.md](docs
 |---|---|
 | Frontend | Flutter (Dart) |
 | Backend | Node.js + Express.js |
-| Database | Firebase Realtime Database |
+| Application data | Firebase Realtime Database |
 | Auth | Firebase Authentication |
 | Storage | Firebase Storage |
 | AI | Gemini API + OCR |
-| Payments | Surfboard Payments |
+| Merchant / Store / Device / Payments / Branding / Tips / Payment Methods | Surfboard Payments |
 
 ## Repository Structure
 
@@ -101,10 +107,14 @@ flutter run
 | 12 | [README (docs copy)](docs/12_README.md) | Mirrors this file |
 | 13 | [CLAUDE_CONTEXT](docs/13_CLAUDE_CONTEXT.md) | Start-here for AI sessions |
 | 14 | [DEVELOPER_GUIDE](docs/14_DEVELOPER_GUIDE.md) | Setup & deployment |
-| 15 | [SURFBOARD_INTEGRATION](docs/15_SURFBOARD_INTEGRATION.md) | Payments integration |
+| 15 | [SURFBOARD_INTEGRATION](docs/15_SURFBOARD_INTEGRATION.md) | Surfboard integration contract |
 | 16 | [AI_MODULE](docs/16_AI_MODULE.md) | OCR + Gemini pipeline |
 | 17 | [FOLDER_STRUCTURE](docs/17_FOLDER_STRUCTURE.md) | Directory tree |
 | 18 | [CONTRIBUTING (full guide)](docs/18_CONTRIBUTING.md) | Git workflow & PR process |
+| 19 | [SURFBOARD_WORKFLOWS](docs/19_SURFBOARD_WORKFLOWS.md) | Merchant/Store/Device/Payment lifecycles |
+| 20 | [DOMAIN_MODEL](docs/20_DOMAIN_MODEL.md) | Core entities & ownership |
+| 21 | [BACKEND_GUIDELINES](docs/21_BACKEND_GUIDELINES.md) | Layer responsibilities |
+| 22 | [DEVELOPMENT_ROADMAP](docs/22_DEVELOPMENT_ROADMAP.md) | 13-phase implementation order |
 
 ## Contributing
 

@@ -14,7 +14,7 @@ A small retailer should be able to run their entire store — inventory, billing
 
 ## Project Goal
 
-Ship a mobile-first, AI-powered cloud Point-of-Sale platform, fully integrated with **Surfboard Payments**, that lets a small retailer register, stock, sell, get paid, and understand their business — all from one app, with no dedicated POS hardware and no local server or database to maintain.
+Ship a mobile-first, AI-powered cloud Point-of-Sale platform, fully integrated with **Surfboard Payments** — which is the system of record for the merchant's business identity, stores, devices, and payments, not just a payment processor (see [decision.md § D-016](decision.md#d-016--surfboard-is-the-system-of-record-for-merchant-store-device-payment-branding-tips-and-payment-methods)) — that lets a small retailer register, stock, sell, get paid, and understand their business — all from one app, with no dedicated POS hardware and no local server or database to maintain.
 
 ## Business Problem
 
@@ -32,7 +32,7 @@ Full detail: [docs/01_PROJECT_OVERVIEW.md](../docs/01_PROJECT_OVERVIEW.md).
 
 Small, single-to-few-location retailers (e.g. surf/beach shops, boutique retail, small convenience stores) — an owner-operator or a small owner + staff team, with **no dedicated IT support**, running the business from their own smartphone.
 
-**Market note:** the target market/currency is **Sweden (SEK)**, per [decision D-010](decision.md) — this supersedes the India/INR framing that still appears in some `/docs` examples (currency, GST fields, `Asia/Kolkata` timezone). See [projectStatus.md § Known Issues](projectStatus.md#known-issues) for what still needs updating to reflect this.
+**Market note:** the target market/currency is **Sweden (SEK)**, per [decision D-010](decision.md) — `docs/01_PROJECT_OVERVIEW.md` and `docs/03_DATABASE_DESIGN.md` were corrected to Sweden/SEK/`sv-SE` as an incidental side effect of being fully rewritten during the Surfboard-alignment pass; other docs may still have stale India/INR examples. See [projectStatus.md § Known Issues](projectStatus.md#known-issues).
 
 ## Key Features
 
@@ -54,13 +54,13 @@ Full detail per feature: [docs/05_FEATURES.md](../docs/05_FEATURES.md).
 
 | Layer | Technology |
 |---|---|
-| Frontend | Flutter (Dart), mobile-first |
-| Backend | Node.js + Express.js |
-| Database | Firebase Realtime Database |
-| Authentication | Firebase Authentication |
+| Frontend | Flutter (Dart), mobile-first — talks only to the backend, no direct Firebase/Surfboard access |
+| Backend | Node.js + Express.js — sole gatekeeper to both Firebase and Surfboard |
+| Application data | Firebase Realtime Database (inventory, catalog, sales, analytics, receipts, AI data) |
+| Authentication | Firebase Authentication (identity only) |
 | Storage | Firebase Storage |
 | AI | Gemini API + OCR |
-| Payments | Surfboard Payments |
+| Merchant / Store / Device / Payments / Branding / Tips / Payment Methods | Surfboard Payments — system of record, see [decision.md § D-016](decision.md#d-016--surfboard-is-the-system-of-record-for-merchant-store-device-payment-branding-tips-and-payment-methods) |
 
 Rationale for every choice above is recorded in [decision.md](decision.md) and [docs/08_ARCHITECTURE_DECISIONS.md](../docs/08_ARCHITECTURE_DECISIONS.md).
 
@@ -69,7 +69,7 @@ Rationale for every choice above is recorded in [decision.md](decision.md) and [
 ```
 SurfPOS-AI/
 ├── .claude/           # This knowledge base — read first, every session
-├── docs/              # Full project documentation (18 numbered files)
+├── docs/              # Full project documentation (22 numbered files)
 ├── frontend/          # Flutter application (feature-first)
 ├── backend/           # Node.js + Express API (layered + module-based)
 ├── firebase/          # Firebase project config (Security Rules, indexes)
@@ -84,18 +84,26 @@ Full annotated tree: [docs/17_FOLDER_STRUCTURE.md](../docs/17_FOLDER_STRUCTURE.m
 
 ## High-Level Architecture
 
+> **Updated during the Surfboard-alignment documentation pass (2026-07-29) — the Flutter app no longer talks to Firebase directly.**
+
 ```
-Flutter (frontend/) ──Firebase SDKs──> Firebase (Auth · Realtime DB · Storage)
-       │
-       └──REST (HTTPS)──> Node.js/Express Backend (backend/) ──> Gemini API / OCR
-                                                             └──> Surfboard Payments
+Flutter (frontend/) ──REST (HTTPS)──> Node.js/Express Backend (backend/)
+                                              │
+                              ┌───────────────┴───────────────┐
+                              ▼                                ▼
+                  Repositories (Firebase)          Surfboard Integration Layer
+                  Inventory · Product ·            Merchant · Store · Device ·
+                  Sale · Order · Receipt ·         Payment · Branding · Tips ·
+                  Analytics · Settings ·           Payment Methods
+                  Supplier · User
 ```
 
-- The Flutter app talks **directly** to Firebase for real-time reads/simple writes, and to the **backend** for anything needing a secret, third-party call, or trusted business logic.
-- The backend is the **source of truth for money and stock** — it always re-validates client-submitted data (cart totals, prices) rather than trusting it.
+- The Flutter app talks **only** to the backend — no direct Firebase or Surfboard access (a change from the original design).
+- **Two systems of record:** Surfboard owns Merchant/Store/Device/Payment/Branding/Tips/Payment Methods; Firebase owns application data. **Never duplicate a Surfboard-owned object in Firebase** — see [decision.md § D-016](decision.md#d-016--surfboard-is-the-system-of-record-for-merchant-store-device-payment-branding-tips-and-payment-methods).
+- The backend is still the **source of truth for money and stock** on the Firebase-owned side — it always re-validates client-submitted data rather than trusting it.
 - AI (OCR + Gemini) always **proposes**; a human always **confirms** before anything affecting inventory or money is committed.
 
-Full detail: [docs/02_ARCHITECTURE.md](../docs/02_ARCHITECTURE.md).
+Full detail: [docs/02_ARCHITECTURE.md](../docs/02_ARCHITECTURE.md), [docs/20_DOMAIN_MODEL.md](../docs/20_DOMAIN_MODEL.md).
 
 ## Development Philosophy
 
@@ -111,7 +119,7 @@ Full coding standards: [docs/07_CODING_RULES.md](../docs/07_CODING_RULES.md).
 
 ## Current Development Phase
 
-**Phase 0 — Foundations, transitioning into Phase 1 frontend UI** (see [docs/10_TASKS.md](../docs/10_TASKS.md)):
+**Frontend UI track — Phase 0 — Foundations, transitioning into Phase 1 frontend UI** (see [docs/10_TASKS.md](../docs/10_TASKS.md)):
 - ✅ Documentation system complete (`/docs`, 18 files)
 - ✅ Enterprise repository folder structure scaffolded (`frontend/`, `backend/`, `firebase/`, etc. — placeholders only)
 - ✅ `.claude/` Claude knowledge base created (this folder)
@@ -119,6 +127,18 @@ Full coding standards: [docs/07_CODING_RULES.md](../docs/07_CODING_RULES.md).
 - 🔄 26-screen premium UI build, one screen at a time — Splash done (1/26), Login next (see [projectStatus.md](projectStatus.md))
 - ⬜ Firebase project setup, Surfboard sandbox credentials, Gemini API key provisioning
 - ⬜ Resolve pending technical decisions (OCR provider, validation/logging libraries — see [decision.md](decision.md); font is now settled as Inter, see D-012)
+
+**Backend/docs track — Documentation realigned to Surfboard-as-system-of-record; still Phase 1 (Backend Foundation) done in code** (see [docs/22_DEVELOPMENT_ROADMAP.md](../docs/22_DEVELOPMENT_ROADMAP.md), the new 13-phase roadmap superseding the old Phase 0/1/2/3 structure):
+- ✅ Documentation system complete and realigned (`/docs`, 22 files — four new: `19_SURFBOARD_WORKFLOWS.md`, `20_DOMAIN_MODEL.md`, `21_BACKEND_GUIDELINES.md`, `22_DEVELOPMENT_ROADMAP.md`)
+- ✅ Enterprise repository folder structure scaffolded
+- ✅ `.claude/` Claude knowledge base created (this folder)
+- ✅ Roadmap Phase 1 — Backend Foundation: Express app, config, logger, Firebase Admin SDK init, middleware, `GET /health`, plus infrastructure hardening (lint/format/hooks/rate-limit/compression/constants/types/CI) — real code, verified working (see [projectStatus.md](projectStatus.md))
+- ✅ Surfboard is now confirmed as system of record for Merchant/Store/Device/Payment/Branding/Tips/Payment Methods — see [decision.md § D-016](decision.md#d-016--surfboard-is-the-system-of-record-for-merchant-store-device-payment-branding-tips-and-payment-methods)
+- ⬜ **Waiting for explicit user approval of the realigned documentation before any Roadmap Phase 2+ code (Surfboard Client SDK onward)**
+- ⬜ Firebase project setup, Surfboard sandbox credentials + official API docs, Gemini API key provisioning
+- ⬜ Resolve remaining pending technical decisions (OCR provider, font, real-time client strategy — see [decision.md](decision.md), `docs/08_ARCHITECTURE_DECISIONS.md § ADR-009`)
+
+**Note:** the backend/docs track has since progressed well past Phase 1 in later sessions (Surfboard Client SDK, auth, merchant modules through Roadmap Phase 5 — see [projectStatus.md](projectStatus.md) for the live status); this section preserves both tracks' state as of the point they were merged.
 
 Live, authoritative status: [projectStatus.md](projectStatus.md).
 

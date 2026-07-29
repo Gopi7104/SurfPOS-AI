@@ -1,6 +1,6 @@
 # 14 — Developer Guide
 
-> Prerequisite reading: [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md). This file describes setup for when the codebase exists per [10_TASKS.md](10_TASKS.md) Phase 0 — until then, use it as the target setup to scaffold toward.
+> **Updated during the Surfboard-alignment documentation pass** — Firebase Setup (§ 5) and Debugging (§ 9) now reflect that Firebase holds application data only; Merchant/Store/Device/Payment data lives in Surfboard (see [20_DOMAIN_MODEL.md](20_DOMAIN_MODEL.md)). Prerequisite reading: [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md), [21_BACKEND_GUIDELINES.md](21_BACKEND_GUIDELINES.md).
 
 ---
 
@@ -76,15 +76,23 @@ npm install
 
 ## 5. Firebase Setup
 
+**Firebase holds application data and identity only** — inventory, catalog, sales, analytics, receipts, AI pipeline data, and Firebase Auth. It does **not** hold Merchant, Store, Device, Payment, Branding, Tips, or Payment Methods data — those come from Surfboard (§ 5a) via the backend's Integration Layer. See [20_DOMAIN_MODEL.md § 1](20_DOMAIN_MODEL.md#1-the-ownership-principle).
+
 1. Create a Firebase project in the Firebase Console.
 2. Enable **Authentication** → Email/Password and Phone providers.
 3. Create a **Realtime Database** instance (choose a region close to the primary user base).
 4. Enable **Storage**.
-5. Generate a **service account key** (Project Settings → Service Accounts) for backend use — **never commit this file**; load it via environment variables (see §6).
+5. Generate a **service account key** (Project Settings → Service Accounts) for backend use — **never commit this file**; load it via environment variables (see § 6).
 6. Deploy security rules from the repo (once `database.rules.json` exists per [03_DATABASE_DESIGN.md § 8](03_DATABASE_DESIGN.md#8-security-rules-summary)):
    ```bash
    firebase deploy --only database
    ```
+
+## 5a. Surfboard Setup
+
+1. Obtain sandbox/developer credentials from the Surfboard Developer Portal (`SURFBOARD_API_KEY`/`SURFBOARD_API_SECRET`/`SURFBOARD_WEBHOOK_SECRET`, see § 6).
+2. Confirm the official Surfboard API documentation for Merchant/Store/Device/Payment/Branding/Tips/Payment Methods endpoints — [15_SURFBOARD_INTEGRATION.md](15_SURFBOARD_INTEGRATION.md) describes the integration pattern, not verified wire format, until this step is done.
+3. No Firebase rules or config are needed for Surfboard-owned data — there is nothing to deploy on the Firebase side for it.
 
 ## 6. Environment Variables
 
@@ -140,7 +148,8 @@ _Exact deployment target (e.g. Cloud Run, a container platform, or a serverless 
 - **Flutter:** use `flutter run` with hot reload for UI iteration; Flutter DevTools for widget-tree/inspector and performance profiling; check [07_CODING_RULES.md § 12](07_CODING_RULES.md#12-performance) before assuming a rebuild-storm is "just how Flutter is."
 - **Backend:** structured logs (see [07_CODING_RULES.md § 9](07_CODING_RULES.md#9-logging)) include a `requestId` — use it to trace a single request across log lines. Run `npm run dev` with a debugger attached (`node --inspect`) for step-through debugging.
 - **Firebase data issues:** use the Firebase Console's Realtime Database viewer to inspect the actual tree shape against [03_DATABASE_DESIGN.md](03_DATABASE_DESIGN.md) — a mismatch there is a fast way to spot a bug before it's a symptom in the app.
-- **Payment issues:** check Surfboard's sandbox dashboard/logs (once integrated) alongside the backend's `payments` node and webhook logs — see [15_SURFBOARD_INTEGRATION.md](15_SURFBOARD_INTEGRATION.md).
+- **Payment issues:** check Surfboard's sandbox dashboard/logs (once integrated) alongside the backend's webhook logs and the referencing Sale's `surfboardPaymentId`/`paymentStatus` fields — there is no Firebase `payments` node to inspect (see [03_DATABASE_DESIGN.md § 1](03_DATABASE_DESIGN.md#1-scope-of-this-schema)); the full Payment object is only ever visible via a live `GET /payments/:paymentId` call or Surfboard's own dashboard.
+- **Merchant/Store/Device/Branding issues:** these have no Firebase representation to inspect at all — check the relevant Integration Client's logged request/response (IDs only, never full bodies — see [21_BACKEND_GUIDELINES.md § 10](21_BACKEND_GUIDELINES.md#10-logging)) and Surfboard's own dashboard.
 - **AI extraction issues:** inspect the `invoiceScans/{merchantId}/{scanId}` record directly (raw OCR text + Gemini output are both stored) to tell whether OCR or Gemini structuring is the failure point — see [16_AI_MODULE.md § Error Handling](16_AI_MODULE.md#6-error-handling).
 
 ---

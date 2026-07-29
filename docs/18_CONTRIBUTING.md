@@ -1,6 +1,6 @@
 # 18 — Contributing
 
-> Related: [07_CODING_RULES.md](07_CODING_RULES.md) (what good code looks like), [14_DEVELOPER_GUIDE.md](14_DEVELOPER_GUIDE.md) (how to run the project). This file defines *process*; that file defines *code quality*.
+> **Updated during the Surfboard-alignment documentation pass** — § 3 and § 4 now include a check for accidental Surfboard-data duplication in Firebase (see [20_DOMAIN_MODEL.md § 1](20_DOMAIN_MODEL.md#1-the-ownership-principle)). Related: [07_CODING_RULES.md](07_CODING_RULES.md) (what good code looks like), [21_BACKEND_GUIDELINES.md](21_BACKEND_GUIDELINES.md) (backend layering), [14_DEVELOPER_GUIDE.md](14_DEVELOPER_GUIDE.md) (how to run the project). This file defines *process*; those define *code quality*.
 
 ---
 
@@ -50,6 +50,7 @@ Before opening a PR, confirm:
 - [ ] [11_CHANGELOG.md](11_CHANGELOG.md) has a new entry under `[Unreleased]`.
 - [ ] If a non-trivial architectural decision was made, it's recorded in [08_ARCHITECTURE_DECISIONS.md](08_ARCHITECTURE_DECISIONS.md).
 - [ ] If this PR changes the database schema or an API contract, [03_DATABASE_DESIGN.md](03_DATABASE_DESIGN.md) / [04_API_DOCUMENTATION.md](04_API_DOCUMENTATION.md) are updated in the same PR — docs and code change together, never in a follow-up "I'll document it later" PR.
+- [ ] If this PR adds a new Firebase field/node, it does not duplicate a Surfboard-owned entity (Merchant/Store/Device/Payment/Branding/Tips/Payment Methods) — check [20_DOMAIN_MODEL.md § 1](20_DOMAIN_MODEL.md#1-the-ownership-principle) first.
 
 PR description should include: what changed, why (link the [10_TASKS.md](10_TASKS.md) task or issue), and how it was tested (manual steps and/or automated coverage).
 
@@ -58,7 +59,8 @@ PR description should include: what changed, why (link the [10_TASKS.md](10_TASK
 - **Every PR requires at least one review before merge** (self-merging is only acceptable for solo-maintainer periods explicitly acknowledged by the project owner).
 - Reviewers check against [07_CODING_RULES.md](07_CODING_RULES.md) explicitly — naming, function/file size limits, no duplicated logic, business logic kept out of the UI/controllers, proper validation and error handling.
 - Reviewers check that money/stock-affecting changes still treat the **backend as the source of truth** (see [02_ARCHITECTURE.md § 9](02_ARCHITECTURE.md#9-design-principles)) — flag any change that starts trusting a client-submitted value that was previously server-validated.
-- Reviewers check that any new Firebase read/write follows the schema in [03_DATABASE_DESIGN.md](03_DATABASE_DESIGN.md) rather than introducing an ad hoc parallel structure.
+- Reviewers check that any new Firebase read/write follows the schema in [03_DATABASE_DESIGN.md](03_DATABASE_DESIGN.md) rather than introducing an ad hoc parallel structure, and specifically that it isn't quietly re-introducing a duplicated copy of a Surfboard-owned object (see [20_DOMAIN_MODEL.md § 1](20_DOMAIN_MODEL.md#1-the-ownership-principle)) — this is the single most likely regression now that two systems of record exist.
+- Reviewers check that a Service never reaches into another module's Repository or Integration Client directly (see [21_BACKEND_GUIDELINES.md § 8](21_BACKEND_GUIDELINES.md#8-cross-module-rule)).
 - Favor requesting changes with a concrete suggestion over a vague "this could be better" — reviews should be actionable.
 - Author addresses all comments (via a fix or a reasoned reply) before merge; reviewer re-approves after changes.
 

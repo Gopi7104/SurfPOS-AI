@@ -1,6 +1,6 @@
 # 16 — AI Module
 
-> Related: [05_FEATURES.md § 6 (AI Invoice Scanner)](05_FEATURES.md#6-ai-invoice-scanner) and [§ 12 (Analytics & AI Business Insights)](05_FEATURES.md#12-analytics--ai-business-insights), [03_DATABASE_DESIGN.md § 4.8](03_DATABASE_DESIGN.md#48-invoicescansmerchantidscanid), [08_ARCHITECTURE_DECISIONS.md ADR-004](08_ARCHITECTURE_DECISIONS.md#adr-004--why-ai-ocr--gemini-for-invoice-scanning-vs-manual-entry-only).
+> **Reviewed during the Surfboard-alignment documentation pass — unaffected in substance.** The AI pipeline operates entirely on Firebase-owned data (`invoiceScans`, `analytics`); `merchantId` referenced throughout this file is now a Surfboard reference ID, not a locally-owned record (see [20_DOMAIN_MODEL.md § 1](20_DOMAIN_MODEL.md#1-the-ownership-principle)) — this changes nothing about the pipeline itself. Related: [05_FEATURES.md § 6 (AI Invoice Scanner)](05_FEATURES.md#6-ai-invoice-scanner) and [§ 12 (Analytics & AI Business Insights)](05_FEATURES.md#12-analytics--ai-business-insights), [03_DATABASE_DESIGN.md § 4.5](03_DATABASE_DESIGN.md#45-invoicescansmerchantidscanid), [08_ARCHITECTURE_DECISIONS.md ADR-004](08_ARCHITECTURE_DECISIONS.md#adr-004--why-ai-ocr--gemini-for-invoice-scanning-vs-manual-entry-only).
 
 ---
 
@@ -73,7 +73,7 @@ Image → OCR (raw text) → Gemini (structured {rawName, qty, unitPrice}[])
         03_DATABASE_DESIGN.md § 4.7)
 ```
 
-This mirrors `invoiceScans/{merchantId}/{scanId}` exactly (see [03_DATABASE_DESIGN.md § 4.8](03_DATABASE_DESIGN.md#48-invoicescansmerchantidscanid)) — every stage of the pipeline above writes to a specific field on that one record, so the entire pipeline's state is inspectable from a single node.
+This mirrors `invoiceScans/{merchantId}/{scanId}` exactly (see [03_DATABASE_DESIGN.md § 4.5](03_DATABASE_DESIGN.md#45-invoicescansmerchantidscanid)) — every stage of the pipeline above writes to a specific field on that one record, so the entire pipeline's state is inspectable from a single node. During review, `supplierNameGuess` (raw AI extraction) is matched or confirmed against a `suppliers/{merchantId}/{supplierId}` record (see [03_DATABASE_DESIGN.md § 4.6](03_DATABASE_DESIGN.md#46-supplierssmerchantidsupplierid), [20_DOMAIN_MODEL.md § 2.16](20_DOMAIN_MODEL.md#216-supplier--firebase-owned-new-in-this-pass)) — a new entity added in the Surfboard-alignment pass, replacing what used to be a raw free-text supplier name carried straight through to `orders`.
 
 ## 5. Product Matching
 
