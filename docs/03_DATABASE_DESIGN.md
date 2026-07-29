@@ -23,6 +23,7 @@ If you're looking for the old `merchants/{merchantId}`, `stores/{storeId}`, or `
 ```
 /
 ├── users/{uid}
+├── merchantApplications/{uid}
 ├── products/{merchantId}/{productId}
 ├── inventory/{storeId}/{productId}
 ├── sales/{storeId}/{saleId}
@@ -242,6 +243,25 @@ One record per authenticated person (owner or staff). `{uid}` = Firebase Auth UI
 }
 ```
 
+### 4.11 `merchantApplications/{uid}`
+
+Tracks a submitted Surfboard Merchant Creation request — new in Phase 4 (see [08_ARCHITECTURE_DECISIONS.md § ADR-021](08_ARCHITECTURE_DECISIONS.md#adr-021--merchant-application-tracking-entity-phase-4)). One record per submitting user (`{uid}` = Firebase Auth UID, same key as `users/{uid}`); **not** a duplicate of the Merchant object — see [20_DOMAIN_MODEL.md § 2.18](20_DOMAIN_MODEL.md#218-merchantapplication--firebase-owned-new-in-phase-4).
+
+```jsonc
+{
+  "applicationId": "uid_or_surfboard_application_id",
+  "merchantId": "sb_merchant_xxx",
+  "applicationStatus": "pending_verification",
+  "applicationUrl": "https://onboard.surfboardpayments.com/...",
+  "submittedAt": 1732000000000,
+  "updatedAt": 1732000000000
+}
+```
+
+- `merchantId`/`applicationUrl` are `null` until Surfboard's response provides them (async KYC onboarding).
+- `applicationId` defaults to `{uid}` when Surfboard's response doesn't supply a distinct application identifier (still-unconfirmed field, see [ADR-009](08_ARCHITECTURE_DECISIONS.md#adr-009--pending-decisions-to-record-here-once-made)) — this keeps a `GET` lookup by id a simple, ownership-scoped read of the caller's own `{uid}` record rather than needing a second index.
+- This record does **not** get linked onto `users/{uid}.merchantId` yet — that write is still open work (see [10_TASKS.md](10_TASKS.md) Phase 4 note).
+
 ## 5. Relationships (Reference Map)
 
 ```
@@ -258,6 +278,8 @@ sales     (Firebase)  (1) ──> receipts     (Firebase)  (1)
 invoiceScans(Firebase) (1) ──> orders      (Firebase)  (0..1)
 users     (Firebase)  (many) ──> Merchant  (Surfboard) (1)      [via merchantId reference]
 users     (Firebase)  (many) ──> Store     (Surfboard) (many)   [via storeIds reference map]
+users     (Firebase)  (1) ──1 merchantApplications (Firebase)   [same {uid} key]
+merchantApplications (Firebase) (1) ──> Merchant (Surfboard) (0..1) [reference only, once assigned]
 ```
 
 Full entity definitions: [20_DOMAIN_MODEL.md](20_DOMAIN_MODEL.md). Because RTDB has no foreign keys, **every relationship above is enforced in backend Repository/Service code**, not the database — see [21_BACKEND_GUIDELINES.md](21_BACKEND_GUIDELINES.md).

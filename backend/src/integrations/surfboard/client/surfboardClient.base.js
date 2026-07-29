@@ -35,7 +35,19 @@ class SurfboardBaseClient {
     this.config = injectedConfig;
     this.logger = logger;
     this.fetchImpl = fetchImpl;
-    this.authenticationManager = authenticationManager || new AuthenticationManager({ config: this.config });
+    this._authenticationManager = authenticationManager || null;
+  }
+
+  // Lazy — constructing an AuthenticationManager validates credentials (auth/authConfig.js) and
+  // must not run at require()/instantiation time, only when a request actually needs auth headers.
+  // Requiring/instantiating a domain client (e.g. via its module-level singleton) must not crash
+  // process boot just because Surfboard credentials aren't configured yet — same lazy-init
+  // principle as firebase/admin.js.
+  get authenticationManager() {
+    if (!this._authenticationManager) {
+      this._authenticationManager = new AuthenticationManager({ config: this.config });
+    }
+    return this._authenticationManager;
   }
 
   /**

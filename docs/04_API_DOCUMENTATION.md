@@ -10,7 +10,7 @@
 
 - **Base URL:** `https://api.surfpos.ai/api/v1` (placeholder domain — actual deployment URL set in environment config, see [14_DEVELOPER_GUIDE.md](14_DEVELOPER_GUIDE.md)).
 - **Format:** JSON request/response bodies, `Content-Type: application/json`, except upload endpoints (`multipart/form-data`).
-- **Authentication:** every endpoint except `POST /auth/register`, `POST /webhooks/surfboard`, and `GET /health` (see [§ 14](#14-health--infra)) requires:
+- **Authentication:** every endpoint except `POST /auth/signup`, `POST /auth/login`, `POST /auth/register`, `POST /webhooks/surfboard`, and `GET /health` (see [§ 14](#14-health--infra)) requires:
   ```
   Authorization: Bearer <Firebase ID Token>
   ```
@@ -44,8 +44,32 @@
 
 ## 2. Auth & Merchant Onboarding
 
-### `POST /auth/register` 🔵🟢
-- **Purpose:** Complete owner-user profile creation after Firebase Auth sign-up, and create the Merchant + default Store **in Surfboard** (not Firebase).
+> **Roadmap Phase 3 (implemented) vs. Phase 4 (not yet implemented):** `POST /auth/signup`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout` below are Phase 3 — Firebase identity only, no Surfboard call, no Merchant/Store record. `POST /auth/register` is Phase 4 — full onboarding orchestration (Surfboard Merchant + Store creation) — and assumes the Firebase account already exists (created via `POST /auth/signup` or a future client-side Firebase SDK). See [ADR-020](08_ARCHITECTURE_DECISIONS.md#adr-020--application-client-authentication-endpoint-shape-phase-3).
+
+### `POST /auth/signup` 🟢 — *Phase 3*
+- **Purpose:** Create a new SurfPOS user (Firebase Auth account + `users/{uid}` profile). Default `role: "owner"`. Does **not** create a Merchant/Store — see `POST /auth/register` (Phase 4) for that.
+- **Auth:** None.
+- **Request:** `{ "email": "owner@example.com", "password": "supersecret", "displayName": "Jane Owner" }` — `displayName` optional.
+- **Response (201):** `{ "user": { "uid", "email", "displayName", "role": "owner", "status": "active", "createdAt", "updatedAt" } }`
+- **Validation:** `email` must be a valid email; `password` minimum 8 characters.
+- **Errors:** `VALIDATION_ERROR` (400), `CONFLICT` (409, email already registered).
+
+### `POST /auth/login` 🟢 — *Phase 3*
+- **Purpose:** Verify a Firebase ID token (obtained client-side after Firebase sign-in) and return the caller's `users/{uid}` profile — a confirmation step distinct from the `authenticate` middleware used on every other protected route.
+- **Auth:** None (the ID token is the payload being verified).
+- **Request:** `{ "idToken": "firebase-id-token" }`
+- **Response (200):** `{ "user": {...} }` (same shape as `POST /auth/signup`'s response).
+- **Errors:** `VALIDATION_ERROR` (400), `UNAUTHENTICATED` (401, invalid/expired token), `NOT_FOUND` (404, token valid but no profile provisioned yet).
+
+### `POST /auth/logout` 🟢 — *Phase 3*
+- **Purpose:** Revoke the caller's Firebase refresh tokens. Already-issued ID tokens remain valid until their natural (short) expiry — this is not instant session kill-switch, see [ADR-020](08_ARCHITECTURE_DECISIONS.md#adr-020--application-client-authentication-endpoint-shape-phase-3).
+- **Auth:** Required.
+- **Response (200):** `{ "loggedOut": true }`
+- **Errors:** `UNAUTHENTICATED` (401).
+
+### `POST /auth/register` 🔵🟢 — *originally-planned Phase 4 shape, not implemented; deferred*
+- **Purpose:** Complete owner-user profile creation after Firebase Auth sign-up, and create the Merchant + default Store **in Surfboard** (not Firebase), in one orchestrated call.
+- **Status:** This is the *original* Phase 4 design. The pass that actually implemented Phase 4 re-scoped it to the `POST /merchant/applications` resource below instead (no Store creation, no `users/{uid}.merchantId` write) — see [ADR-021](08_ARCHITECTURE_DECISIONS.md#adr-021--merchant-application-tracking-entity-phase-4). This entry is kept as the still-possible future shape, not deleted, per this doc set's "maintained, not archived" convention.
 - **Auth:** None (client passes the fresh ID token in the body for verification).
 - **Request:**
   ```json
@@ -62,8 +86,28 @@
 - **Validation:** `businessName` required (min 2 chars), `contactPhone` required E.164 format, `idToken` must verify.
 - **Errors:** `VALIDATION_ERROR` (400), `CONFLICT` (409, this UID already has a `merchantId`), `SURFBOARD_ERROR` (502, Merchant/Store creation failed upstream).
 
-### `GET /auth/me` 🟢
-- **Purpose:** Fetch the authenticated user's app profile — `role` and `merchantId`/`storeIds` **references** (not the Merchant/Store objects themselves; call § 3 for those).
+### `POST /merchant/applications` 🔵🟢 — *Phase 4 (implemented)*
+- **Purpose:** Submit a merchant application — calls Surfboard's Merchant Creation API and tracks the result as Firebase-owned application metadata. Does **not** create a Store and does **not** write `users/{uid}.merchantId` (see [ADR-021](08_ARCHITECTURE_DECISIONS.md#adr-021--merchant-application-tracking-entity-phase-4)).
+- **Auth:** Required.
+- **Request:** `{ "businessName": "Blue Wave Surf Shop", "businessType": "retail", "contactEmail": "owner@example.com", "contactPhone": "+46xxxxxxxxx", "address": { "line1": "...", "city": "...", "country": "SE" } }`
+- **Response (201):** `{ "application": { "applicationId", "merchantId", "applicationStatus", "applicationUrl", "submittedAt", "updatedAt" } }`
+- **Validation:** `businessName` min 2 chars, `contactEmail` valid email, `contactPhone` E.164, `address.{line1,city,country}` required.
+- **Errors:** `VALIDATION_ERROR` (400), `UNAUTHENTICATED` (401), `CONFLICT` (409, an application already exists for this account), `SURFBOARD_ERROR` (502).
+
+### `GET /merchant/applications/:id` 🟢 — *Phase 4 (implemented)*
+- **Purpose:** Fetch the caller's own merchant application by `applicationId`.
+- **Auth:** Required — scoped to the caller's own application (there is no cross-user lookup path).
+- **Response (200):** `{ "application": {...} }` (same shape as the `POST` response).
+- **Errors:** `UNAUTHENTICATED` (401), `NOT_FOUND` (404, no application, or `:id` doesn't match the caller's own).
+
+### `GET /merchant/applications` 🟢 — *Phase 4 (implemented)*
+- **Purpose:** List the caller's own merchant application(s) — not a global/admin listing.
+- **Auth:** Required.
+- **Response (200):** `{ "applications": [...] }` (currently 0 or 1 items — one application per uid).
+- **Errors:** `UNAUTHENTICATED` (401).
+
+### `GET /auth/me` 🟢 — *Phase 3*
+- **Purpose:** Fetch the authenticated user's app profile — `role` and `merchantId`/`storeIds` **references** (not the Merchant/Store objects themselves; call § 3 for those). `merchantId`/`storeIds` are absent until Phase 4 writes them.
 - **Auth:** Required.
 - **Response (200):** `{ "user": {...}, "role": "owner" }`
 - **Errors:** `NOT_FOUND` (404, profile not provisioned — client should route to onboarding).
@@ -79,17 +123,38 @@
 
 > All endpoints in this section proxy live to Surfboard. **Nothing here is persisted in Firebase** beyond the `merchantId`/`storeId` reference already written at registration (§ 2) — see [20_DOMAIN_MODEL.md §§ 2.1–2.2](20_DOMAIN_MODEL.md#21-merchant--surfboard-owned).
 
-### `GET /merchants/:merchantId` 🔵
-- **Purpose:** Fetch the current Merchant profile, live from Surfboard.
+### `GET /merchants/:merchantId` 🔵 — *originally-planned Phase 5 shape, not implemented; deferred*
+- **Purpose:** Fetch the current Merchant profile, live from Surfboard, by explicit `:merchantId`.
+- **Status:** The pass that actually implemented Phase 5 re-scoped this to the caller-scoped `GET /merchant` below (no route param) — see [ADR-022](08_ARCHITECTURE_DECISIONS.md#adr-022--merchant-functions-merchantid-resolution--repository-composition-phase-5). Kept documented, not deleted, per this doc set's "maintained, not archived" convention.
 - **Auth:** Required; caller's `users/{uid}.merchantId` must match `:merchantId`.
 - **Response (200):** Merchant object (§ 2.1 of [20_DOMAIN_MODEL.md](20_DOMAIN_MODEL.md)), mapped from Surfboard's response by `merchant.mapper.js`.
 - **Errors:** `FORBIDDEN`, `NOT_FOUND`, `SURFBOARD_ERROR`.
 
-### `PATCH /merchants/:merchantId` 🔵
-- **Purpose:** Update Merchant profile fields — proxied directly to Surfboard's Merchant API.
+### `PATCH /merchants/:merchantId` 🔵 — *originally-planned Phase 5 shape, not implemented; deferred*
+- **Purpose:** Update Merchant profile fields — proxied directly to Surfboard's Merchant API, by explicit `:merchantId`.
+- **Status:** Re-scoped to `PATCH /merchant` below — see [ADR-022](08_ARCHITECTURE_DECISIONS.md#adr-022--merchant-functions-merchantid-resolution--repository-composition-phase-5).
 - **Auth:** Required, owner only.
 - **Request:** Partial merchant object (`businessName`, `address`, `contactPhone`, `contactEmail`).
 - **Errors:** `FORBIDDEN`, `VALIDATION_ERROR`, `SURFBOARD_ERROR`.
+
+### `GET /merchant` 🔵 — *Phase 5 (implemented)*
+- **Purpose:** Fetch the authenticated caller's own Merchant profile, live from Surfboard. No `:merchantId` param — the `merchantId` is resolved server-side from the caller's own `merchantApplications/{uid}.merchantId` (see [ADR-022](08_ARCHITECTURE_DECISIONS.md#adr-022--merchant-functions-merchantid-resolution--repository-composition-phase-5)).
+- **Auth:** Required.
+- **Response (200):** `{ "merchant": { "id", "businessName", "businessType", "contactEmail", "contactPhone", "address", "status" } }`, mapped from Surfboard's response by `merchant.mapper.js#toMerchantProfile()`.
+- **Errors:** `UNAUTHENTICATED` (401), `NOT_FOUND` (404, no `merchantId` assigned yet — application still pending or not submitted), `SURFBOARD_ERROR` (502).
+
+### `PATCH /merchant` 🔵 — *Phase 5 (implemented)*
+- **Purpose:** Update the caller's own Merchant profile fields — proxied directly to Surfboard's Merchant API.
+- **Auth:** Required.
+- **Request:** Partial merchant object — any of `businessName`, `businessType`, `contactEmail`, `contactPhone`, `address` (at least one required).
+- **Response (200):** `{ "merchant": {...} }` (same shape as `GET /merchant`).
+- **Errors:** `VALIDATION_ERROR` (400), `UNAUTHENTICATED` (401), `NOT_FOUND` (404, no `merchantId` yet), `SURFBOARD_ERROR` (502).
+
+### `GET /merchant/status` 🔵 — *Phase 5 (implemented)*
+- **Purpose:** Fetch the caller's Merchant onboarding/verification status, normalized. **No separate Surfboard status endpoint is assumed** — this is a normalized view built on the same call `GET /merchant` uses (see [ADR-022](08_ARCHITECTURE_DECISIONS.md#adr-022--merchant-functions-merchantid-resolution--repository-composition-phase-5)); update the SDK call site if Surfboard's confirmed docs reveal a distinct status endpoint.
+- **Auth:** Required.
+- **Response (200):** `{ "merchantId": "sb_merchant_xxx", "status": "pending_verification" }`
+- **Errors:** `UNAUTHENTICATED` (401), `NOT_FOUND` (404, no `merchantId` yet), `SURFBOARD_ERROR` (502).
 
 ### `GET /merchants/:merchantId/branding` 🔵
 - **Purpose:** Fetch Surfboard checkout/receipt branding (logo, color, footer text) — see [19_SURFBOARD_WORKFLOWS.md § 5](19_SURFBOARD_WORKFLOWS.md#5-branding-workflow). Distinct from `GET /settings/:merchantId` (§ 11), which controls SurfPOS's own receipt template.

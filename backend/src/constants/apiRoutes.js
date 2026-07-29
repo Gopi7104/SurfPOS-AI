@@ -5,4 +5,7 @@
 
 module.exports = Object.freeze({
   HEALTH: '/health',
+  AUTH: '/auth',
+  MERCHANT_APPLICATIONS: '/merchant/applications',
+  MERCHANT: '/merchant',
 });

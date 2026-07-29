@@ -43,27 +43,32 @@ Every task has: **Priority** (P0 = blocking/critical, P1 = important, P2 = nice-
 
 ## Phase 3 — Client Authentication
 
-> **Unaffected by the 2026-07-29 Surfboard SDK authentication layer work (task 2.6 above).** That work was scoped entirely to how the *backend* authenticates outbound calls to *Surfboard's* API (`src/integrations/surfboard/auth/`) — a different, unrelated concern from this phase, which is Firebase identity for SurfPOS's own users (sign-up/sign-in, `GET /auth/me`, staff invites). This phase remains `Not Started` and still requires explicit user approval before starting, per [13_CLAUDE_CONTEXT.md § 5](13_CLAUDE_CONTEXT.md).
+> **Distinct from the 2026-07-29 Surfboard SDK authentication layer work (task 2.6 above).** That work was scoped entirely to how the *backend* authenticates outbound calls to *Surfboard's* API (`src/integrations/surfboard/auth/`) — a different, unrelated concern from this phase, which is Firebase identity for SurfPOS's own users. Approved and started 2026-07-29 — see [ADR-020](08_ARCHITECTURE_DECISIONS.md#adr-020--application-client-authentication-endpoint-shape-phase-3).
 
 | # | Task | Priority | Status | Dependencies | Owner |
 |---|---|---|---|---|---|
-| 3.1 | Firebase Auth integration (sign-up/sign-in, email + phone OTP) | P0 | Not Started | P.1 | Unassigned |
-| 3.2 | `GET /auth/me` resolving `users/{uid}` → `merchantId`/`storeIds` references | P0 | Not Started | 3.1 | Unassigned |
+| 3.1 | Firebase Auth integration — email/password sign-up (`POST /auth/signup`), sign-in token exchange (`POST /auth/login`), sign-out (`POST /auth/logout`, refresh-token revocation), `authenticate` middleware (`src/middleware/auth.middleware.js`, delegates to `modules/auth/auth.service.js`). **Phone OTP not implemented** — out of scope for this pass, still open. | P0 | Done (email/password); phone OTP Not Started | P.1 | Claude |
+| 3.2 | `GET /auth/me` resolving the caller's `users/{uid}` profile | P0 | Done | 3.1 | Claude |
 | 3.3 | Staff invite flow (`POST /auth/staff-invite`) | P1 | Not Started | 3.1 | Unassigned |
 
 ## Phase 4 — Merchant Creation
 
+> **Re-scoped 2026-07-29 from the original plan below.** Implemented as a `merchantApplications/{uid}` application-tracking resource (`POST/GET /merchant/applications`) rather than the originally-planned `POST /auth/register` orchestration — no Store creation, no `users/{uid}.merchantId` write in this pass. See [ADR-021](08_ARCHITECTURE_DECISIONS.md#adr-021--merchant-application-tracking-entity-phase-4).
+
 | # | Task | Priority | Status | Dependencies | Owner |
 |---|---|---|---|---|---|
-| 4.1 | `merchant.client.js` Merchant Creation call | P0 | Not Started | Phase 2 | Unassigned |
-| 4.2 | `POST /auth/register` orchestration (Firebase Auth → Surfboard Merchant/Store creation → `users/{uid}` reference write) | P0 | Not Started | 4.1, 3.1 | Unassigned |
+| 4.1 | `merchant.client.js` Merchant Creation call (`createMerchant()`) + `mappers/merchant.mapper.js` | P0 | Done | Phase 2 | Claude |
+| 4.2 | `POST/GET /merchant/applications`, `GET /merchant/applications/:id` — `modules/merchant/{merchantApplication.service,merchantApplication.repository}.js`, Firebase-owned `merchantApplications/{uid}` tracking record | P0 | Done | 4.1 | Claude |
+| 4.3 | `POST /auth/register` orchestration (Firebase Auth → Surfboard Merchant/Store creation → `users/{uid}.merchantId` reference write) — **original plan, not implemented this pass**, superseded in scope by 4.1/4.2; revisit if a single-call registration flow is still wanted | P1 | Not Started | 4.2, Phase 6 | Unassigned |
 
 ## Phase 5 — Merchant Functions
 
+> **Re-scoped 2026-07-29** from `GET/PATCH /merchants/:merchantId` (param-based) to `GET/PATCH /merchant` + `GET /merchant/status` (caller-scoped, no route param) — `merchantId` is resolved server-side from the caller's own `merchantApplications/{uid}.merchantId`, since `users/{uid}.merchantId` still doesn't exist (see [ADR-021](08_ARCHITECTURE_DECISIONS.md#adr-021--merchant-application-tracking-entity-phase-4)). See [ADR-022](08_ARCHITECTURE_DECISIONS.md#adr-022--merchant-functions-merchantid-resolution--repository-composition-phase-5).
+
 | # | Task | Priority | Status | Dependencies | Owner |
 |---|---|---|---|---|---|
-| 5.1 | `GET/PATCH /merchants/:merchantId` proxy endpoints | P0 | Not Started | Phase 4 | Unassigned |
-| 5.2 | `merchant.mapper.js` (Surfboard DTO → domain Merchant) | P0 | Not Started | 5.1 | Unassigned |
+| 5.1 | `GET/PATCH /merchant` proxy endpoints (caller-scoped) + `GET /merchant/status` (normalized view, no separate Surfboard endpoint assumed) | P0 | Done | Phase 4 | Claude |
+| 5.2 | `merchant.mapper.js` extended (`toMerchantProfile`/`toMerchantUpdateWire`, Surfboard DTO → domain Merchant) | P0 | Done | 5.1 | Claude |
 
 ## Phase 6 — Store Capabilities
 

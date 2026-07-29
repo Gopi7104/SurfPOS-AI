@@ -9,7 +9,7 @@
 Every entity below is owned by exactly one system of record:
 
 - **Surfboard Payments** owns **Merchant, Store, Device, Payment, Branding, Tips, Payment Methods** — SurfPOS AI never persists a full duplicate of these in Firebase. The backend fetches them live through the [Surfboard Integration Layer](15_SURFBOARD_INTEGRATION.md) and holds only the minimal reference ID needed to partition SurfPOS's own application data (e.g. `merchantId`, `storeId` as foreign keys — never a copied `businessName`, `address`, `status`, etc.).
-- **Firebase Realtime Database** owns **Inventory, Product, Sale, Order, InvoiceScan, Receipt, Analytics, Settings, Supplier, and User (app profile)** — data that only exists because SurfPOS AI exists, with no equivalent object in Surfboard's system.
+- **Firebase Realtime Database** owns **Inventory, Product, Sale, Order, InvoiceScan, Receipt, Analytics, Settings, Supplier, User (app profile), and MerchantApplication** — data that only exists because SurfPOS AI exists, with no equivalent object in Surfboard's system.
 
 See [08_ARCHITECTURE_DECISIONS.md § ADR-014](08_ARCHITECTURE_DECISIONS.md#adr-014--surfboard-is-the-system-of-record-for-merchant-store-device-payment-branding-tips-and-payment-methods) for why, and [02_ARCHITECTURE.md § 4](02_ARCHITECTURE.md#4-data-ownership-surfboard-vs-firebase) for the architectural consequence of this split.
 
@@ -267,6 +267,26 @@ The signed-in person (owner or staff). Firebase Authentication owns credentials;
 
 Full schema: [03_DATABASE_DESIGN.md § 4.10](03_DATABASE_DESIGN.md#410-usersuid).
 
+### 2.18 MerchantApplication — *Firebase-owned, new in Phase 4*
+
+Tracks a submitted Surfboard Merchant Creation request and its onboarding progress — **not** a duplicate of the Merchant object itself (see [08_ARCHITECTURE_DECISIONS.md § ADR-021](08_ARCHITECTURE_DECISIONS.md#adr-021--merchant-application-tracking-entity-phase-4)). One per submitting user; `merchantId`/`applicationUrl` are `null` until Surfboard's response provides them.
+
+```jsonc
+{
+  "applicationId": "uid_or_surfboard_application_id",
+  "merchantId": "sb_merchant_xxx",  // reference only, null until assigned
+  "applicationStatus": "pending_verification | active | ...",
+  "applicationUrl": "https://onboard.surfboardpayments.com/...", // nullable
+  "submittedAt": 1732000000000,
+  "updatedAt": 1732000000000
+}
+```
+
+- **Fetched/created via:** `integrations/surfboard/merchant.client.js#createMerchant()` + `mappers/merchant.mapper.js` (normalizes Surfboard's still-unconfirmed response shape).
+- **Never stored here:** `businessName`, `address`, or any other Merchant business field — those remain Surfboard-owned, read live once Phase 5 implements `GET /merchants/:merchantId`.
+
+Full schema: [03_DATABASE_DESIGN.md § 4.11](03_DATABASE_DESIGN.md#411-merchantapplicationsuid).
+
 ---
 
 ## 3. Relationship Map
@@ -289,6 +309,8 @@ Sale      (Firebase)  (1) ──> Receipt      (Firebase)  (1)
 InvoiceScan (Firebase)(1) ──> Order        (Firebase)  (0..1)
 User      (Firebase)  (many) ──> Merchant  (Surfboard) (1)      [via merchantId reference]
 User      (Firebase)  (many) ──> Store     (Surfboard) (many)   [via storeIds reference map]
+User      (Firebase)  (1) ──1 MerchantApplication (Firebase)    [one application per uid]
+MerchantApplication (Firebase) (1) ──> Merchant (Surfboard) (0..1) [reference only, once assigned]
 ```
 
 No arrow above crosses from a Firebase-owned entity into full ownership of a Surfboard-owned field — every cross-system arrow is an ID reference, never a copied business object. This is the enforceable test for "did I duplicate something I shouldn't have": *can this relationship be expressed as a single ID field? If yes, that's correct. If you need more than an ID to express it, you're duplicating Surfboard data and should call the Surfboard API live instead.*

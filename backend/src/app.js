@@ -17,6 +17,9 @@ const { API_ROUTES, MESSAGES } = require('./constants');
 const errorMiddleware = require('./middleware/error.middleware');
 const { createRateLimiter } = require('./middleware/rateLimit.middleware');
 const healthRoutes = require('./routes/health.routes');
+const authRoutes = require('./routes/auth.routes');
+const merchantApplicationRoutes = require('./routes/merchantApplication.routes');
+const merchantRoutes = require('./routes/merchant.routes');
 
 const app = express();
 
@@ -61,6 +64,12 @@ app.use(
 app.use(API_ROUTES.HEALTH, healthRoutes);
 
 app.use(createRateLimiter());
+
+app.use(API_ROUTES.AUTH, authRoutes);
+// Registered before API_ROUTES.MERCHANT ('/merchant') since it's the more specific prefix —
+// Express matches app.use() mounts in registration order, not by specificity.
+app.use(API_ROUTES.MERCHANT_APPLICATIONS, merchantApplicationRoutes);
+app.use(API_ROUTES.MERCHANT, merchantRoutes);
 
 app.use((req, res, next) => {
   next(new NotFoundError(MESSAGES.routeNotFound(req.method, req.originalUrl)));
