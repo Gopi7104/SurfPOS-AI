@@ -6,16 +6,18 @@ version: 0.1.0
 environment:
   sdk: ">=3.0.0 <4.0.0"
 
-# Placeholder manifest only — no dependencies have been added yet.
-# Dependencies (Riverpod, go_router, dio, firebase_auth, firebase_database,
-# firebase_storage, camera/barcode scanning, etc.) are added when
-# implementation begins. See docs/08_ARCHITECTURE_DECISIONS.md and
-# docs/10_TASKS.md Phase 0 before adding packages.
+# Design-system + UI-shell dependencies only (see docs/09_PROMPT_HISTORY.md for
+# when these were added). Data-layer dependencies (Riverpod, go_router, dio,
+# firebase_auth, firebase_database, firebase_storage, camera/barcode scanning,
+# etc.) are added when those layers are implemented — see
+# docs/08_ARCHITECTURE_DECISIONS.md and docs/10_TASKS.md.
 
 dependencies:
   flutter:
     sdk: flutter
-
+  flutter_svg: ^2.3.0
+  google_fonts: ^8.2.0
+  lucide_icons_flutter: ^3.1.15
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -23,5 +25,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # assets: and fonts: entries are added once frontend/assets/ is populated
-  # — see frontend/assets/README.md.
+  assets:
+    - assets/logos/
+

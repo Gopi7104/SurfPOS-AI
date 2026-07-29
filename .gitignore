@@ -51,3 +51,6 @@ Thumbs.db
 
 # ===== Logs (general) =====
 *.log
+
+# ===== Claude Code harness runtime files (session-local, not project content) =====
+.claude/*.lock

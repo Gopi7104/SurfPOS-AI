@@ -47,6 +47,7 @@ Every task has: **Priority** (P0 = blocking/critical, P1 = important, P2 = nice-
 
 | # | Task | Priority | Status | Dependencies | Owner |
 |---|---|---|---|---|---|
+| 1.0 | Premium Flutter UI: design system (done) + 26 screens, one at a time (1/26 — Splash — done; see [09_PROMPT_HISTORY.md](09_PROMPT_HISTORY.md) and `.claude/projectStatus.md`) | P0 | In Progress | 0.6 | ~10 days (26 screens) | Claude |
 | 3.1 | Firebase Auth integration — email/password sign-up (`POST /auth/signup`), sign-in token exchange (`POST /auth/login`), sign-out (`POST /auth/logout`, refresh-token revocation), `authenticate` middleware (`src/middleware/auth.middleware.js`, delegates to `modules/auth/auth.service.js`). **Phone OTP not implemented** — out of scope for this pass, still open. | P0 | Done (email/password); phone OTP Not Started | P.1 | Claude |
 | 3.2 | `GET /auth/me` resolving the caller's `users/{uid}` profile | P0 | Done | 3.1 | Claude |
 | 3.3 | Staff invite flow (`POST /auth/staff-invite`) | P1 | Not Started | 3.1 | Unassigned |

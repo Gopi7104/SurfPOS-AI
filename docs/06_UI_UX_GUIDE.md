@@ -15,28 +15,30 @@ SurfPOS AI is used **one-handed, at a counter, often in a hurry**. Every design 
 
 ## 2. Color Palette
 
-A neutral, retail-appropriate palette with a single accent used consistently for primary actions. (Treat hex values below as the placeholder brand palette — swap for final brand colors before public launch, keeping the same *roles*.)
+**Final brand palette (settled 2026-07-29 — supersedes the placeholder palette this section originally shipped with; implemented at `frontend/lib/app/themes/app_colors.dart`).** "Blueberry" is the single primary accent; "Cream Soda" is a deliberately scarce highlight — never a primary surface color.
 
 | Role | Color | Hex | Usage |
 |---|---|---|---|
-| Primary / Brand | Ocean Blue | `#0A6E8C` | Primary buttons, active nav state, links |
-| Primary Dark | Deep Ocean | `#074E63` | Pressed states, headers |
-| Accent / Success | Sea Green | `#1B9C6E` | Success states, completed sales, positive analytics |
-| Warning | Amber | `#E0A800` | Low stock, pending review, caution states |
-| Danger | Coral Red | `#D64545` | Errors, out-of-stock, destructive actions |
-| Neutral 900 | `#161B21` | Primary text |
-| Neutral 600 | `#5B6572` | Secondary text |
-| Neutral 300 | `#D8DCE1` | Borders, dividers |
-| Neutral 100 | `#F4F6F8` | Screen background |
-| Surface | `#FFFFFF` | Cards, sheets |
+| Primary — Blueberry | | `#243B8F` | App bar, primary buttons, active nav, icons, charts |
+| Secondary — Cream Soda | | `#FFF0C9` | Dashboard highlight cards, empty states, AI Assistant/insight cards — **never overused** |
+| Success | | `#2E7D32` | Success states, completed sales |
+| Error | | `#D32F2F` | Errors, destructive actions |
+| Warning | | `#F9A825` | Low stock, pending review |
+| White | | `#FFFFFF` | Cards, sheets |
+| Background | | `#F8F9FC` | Screen background |
+| Dark Text | | `#1A1A1A` | Primary text |
+| Grey Text | | `#6B7280` | Secondary text |
+| Light Border | | `#E6EAF2` | Borders, dividers |
 
-**Dark mode:** supported from Phase 1 as a system-following theme (not a manual toggle initially — see [10_TASKS.md](10_TASKS.md) for when a manual toggle is scheduled). Dark-mode surface = `#12161B`, dark background = `#0B0E12`, text/border roles invert appropriately while brand/accent hues stay the same for recognizability.
+Derived tints/shades (primary variants, semantic containers, gradients, shadow tints) built from the above are documented directly in `app_colors.dart` — see that file rather than re-deriving values here, to avoid the two drifting apart.
+
+**Dark mode:** deferred — not part of the premium-UI brief this palette was built for. Revisit per [10_TASKS.md](10_TASKS.md) task 3.5 when scheduled; do not assume `AppTheme.light` has a dark counterpart yet.
 
 **Rule:** Color alone is never the only signal for status (accessibility) — every colored status also carries an icon or label (e.g. low stock = amber dot **and** "Low Stock" text).
 
 ## 3. Typography
 
-- **Typeface:** A single geometric/humanist sans-serif family bundled with the app (e.g. Inter or the platform default if a licensed font isn't selected yet — record the final choice in [08_ARCHITECTURE_DECISIONS.md](08_ARCHITECTURE_DECISIONS.md)). Do not mix font families.
+- **Typeface:** **Inter** — settled (see `.claude/decision.md` D-012), loaded via the `google_fonts` package rather than bundled `.ttf` files. Do not mix font families.
 - **Scale** (mobile, logical pixels):
 
 | Style | Size | Weight | Usage |
