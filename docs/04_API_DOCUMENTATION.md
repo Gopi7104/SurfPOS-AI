@@ -1,18 +1,20 @@
 # 04 — API Documentation
 
-> Prerequisite reading: [03_DATABASE_DESIGN.md](03_DATABASE_DESIGN.md). Related: [15_SURFBOARD_INTEGRATION.md](15_SURFBOARD_INTEGRATION.md), [16_AI_MODULE.md](16_AI_MODULE.md), [07_CODING_RULES.md](07_CODING_RULES.md).
+> **Rewritten during the Surfboard-alignment documentation pass — supersedes all earlier versions of this file.** Prerequisite reading: [20_DOMAIN_MODEL.md](20_DOMAIN_MODEL.md), [03_DATABASE_DESIGN.md](03_DATABASE_DESIGN.md), [15_SURFBOARD_INTEGRATION.md](15_SURFBOARD_INTEGRATION.md). Related: [16_AI_MODULE.md](16_AI_MODULE.md), [07_CODING_RULES.md](07_CODING_RULES.md).
+>
+> **Ownership legend used throughout this file:** 🔵 = backend proxies live to Surfboard (no Firebase persistence of the response). 🟢 = backend reads/writes Firebase application data. See [02_ARCHITECTURE.md § 4](02_ARCHITECTURE.md#4-data-ownership-surfboard-vs-firebase).
 
 ---
 
 ## 1. Conventions
 
-- **Base URL:** `https://api.surfpos.ai/api/v1` (placeholder domain — actual deployment URL is set in environment config, see [14_DEVELOPER_GUIDE.md](14_DEVELOPER_GUIDE.md)).
+- **Base URL:** `https://api.surfpos.ai/api/v1` (placeholder domain — actual deployment URL set in environment config, see [14_DEVELOPER_GUIDE.md](14_DEVELOPER_GUIDE.md)).
 - **Format:** JSON request/response bodies, `Content-Type: application/json`, except upload endpoints (`multipart/form-data`).
-- **Authentication:** every endpoint except `POST /auth/register` and `POST /webhooks/surfboard` requires:
+- **Authentication:** every endpoint except `POST /auth/register`, `POST /webhooks/surfboard`, and `GET /health` (see [§ 14](#14-health--infra)) requires:
   ```
   Authorization: Bearer <Firebase ID Token>
   ```
-  Verified server-side via Firebase Admin SDK in `auth.middleware.js`.
+  Verified server-side via Firebase Admin SDK in `auth.middleware.js`. Identity remains a Firebase Authentication concern regardless of which system of record owns the resource being requested.
 - **Standard success envelope:**
   ```json
   { "success": true, "data": { ... } }
@@ -35,70 +37,117 @@
 | 409 | Conflict (e.g. duplicate SKU/barcode) |
 | 422 | Business-rule violation (e.g. insufficient stock) |
 | 429 | Rate limited |
+| 502 | Upstream Surfboard API failure (new — see § below) |
 | 500 | Unhandled server error |
 
-- **Standard error codes:** `VALIDATION_ERROR`, `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `INSUFFICIENT_STOCK`, `PAYMENT_FAILED`, `AI_PROCESSING_ERROR`, `RATE_LIMITED`, `INTERNAL_ERROR`.
+- **Standard error codes:** `VALIDATION_ERROR`, `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `INSUFFICIENT_STOCK`, `SURFBOARD_ERROR` (new — a Surfboard API call failed, timed out, or returned an unexpected shape; see [21_BACKEND_GUIDELINES.md § 9](21_BACKEND_GUIDELINES.md#9-error-handling)), `AI_PROCESSING_ERROR`, `RATE_LIMITED`, `INTERNAL_ERROR`.
 
 ## 2. Auth & Merchant Onboarding
 
-### `POST /auth/register`
-- **Purpose:** Complete merchant + owner-user profile creation after Firebase Auth sign-up on the client. Also triggers Surfboard merchant onboarding.
-- **Auth:** None (client has just created a Firebase Auth account and passes the fresh ID token in the body for verification).
+### `POST /auth/register` 🔵🟢
+- **Purpose:** Complete owner-user profile creation after Firebase Auth sign-up, and create the Merchant + default Store **in Surfboard** (not Firebase).
+- **Auth:** None (client passes the fresh ID token in the body for verification).
 - **Request:**
   ```json
   {
     "idToken": "firebase-id-token",
     "businessName": "Blue Wave Surf Shop",
     "businessType": "retail",
-    "contactPhone": "+91xxxxxxxxxx",
-    "address": { "line1": "...", "city": "...", "state": "...", "pincode": "...", "country": "IN" }
+    "contactPhone": "+46xxxxxxxxx",
+    "address": { "line1": "...", "city": "...", "country": "SE" }
   }
   ```
-- **Response (201):** `{ "merchantId": "...", "storeId": "...", "surfboardOnboardingStatus": "pending" }`
+- **Orchestration:** verify `idToken` → call `merchant.client.js` to create the Surfboard Merchant → call `store.client.js` to create the default Surfboard Store → write **only** `users/{uid}.merchantId`/`storeIds` references (Firebase). See [19_SURFBOARD_WORKFLOWS.md § 1](19_SURFBOARD_WORKFLOWS.md#1-merchant-lifecycle).
+- **Response (201):** `{ "merchantId": "sb_merchant_xxx", "storeId": "sb_store_xxx", "onboardingStatus": "pending_verification" }`
 - **Validation:** `businessName` required (min 2 chars), `contactPhone` required E.164 format, `idToken` must verify.
-- **Errors:** `VALIDATION_ERROR` (400), `CONFLICT` (409, if this UID already owns a merchant).
+- **Errors:** `VALIDATION_ERROR` (400), `CONFLICT` (409, this UID already has a `merchantId`), `SURFBOARD_ERROR` (502, Merchant/Store creation failed upstream).
 
-### `GET /auth/me`
-- **Purpose:** Fetch the authenticated user's profile + merchant + role.
+### `GET /auth/me` 🟢
+- **Purpose:** Fetch the authenticated user's app profile — `role` and `merchantId`/`storeIds` **references** (not the Merchant/Store objects themselves; call § 3 for those).
 - **Auth:** Required.
-- **Response (200):** `{ "user": {...}, "merchant": {...}, "role": "owner" }`
+- **Response (200):** `{ "user": {...}, "role": "owner" }`
 - **Errors:** `NOT_FOUND` (404, profile not provisioned — client should route to onboarding).
 
-### `POST /auth/staff-invite`
-- **Purpose:** Owner invites a staff member (creates a pending staff record; staff completes sign-up client-side with the invite code).
+### `POST /auth/staff-invite` 🟢
+- **Purpose:** Owner invites a staff member — a SurfPOS access-control concept, not a Surfboard one.
 - **Auth:** Required, `role: owner` only.
-- **Request:** `{ "phone": "+91xxxxxxxxxx", "storeId": "store_1" }`
+- **Request:** `{ "phone": "+46xxxxxxxxx", "storeId": "sb_store_xxx" }`
 - **Response (201):** `{ "inviteCode": "..." }`
 - **Errors:** `FORBIDDEN` (403, non-owner), `VALIDATION_ERROR`.
 
 ## 3. Merchants & Stores
 
-### `GET /merchants/:merchantId`
-- **Purpose:** Fetch merchant profile.
-- **Auth:** Required; caller must belong to `merchantId`.
-- **Response (200):** Merchant object (§4.2 of [03_DATABASE_DESIGN.md](03_DATABASE_DESIGN.md)).
-- **Errors:** `FORBIDDEN`, `NOT_FOUND`.
+> All endpoints in this section proxy live to Surfboard. **Nothing here is persisted in Firebase** beyond the `merchantId`/`storeId` reference already written at registration (§ 2) — see [20_DOMAIN_MODEL.md §§ 2.1–2.2](20_DOMAIN_MODEL.md#21-merchant--surfboard-owned).
 
-### `PATCH /merchants/:merchantId`
-- **Purpose:** Update merchant profile fields (business name, address, contact info).
+### `GET /merchants/:merchantId` 🔵
+- **Purpose:** Fetch the current Merchant profile, live from Surfboard.
+- **Auth:** Required; caller's `users/{uid}.merchantId` must match `:merchantId`.
+- **Response (200):** Merchant object (§ 2.1 of [20_DOMAIN_MODEL.md](20_DOMAIN_MODEL.md)), mapped from Surfboard's response by `merchant.mapper.js`.
+- **Errors:** `FORBIDDEN`, `NOT_FOUND`, `SURFBOARD_ERROR`.
+
+### `PATCH /merchants/:merchantId` 🔵
+- **Purpose:** Update Merchant profile fields — proxied directly to Surfboard's Merchant API.
 - **Auth:** Required, owner only.
-- **Request:** Partial merchant object.
-- **Validation:** Only whitelisted fields accepted (`businessName`, `address`, `contactPhone`, `contactEmail`).
-- **Errors:** `FORBIDDEN`, `VALIDATION_ERROR`.
+- **Request:** Partial merchant object (`businessName`, `address`, `contactPhone`, `contactEmail`).
+- **Errors:** `FORBIDDEN`, `VALIDATION_ERROR`, `SURFBOARD_ERROR`.
 
-### `GET /stores?merchantId=`
-- **Purpose:** List stores for a merchant.
+### `GET /merchants/:merchantId/branding` 🔵
+- **Purpose:** Fetch Surfboard checkout/receipt branding (logo, color, footer text) — see [19_SURFBOARD_WORKFLOWS.md § 5](19_SURFBOARD_WORKFLOWS.md#5-branding-workflow). Distinct from `GET /settings/:merchantId` (§ 11), which controls SurfPOS's own receipt template.
+- **Auth:** Required.
+- **Errors:** `FORBIDDEN`, `NOT_FOUND`, `SURFBOARD_ERROR`.
+
+### `PATCH /merchants/:merchantId/branding` 🔵
+- **Purpose:** Update Surfboard branding.
+- **Auth:** Required, owner only.
+- **Errors:** `FORBIDDEN`, `VALIDATION_ERROR`, `SURFBOARD_ERROR`.
+
+### `GET /stores?merchantId=` 🔵
+- **Purpose:** List Stores for a merchant, live from Surfboard.
 - **Auth:** Required.
 - **Response (200):** `{ "stores": [ {...} ] }`
+- **Errors:** `FORBIDDEN`, `SURFBOARD_ERROR`.
 
-### `POST /stores`
-- **Purpose:** Create an additional store (future multi-store; disabled behind a flag in Phase 1 — see [10_TASKS.md](10_TASKS.md)).
+### `POST /stores` 🔵
+- **Purpose:** Create an additional Store (multi-store; disabled behind a flag in Phase 6 — see [22_DEVELOPMENT_ROADMAP.md](22_DEVELOPMENT_ROADMAP.md)).
 - **Auth:** Required, owner only.
+- **Errors:** `FORBIDDEN`, `VALIDATION_ERROR`, `SURFBOARD_ERROR`.
 
-## 4. Products (Catalog)
+### `GET /stores/:storeId/payment-methods` 🔵
+- **Purpose:** List which payment rails this Store currently accepts — see [19_SURFBOARD_WORKFLOWS.md § 7](19_SURFBOARD_WORKFLOWS.md#7-payment-methods-workflow).
+- **Auth:** Required.
+- **Response (200):** `{ "methods": [ { "type": "card", "enabled": true } ] }`
+- **Errors:** `FORBIDDEN`, `NOT_FOUND`, `SURFBOARD_ERROR`.
+
+### `PATCH /stores/:storeId/payment-methods` 🔵
+- **Purpose:** Enable/disable a payment rail for this Store.
+- **Auth:** Required, owner only.
+- **Errors:** `FORBIDDEN`, `VALIDATION_ERROR`, `SURFBOARD_ERROR`.
+
+## 4. Devices
+
+> All endpoints proxy live to Surfboard — see [19_SURFBOARD_WORKFLOWS.md § 3](19_SURFBOARD_WORKFLOWS.md#3-device-lifecycle), [20_DOMAIN_MODEL.md § 2.3](20_DOMAIN_MODEL.md#23-device--surfboard-owned).
+
+### `GET /stores/:storeId/devices` 🔵
+- **Purpose:** List devices linked to a Store, with live status.
+- **Auth:** Required.
+- **Errors:** `FORBIDDEN`, `SURFBOARD_ERROR`.
+
+### `POST /stores/:storeId/devices/link` 🔵
+- **Purpose:** Link a physical card-reader device to this Store.
+- **Auth:** Required, owner only.
+- **Errors:** `FORBIDDEN`, `VALIDATION_ERROR`, `SURFBOARD_ERROR`.
+
+### `POST /devices/:deviceId/unlink` 🔵
+- **Purpose:** Unlink a device.
+- **Auth:** Required, owner only.
+- **Errors:** `FORBIDDEN`, `NOT_FOUND`, `SURFBOARD_ERROR`.
+
+## 5. Products (Catalog) 🟢
+
+Unchanged in shape from earlier plans — entirely Firebase-owned application data. `merchantId` below is a reference to a Surfboard Merchant, not a locally-owned record.
 
 ### `GET /products?merchantId=&search=&barcode=&cursor=&limit=`
-- **Purpose:** List/search the merchant's product catalog. `search` matches name/SKU; `barcode` is an exact-match fast path for the scanner.
+- **Purpose:** List/search the merchant's product catalog.
 - **Auth:** Required.
 - **Response (200):** `{ "products": [ {...} ], "nextCursor": "..." }`
 
@@ -110,142 +159,151 @@
 - **Errors:** `CONFLICT` (409, duplicate SKU/barcode), `VALIDATION_ERROR`.
 
 ### `GET /products/:productId`
-- **Purpose:** Fetch a single product.
-- **Auth:** Required.
+- **Purpose:** Fetch a single product. **Auth:** Required.
 
 ### `PATCH /products/:productId`
-- **Purpose:** Update product fields.
-- **Auth:** Required.
-- **Validation:** Same as create, partial.
+- **Purpose:** Update product fields. **Auth:** Required. Same validation as create, partial.
 
 ### `DELETE /products/:productId`
-- **Purpose:** Soft-delete (`isActive: false`) — products are never hard-deleted while sales history references them.
-- **Auth:** Required, owner only.
+- **Purpose:** Soft-delete (`isActive: false`). **Auth:** Required, owner only.
 
-## 5. Inventory
+## 6. Inventory 🟢
+
+Unchanged from earlier plans — entirely Firebase-owned.
 
 ### `GET /inventory?storeId=&lowStockOnly=`
-- **Purpose:** List stock levels for a store; `lowStockOnly=true` filters to `quantity < reorderLevel`.
-- **Auth:** Required.
+- **Purpose:** List stock levels for a store. **Auth:** Required.
 
 ### `PATCH /inventory/:storeId/:productId`
-- **Purpose:** Manual stock adjustment (recount, damage write-off, etc.).
-- **Auth:** Required.
+- **Purpose:** Manual stock adjustment. **Auth:** Required.
 - **Request:** `{ "quantityDelta": -2, "reason": "damaged" }`
-- **Validation:** Resulting quantity cannot go below 0.
 - **Errors:** `INSUFFICIENT_STOCK` (422), `VALIDATION_ERROR`.
 
-## 6. AI Invoice Scanner
+## 7. Suppliers 🟢
 
-Full pipeline detail in [16_AI_MODULE.md](16_AI_MODULE.md).
+**New section in this pass** — see [20_DOMAIN_MODEL.md § 2.16](20_DOMAIN_MODEL.md#216-supplier--firebase-owned-new-in-this-pass).
+
+### `GET /suppliers?merchantId=&search=`
+- **Purpose:** List/search a merchant's suppliers. **Auth:** Required.
+
+### `POST /suppliers`
+- **Purpose:** Create a supplier. **Auth:** Required.
+- **Request:** `{ "name", "contactPhone"?, "contactEmail"?, "notes"? }`
+- **Validation:** `name` required.
+
+### `PATCH /suppliers/:supplierId`
+- **Purpose:** Update supplier fields. **Auth:** Required.
+
+## 8. AI Invoice Scanner 🟢
+
+Full pipeline detail in [16_AI_MODULE.md](16_AI_MODULE.md). Unaffected by the Surfboard ownership change — entirely Firebase-owned.
 
 ### `POST /invoice-scans`
 - **Purpose:** Upload a photographed supplier invoice for OCR + AI extraction.
 - **Auth:** Required.
 - **Request:** `multipart/form-data` — `image` (file), `merchantId`, `storeId`.
-- **Response (201):** `{ "scanId": "...", "status": "processing" }` — extraction runs async.
-- **Errors:** `VALIDATION_ERROR` (bad/missing image), `AI_PROCESSING_ERROR`.
+- **Response (201):** `{ "scanId": "...", "status": "processing" }`
+- **Errors:** `VALIDATION_ERROR`, `AI_PROCESSING_ERROR`.
 
 ### `GET /invoice-scans/:scanId`
-- **Purpose:** Poll (or receive via RTDB listener) scan status and extracted items.
-- **Auth:** Required.
-- **Response (200):** Invoice scan object (§4.8 of [03_DATABASE_DESIGN.md](03_DATABASE_DESIGN.md)).
+- **Purpose:** Poll scan status and extracted items. **Auth:** Required.
 
 ### `POST /invoice-scans/:scanId/confirm`
-- **Purpose:** Merchant confirms (optionally edits) extracted items → creates an `order` and updates `inventory`.
+- **Purpose:** Merchant confirms extracted items → creates an `order` and updates `inventory`.
 - **Auth:** Required.
-- **Request:** `{ "items": [ { "productId", "qty", "unitCost" } ], "supplierName": "..." }`
+- **Request:** `{ "items": [ { "productId", "qty", "unitCost" } ], "supplierId": "supplier_123" }` — `supplierId` references § 7, replacing the old free-text `supplierName`.
 - **Response (201):** `{ "orderId": "..." }`
 - **Errors:** `VALIDATION_ERROR`, `NOT_FOUND` (scan not found).
 
 ### `POST /invoice-scans/:scanId/reject`
-- **Purpose:** Discard a scan without creating an order.
-- **Auth:** Required.
+- **Purpose:** Discard a scan without creating an order. **Auth:** Required.
 
-## 7. Billing / Sales
+## 9. Billing / Sales 🟢🔵
 
-### `POST /sales`
-- **Purpose:** Submit a cart for checkout. Backend re-validates every price/tax against live product data — client-submitted prices are never trusted.
+Sale creation/history is Firebase-owned; checkout internally calls the Payments integration (§ 10) but the Sale resource itself never duplicates Payment data.
+
+### `POST /sales` 🟢🔵
+- **Purpose:** Submit a cart for checkout. Backend re-validates every price/tax against live Product data (Firebase), creates the Sale, then creates a Surfboard payment intent (🔵) for the validated total.
 - **Auth:** Required.
 - **Request:**
   ```json
-  {
-    "storeId": "store_1",
-    "items": [ { "productId": "prod_123", "qty": 2 } ],
-    "discountTotal": 0
-  }
+  { "storeId": "sb_store_xxx", "items": [ { "productId": "prod_123", "qty": 2 } ], "discountTotal": 0 }
   ```
-- **Response (201):** `{ "saleId": "...", "grandTotal": 207.9, "status": "pending_payment", "surfboardPaymentIntentId": "sb_pi_xxx" }`
+- **Response (201):** `{ "saleId": "...", "grandTotal": 247.5, "status": "pending_payment", "surfboardPaymentId": "sb_payment_xxx" }`
 - **Validation:** Every `productId` must exist and be active; `qty` ≤ available inventory.
-- **Errors:** `INSUFFICIENT_STOCK` (422), `NOT_FOUND` (unknown product), `VALIDATION_ERROR`.
+- **Errors:** `INSUFFICIENT_STOCK` (422), `NOT_FOUND` (unknown product), `VALIDATION_ERROR`, `SURFBOARD_ERROR` (payment intent creation failed).
 
-### `GET /sales?storeId=&status=&from=&to=&cursor=`
-- **Purpose:** Sales history, filterable/paginated.
-- **Auth:** Required.
+### `GET /sales?storeId=&status=&from=&to=&cursor=` 🟢
+- **Purpose:** Sales history, filterable/paginated. **Auth:** Required.
 
-### `GET /sales/:saleId`
-- **Purpose:** Fetch a single sale (with items, payment, receipt references).
-- **Auth:** Required.
+### `GET /sales/:saleId` 🟢
+- **Purpose:** Fetch a single sale (items, `surfboardPaymentId` reference, `receiptId` reference). **Auth:** Required.
 
-### `POST /sales/:saleId/cancel`
-- **Purpose:** Cancel a sale still in `pending_payment`.
-- **Auth:** Required.
+### `POST /sales/:saleId/cancel` 🟢
+- **Purpose:** Cancel a sale still in `pending_payment`. **Auth:** Required.
 - **Errors:** `VALIDATION_ERROR` (422, if sale already completed).
 
-## 8. Payments (Surfboard)
+## 10. Payments (Surfboard) 🔵
 
-Full detail in [15_SURFBOARD_INTEGRATION.md](15_SURFBOARD_INTEGRATION.md).
+Full detail in [15_SURFBOARD_INTEGRATION.md](15_SURFBOARD_INTEGRATION.md), [19_SURFBOARD_WORKFLOWS.md § 4](19_SURFBOARD_WORKFLOWS.md#4-payment-lifecycle).
 
-### `GET /payments/:paymentId`
-- **Purpose:** Fetch payment status for a sale.
+### `GET /payments/:paymentId` 🔵
+- **Purpose:** Fetch the full, current Payment object **live from Surfboard** — this is not a Firebase read (there is no `payments` node — see [03_DATABASE_DESIGN.md § 1](03_DATABASE_DESIGN.md#1-scope-of-this-schema)).
 - **Auth:** Required.
+- **Errors:** `FORBIDDEN`, `NOT_FOUND`, `SURFBOARD_ERROR`.
 
-### `POST /webhooks/surfboard`
-- **Purpose:** Receives asynchronous payment status updates from Surfboard Payments.
-- **Auth:** None (Firebase auth doesn't apply) — instead verified via Surfboard's webhook signature header (see [15_SURFBOARD_INTEGRATION.md](15_SURFBOARD_INTEGRATION.md)).
-- **Request:** Surfboard's webhook payload (shape defined by Surfboard's API).
+### `PATCH /stores/:storeId/tips-config` 🔵
+- **Purpose:** Enable/configure tipping (preset percentages) for a Store — see [19_SURFBOARD_WORKFLOWS.md § 6](19_SURFBOARD_WORKFLOWS.md#6-tips-workflow).
+- **Auth:** Required, owner only.
+- **Errors:** `FORBIDDEN`, `VALIDATION_ERROR`, `SURFBOARD_ERROR`.
+
+### `POST /webhooks/surfboard` 🔵🟢
+- **Purpose:** Receives asynchronous payment (and other) status updates from Surfboard.
+- **Auth:** None (Firebase auth doesn't apply) — verified via Surfboard's webhook signature header (see [15_SURFBOARD_INTEGRATION.md § 7](15_SURFBOARD_INTEGRATION.md#7-webhooks)).
+- **Request:** Surfboard's webhook payload.
+- **On a payment event:** updates `sales/{storeId}/{saleId}.status`/`paymentStatus` (Firebase) — never writes a duplicated Payment record.
 - **Response (200):** `{ "received": true }`
 - **Errors:** `401` if signature invalid.
 
-## 9. Receipts
+## 11. Receipts 🟢
 
 ### `GET /receipts/:receiptId`
-- **Purpose:** Fetch receipt metadata + PDF URL.
-- **Auth:** Required.
+- **Purpose:** Fetch receipt metadata + PDF URL. **Auth:** Required.
 
 ### `POST /receipts/:receiptId/share`
-- **Purpose:** Send/share the receipt (SMS/email/WhatsApp link) to a customer contact.
-- **Auth:** Required.
-- **Request:** `{ "channel": "sms", "destination": "+91xxxxxxxxxx" }`
+- **Purpose:** Send/share the receipt to a customer contact. **Auth:** Required.
+- **Request:** `{ "channel": "sms", "destination": "+46xxxxxxxxx" }`
 
-## 10. Reports & Analytics
+## 12. Reports & Analytics 🟢
 
 ### `GET /analytics/:storeId?period=2026-07`
-- **Purpose:** Fetch precomputed analytics rollup for a period (day or month key).
-- **Auth:** Required.
-- **Response (200):** Analytics object (§4.11 of [03_DATABASE_DESIGN.md](03_DATABASE_DESIGN.md)).
+- **Purpose:** Fetch precomputed analytics rollup for a period. **Auth:** Required.
 
 ### `GET /analytics/:storeId/insights`
-- **Purpose:** Fetch the latest AI-generated business insights (Gemini-generated summary/recommendations).
-- **Auth:** Required.
+- **Purpose:** Fetch the latest AI-generated business insights. **Auth:** Required.
 - **Response (200):** `{ "insights": [ { "title": "...", "detail": "...", "generatedAt": ... } ] }`
 
-## 11. Settings
+## 13. Settings 🟢
 
 ### `GET /settings/:merchantId`
-- **Purpose:** Fetch merchant settings.
-- **Auth:** Required.
+- **Purpose:** Fetch SurfPOS's own merchant settings (tax defaults, SurfPOS receipt template, notification preferences) — **not** Surfboard branding (§ 3) or Surfboard merchant profile fields. **Auth:** Required.
 
 ### `PATCH /settings/:merchantId`
-- **Purpose:** Update settings (tax defaults, receipt template, notification preferences).
-- **Auth:** Required, owner only.
-- **Validation:** Whitelisted fields only.
+- **Purpose:** Update settings. **Auth:** Required, owner only. **Validation:** whitelisted fields only.
 
-## 12. Rate Limiting & Abuse Protection
+## 14. Health & Infra
+
+### `GET /health`
+- **Purpose:** Liveness probe for the backend process itself — independent of Firebase/Surfboard/Gemini connectivity.
+- **Auth:** None.
+- **Response (200):** `{ "success": true, "data": { "status": "ok", "uptimeSeconds": 42, "timestamp": "..." } }`
+
+## 15. Rate Limiting & Abuse Protection
 
 - All endpoints are rate-limited per authenticated `uid` (default: 120 requests/minute) via backend middleware.
 - `POST /invoice-scans` and Gemini-backed endpoints have a stricter limit (default: 10/minute) due to AI provider cost.
-- Exceeding a limit returns `429 RATE_LIMITED`.
+- Surfboard-proxying endpoints (🔵, §§ 3–4, 10) should additionally respect any rate limit Surfboard itself imposes — surfaced as `SURFBOARD_ERROR` if Surfboard rejects a call for rate-limiting reasons, not a generic `INTERNAL_ERROR`.
+- Exceeding SurfPOS's own limit returns `429 RATE_LIMITED`.
 
 ---
 

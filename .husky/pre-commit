@@ -1,0 +1,7 @@
+cd backend
+echo "[pre-commit] backend: lint"
+npm run lint
+echo "[pre-commit] backend: format check"
+npm run format:check
+echo "[pre-commit] backend: test"
+npm test

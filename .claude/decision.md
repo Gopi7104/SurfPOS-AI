@@ -162,10 +162,11 @@ Copy this block for every new decision:
 - **Alternatives Considered:** Stripe; a locally-relevant payment gateway; supporting multiple payment processors from day one.
 - **Pros:** Single payment relationship for the merchant (no separate POS + payments vendor split — directly solves the disconnected-payments business problem in [docs/01_PROJECT_OVERVIEW.md § 3](../docs/01_PROJECT_OVERVIEW.md#3-business-problem)).
 - **Cons:** Single point of dependency on one payment provider; exact API surface not yet confirmed against official Surfboard documentation (see [docs/15_SURFBOARD_INTEGRATION.md](../docs/15_SURFBOARD_INTEGRATION.md) accuracy note).
-- **Impact:** `backend/src/modules/surfboard/`, `payments/{paymentId}` schema, `POST /webhooks/surfboard` — see [docs/15_SURFBOARD_INTEGRATION.md](../docs/15_SURFBOARD_INTEGRATION.md).
-- **Status:** Accepted (integration pattern defined; exact API surface pending confirmation against official docs)
+- **Impact (as originally recorded — see amendment below):** ~~`backend/src/modules/surfboard/`, `payments/{paymentId}` schema~~, `POST /webhooks/surfboard` — see [docs/15_SURFBOARD_INTEGRATION.md](../docs/15_SURFBOARD_INTEGRATION.md).
+- **Amendment (2026-07-29, Surfboard-alignment pass):** The original Impact line assumed a `payments/{paymentId}` Firebase schema and a single catch-all `modules/surfboard/` folder. Neither exists anymore: Surfboard payment data is never persisted in Firebase (see [D-016](#d-016--surfboard-is-the-system-of-record-for-merchant-store-device-payment-branding-tips-and-payment-methods)), and `modules/surfboard/` was split into `modules/{merchant,store,device,payments,branding}/` (see [D-018](#d-018--surfboard-domain-module-split-tipspayment-methods-folded-in-not-standalone)). The core decision this entry records — Surfboard as the exclusive payment integration — is unchanged and still fully accurate; now formalized as a proper ADR (it previously had none, see the note below).
+- **Status:** Accepted (integration pattern defined; exact wire-level API surface pending confirmation against official docs)
 - **Owner:** Velan (project owner)
-- **Cross-reference:** [docs/15_SURFBOARD_INTEGRATION.md](../docs/15_SURFBOARD_INTEGRATION.md); no prior formal ADR existed for this — consider adding one to [docs/08_ARCHITECTURE_DECISIONS.md](../docs/08_ARCHITECTURE_DECISIONS.md) (next available slot: ADR-010).
+- **Cross-reference:** [docs/15_SURFBOARD_INTEGRATION.md](../docs/15_SURFBOARD_INTEGRATION.md), now formalized as [docs/08_ARCHITECTURE_DECISIONS.md § ADR-017](../docs/08_ARCHITECTURE_DECISIONS.md#adr-017--surfboard-payments-as-the-exclusive-payment-integration) (added during the Surfboard-alignment pass — this entry previously had no formal ADR).
 
 ### D-010 — Sweden (SEK) selected instead of INR
 
@@ -199,10 +200,120 @@ Copy this block for every new decision:
 - **Owner:** Velan (project owner)
 - **Cross-reference:** [docs/06_UI_UX_GUIDE.md § 1](../docs/06_UI_UX_GUIDE.md#1-design-philosophy) (this is a design-philosophy decision distinct from [D-006](#d-006--smartphone-first-pos-architecture), which is about hardware, not UI design)
 
+### D-012 — Backend validation library: `zod`
+
+- **Decision Number:** D-012
+- **Date:** 2026-07-29
+- **Decision:** Use `zod` for all backend request-schema validation (`validate.middleware.js` + one schema per resource under `backend/src/validators/`).
+- **Reason:** Blocked Phase 1 backend scaffolding per `docs/08_ARCHITECTURE_DECISIONS.md § ADR-009`; needed before `validate.middleware.js` could be written. Confirmed with the project owner via direct question rather than picked silently.
+- **Alternatives Considered:** `Joi`.
+- **Pros:** Fluent schema composition; schemas double as a single source of truth for request shape.
+- **Cons:** No compile-time type-inference benefit since the backend is plain JS, not TypeScript.
+- **Impact:** `backend/src/middleware/validate.middleware.js`, every `backend/src/validators/*.js` file going forward.
+- **Status:** Accepted
+- **Owner:** Gopi (confirmed via direct question during Phase 1 backend foundation work)
+- **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-010](../docs/08_ARCHITECTURE_DECISIONS.md#adr-010--backend-validation-library-zod)
+
+### D-013 — Backend logging library: `pino`
+
+- **Decision Number:** D-013
+- **Date:** 2026-07-29
+- **Decision:** Use `pino` (+ `pino-http`) as the single backend logger instance.
+- **Reason:** Blocked Phase 1 backend scaffolding per `docs/08_ARCHITECTURE_DECISIONS.md § ADR-009`; needed before `utils/logger.js` could be written. Confirmed with the project owner via direct question rather than picked silently.
+- **Alternatives Considered:** `winston`.
+- **Pros:** Low overhead, fast structured JSON logging, cheap child loggers for per-request `requestId`/`merchantId` context.
+- **Cons:** Fewer built-in transports than `winston` — multi-destination shipping would rely on `pino` transport plugins.
+- **Impact:** `backend/src/utils/logger.js`, `pino-http` wiring in `backend/src/app.js`.
+- **Status:** Accepted
+- **Owner:** Gopi (confirmed via direct question during Phase 1 backend foundation work)
+- **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-011](../docs/08_ARCHITECTURE_DECISIONS.md#adr-011--backend-logging-library-pino)
+
+### D-014 — Lint/format tooling: ESLint flat config + Prettier (not Airbnb-base)
+
+- **Decision Number:** D-014
+- **Date:** 2026-07-29
+- **Decision:** ESLint flat config (`@eslint/js` recommended + a small custom ruleset matching `docs/07_CODING_RULES.md`) plus `eslint-config-prettier`, rather than `eslint-config-airbnb-base`.
+- **Reason:** `07_CODING_RULES.md § 1` left the exact lint stack open ("Airbnb-base or equivalent"); ESLint's flat-config default and Airbnb-base's heavier/still-transitioning flat-config support made a lean custom ruleset the more maintainable choice for this project's actual documented conventions.
+- **Alternatives Considered:** `eslint-config-airbnb-base` (with `@eslint/eslintrc`'s `FlatCompat` shim).
+- **Pros:** Every rule maps directly to something `docs/07_CODING_RULES.md` already says; no legacy-config compatibility layer.
+- **Cons:** Doesn't inherit Airbnb's broad "gotcha" rule coverage — new rules get added deliberately as needed, not for free.
+- **Impact:** `backend/eslint.config.js`, `backend/.prettierrc.json`.
+- **Status:** Accepted
+- **Owner:** Gopi (backend infrastructure hardening pass)
+- **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-012](../docs/08_ARCHITECTURE_DECISIONS.md#adr-012--lintformat-tooling-eslint-flat-config--prettier-not-airbnb-base)
+
+### D-015 — `src/integrations/` vs `src/modules/` split
+
+- **Decision Number:** D-015
+- **Date:** 2026-07-29
+- **Decision:** `backend/src/integrations/<provider>/` holds raw, reusable third-party HTTP client wrappers (no business logic); `backend/src/modules/<provider>/` holds the business/orchestration logic that calls into those clients.
+- **Reason:** A task asked for Surfboard placeholder clients under a new `src/integrations/surfboard/` folder, which would otherwise duplicate the already-reserved `src/modules/surfboard/` from `docs/17_FOLDER_STRUCTURE.md`. Splitting by responsibility (client plumbing vs. business rules) resolves the overlap instead of picking one arbitrarily.
+- **Alternatives Considered:** Putting everything in `modules/surfboard/` (mixing client + business logic); renaming `modules/surfboard/` away entirely.
+- **Pros:** Client layer stays swappable/mockable independent of business rules — directly supports "use interfaces so Surfboard APIs can be mocked during development" from the project's stated implementation strategy.
+- **Cons:** One more top-level folder to explain to a new contributor.
+- **Impact:** `backend/src/integrations/surfboard/*`, `docs/17_FOLDER_STRUCTURE.md`, `backend/src/modules/surfboard/README.md`.
+- **Status:** Accepted
+- **Owner:** Gopi (backend infrastructure hardening pass)
+- **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-013](../docs/08_ARCHITECTURE_DECISIONS.md#adr-013--srcintegrations-vs-srcmodules-split)
+
+### D-016 — Surfboard is the system of record for Merchant, Store, Device, Payment, Branding, Tips, and Payment Methods
+
+- **Decision Number:** D-016
+- **Date:** 2026-07-29
+- **Decision:** Surfboard owns Merchant, Store, Device, Payment, Branding, Tips, and Payment Methods outright — SurfPOS AI never persists a full copy of any of these in Firebase, only the minimal ID reference needed to partition its own application data.
+- **Reason:** After researching the Surfboard Developer Portal, it became clear Surfboard already models these as first-class objects with their own lifecycle/status/identity. The original plan (a parallel `merchants`/`stores`/`payments` Firebase schema referencing Surfboard by ID) would have created two systems tracking the same business object — the exact "disconnected payments and POS" problem SurfPOS exists to solve, recreated one layer down.
+- **Alternatives Considered:** Keep a cached Firebase copy synced via webhooks (rejected — sync drift risk, exactly what this decision avoids); keep the original plan as-is until it caused a visible bug (rejected — no code implements it yet, so correcting now is free).
+- **Pros:** Impossible for SurfPOS's copy to drift from Surfboard's truth, because there is no copy.
+- **Cons:** The backend now has a hard runtime dependency on Surfboard's availability/latency for a much larger share of functionality — requires caching/timeout/circuit-breaking discipline at the Integration Client layer.
+- **Impact:** Full rewrite of `docs/01–05, 07, 08, 10, 12, 13, 15, 17`; four new docs (`docs/19–22`); no code impact (Phase 1 never implemented merchant/store/payment persistence).
+- **Status:** Accepted
+- **Owner:** Velan (Lead Architect direction), implemented by Claude
+- **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-014](../docs/08_ARCHITECTURE_DECISIONS.md#adr-014--surfboard-is-the-system-of-record-for-merchant-store-device-payment-branding-tips-and-payment-methods), [docs/20_DOMAIN_MODEL.md § 1](../docs/20_DOMAIN_MODEL.md#1-the-ownership-principle)
+
+### D-017 — Repository + Mapper pattern formalized
+
+- **Decision Number:** D-017
+- **Date:** 2026-07-29
+- **Decision:** Every Firebase-owned entity gets exactly one Repository; every Surfboard Integration Client is paired with a Mapper translating wire format to the domain shapes in `docs/20_DOMAIN_MODEL.md`.
+- **Reason:** [D-015](#d-015--srcintegrations-vs-srcmodules-split) established the integrations/modules split but not the shape of the Firebase-access layer itself or how wire-format translation happens — needed once Surfboard became the source of record for seven distinct entities (D-016).
+- **Pros:** Services/Controllers never see a raw Firebase snapshot or raw Surfboard response — only domain objects; a Surfboard field-naming change is a one-file Mapper fix.
+- **Cons:** More files per domain (service + repository/mapper) than a flatter structure would have.
+- **Impact:** `backend/src/modules/<domain>/{<domain>.repository.js, <domain>.mapper.js}`, `backend/src/integrations/surfboard/mappers/`.
+- **Status:** Accepted
+- **Owner:** Velan (Lead Architect direction), implemented by Claude
+- **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-015](../docs/08_ARCHITECTURE_DECISIONS.md#adr-015--repository--mapper-pattern-formalized), [docs/21_BACKEND_GUIDELINES.md](../docs/21_BACKEND_GUIDELINES.md)
+
+### D-018 — Surfboard domain module split (Tips/Payment Methods folded in, not standalone)
+
+- **Decision Number:** D-018
+- **Date:** 2026-07-29
+- **Decision:** One backend module per Surfboard-owned entity (`merchant/`, `store/`, `device/`, `payments/`, `branding/`), replacing the old single catch-all `modules/surfboard/`. Payment Methods folds into `store/`; Tips folds into `payments/` — neither gets its own module or Integration Client file.
+- **Reason:** A single `modules/surfboard/` would violate the single-responsibility principle every other domain module follows now that seven distinct entities are formally recognized (D-016). Payment Methods/Tips have no independent lifecycle of their own — full modules for them would be ceremony without benefit.
+- **Pros:** Five focused modules instead of one broad one; Payment Methods/Tips live next to the entity they're most tightly coupled to.
+- **Cons:** If Surfboard later exposes Payment Methods/Tips as fully independent APIs with their own lifecycle, they'd need to be split out.
+- **Impact:** `backend/src/modules/{merchant,store,device,payments,branding}/`, `docs/17_FOLDER_STRUCTURE.md`.
+- **Status:** Accepted
+- **Owner:** Velan (Lead Architect direction), implemented by Claude
+- **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-016](../docs/08_ARCHITECTURE_DECISIONS.md#adr-016--surfboard-domain-module-split)
+
+### D-019 — Surfboard SDK implementation choices: native `fetch`, retry/timeout defaults, placeholder auth + webhook schemes
+
+- **Decision Number:** D-019
+- **Date:** 2026-07-29
+- **Decision:** The Surfboard SDK (Roadmap Phase 2) uses native `fetch` (no new HTTP dependency), exponential-backoff retry (200ms × 2^attempt, 2 retries, retryable-status-aware: 408/429/5xx or network error), `AbortController` timeout (10s default) — and ships two **explicit, isolated placeholders**: a Bearer-token auth header scheme and an HMAC-SHA256 webhook signature scheme, both pending confirmation against real Surfboard docs.
+- **Reason:** Building the SDK's shape and testing it end-to-end didn't require real Surfboard credentials or docs — a reasonable, common-convention placeholder for the two genuinely-unconfirmed pieces (auth, webhook signing) let the whole request pipeline (retry/timeout/logging/error-mapping) be built and fully unit-tested now, isolated so confirming the real scheme later is a one-file change each.
+- **Alternatives Considered:** Adding `axios`/`got` as a dependency (rejected — native `fetch` already covers everything needed); waiting for real Surfboard credentials before writing any SDK code (rejected — would have blocked Phase 2 entirely for no code-shape reason).
+- **Pros:** Zero new runtime dependencies; every domain client gets retry/timeout/logging/error-mapping for free; 48 tests cover the whole pipeline against a mocked HTTP layer.
+- **Cons:** The auth and webhook-signature placeholders will need updating (and their tests adjusting) once real Surfboard docs/credentials are available.
+- **Impact:** `backend/src/integrations/surfboard/{client,middleware,models,mappers,utils,errors}/`, `backend/tests/integrations/surfboard/`.
+- **Status:** Accepted
+- **Owner:** Velan (Lead Architect direction), implemented by Claude
+- **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-018](../docs/08_ARCHITECTURE_DECISIONS.md#adr-018--surfboard-sdk-implementation-choices-phase-2)
+
 ---
 
 ## Future Decisions
 
 _Append new entries here using the [Decision Template](#decision-template) above, in ascending `D-0XX` order. Do not renumber or delete existing entries — if a decision is reversed, mark the old entry's Status as `Superseded by D-0YY` and add the new entry, rather than editing history away._
 
-_(No entries yet beyond D-001–D-011 above.)_
+_(No entries yet beyond D-001–D-019 above.)_

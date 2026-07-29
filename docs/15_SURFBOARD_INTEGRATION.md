@@ -1,74 +1,104 @@
 # 15 — Surfboard Payments Integration
 
-> **Important accuracy note:** This document describes the **integration pattern** SurfPOS AI's backend should follow for Surfboard Payments, based on how payment platforms of this type are generally structured (merchant onboarding, payment intents, device linkage, webhooks). The **exact endpoint paths, request/response shapes, and auth mechanism must be confirmed against Surfboard's official developer documentation and sandbox credentials** before implementation — do not treat the specifics below as verified. Once confirmed, update this file and log the confirmed details as a new ADR in [08_ARCHITECTURE_DECISIONS.md](08_ARCHITECTURE_DECISIONS.md) (see ADR-009). Related: [02_ARCHITECTURE.md § 6](02_ARCHITECTURE.md#6-surfboard-payments-layer), [04_API_DOCUMENTATION.md § 8](04_API_DOCUMENTATION.md#8-payments-surfboard), [05_FEATURES.md § 9](05_FEATURES.md#9-payments).
+> **Rewritten during the Surfboard-alignment documentation pass — supersedes all earlier versions of this file.** Prerequisite reading: [20_DOMAIN_MODEL.md](20_DOMAIN_MODEL.md), [02_ARCHITECTURE.md § 4](02_ARCHITECTURE.md#4-data-ownership-surfboard-vs-firebase). Related: [19_SURFBOARD_WORKFLOWS.md](19_SURFBOARD_WORKFLOWS.md) (entity lifecycles), [21_BACKEND_GUIDELINES.md § 5](21_BACKEND_GUIDELINES.md#5-integration-client-surfboard-owned-entities-only) (code layer contract), [04_API_DOCUMENTATION.md](04_API_DOCUMENTATION.md).
+>
+> **Accuracy note:** the *ownership model* below — Surfboard is the system of record for Merchant, Store, Device, Payment, Branding, Tips, and Payment Methods — is a confirmed architectural decision (see [08_ARCHITECTURE_DECISIONS.md § ADR-014](08_ARCHITECTURE_DECISIONS.md#adr-014--surfboard-is-the-system-of-record-for-merchant-store-device-payment-branding-tips-and-payment-methods)). The **exact endpoint paths, request/response field names, and auth mechanism are still illustrative**, pending confirmation against Surfboard's official developer documentation and sandbox credentials — do not treat a specific field name in this file as verified wire format. Update this file once confirmed, per [08_ARCHITECTURE_DECISIONS.md § ADR-009](08_ARCHITECTURE_DECISIONS.md#adr-009--pending-decisions-to-record-here-once-made).
 
 ---
 
 ## 1. Integration Principle
 
-**All Surfboard Payments calls happen server-side, from the Node/Express backend only.** The Flutter app never holds a Surfboard API key/secret. Where Surfboard requires client-side SDK involvement (e.g. presenting a card-entry UI or tap-to-pay flow on the device), the client uses a short-lived token/client secret issued by the backend for that specific transaction — never the merchant's underlying API credentials.
+**Surfboard is the system of record for seven entities — Merchant, Store, Device, Payment, Branding, Tips, Payment Methods — not just a payment processor bolted onto a SurfPOS-owned merchant record.** See [20_DOMAIN_MODEL.md § 1](20_DOMAIN_MODEL.md#1-the-ownership-principle) for what this means concretely: SurfPOS AI never persists a full copy of any of these seven in Firebase; it holds only the ID needed to ask Surfboard for the current truth.
+
+All Surfboard API calls happen **server-side only**, from the Node/Express backend's Integration Layer (`src/integrations/surfboard/`). The Flutter app never holds a Surfboard API key/secret and never calls Surfboard directly — it only ever talks to the SurfPOS backend (see [02_ARCHITECTURE.md § 1](02_ARCHITECTURE.md#1-system-architecture-high-level)). Where Surfboard requires client-side SDK involvement (e.g. a card-entry/tap-to-pay UI on the device), the client uses a short-lived token/client secret issued by the backend for that specific transaction — never the merchant's underlying API credentials.
 
 ## 2. Authentication (Backend ↔ Surfboard)
 
-- The backend authenticates to Surfboard's API using credentials issued for this merchant/platform integration (`SURFBOARD_API_KEY` / `SURFBOARD_API_SECRET`, see [14_DEVELOPER_GUIDE.md § 6](14_DEVELOPER_GUIDE.md#6-environment-variables)) — confirm whether Surfboard uses API-key headers, OAuth2 client-credentials, or another scheme, and update this section accordingly.
-- Two environments must be kept fully separate in configuration: `sandbox` (development/testing) and `production` — never mix credentials or point a dev build at production.
+- The backend authenticates to Surfboard's API using platform-level credentials (`SURFBOARD_API_KEY` / `SURFBOARD_API_SECRET`, see [14_DEVELOPER_GUIDE.md § 6](14_DEVELOPER_GUIDE.md#6-environment-variables)) — confirm whether Surfboard uses API-key headers, OAuth2 client-credentials, or another scheme, and update this section accordingly. The SDK now implements this as a swappable strategy (`SURFBOARD_AUTH_STRATEGY=api_key|bearer|oauth`, see [ADR-019](08_ARCHITECTURE_DECISIONS.md#adr-019--surfboard-sdk-authentication-layer-strategy-pattern-extends-phase-2-not-roadmap-phase-3)), so confirming the real scheme means selecting/adding a strategy in `integrations/surfboard/auth/strategies/`, not rewriting the request pipeline.
+- Two environments must be kept fully separate in configuration: `sandbox` and `production` — never mix credentials or point a dev build at production.
+- All seven client files in `src/integrations/surfboard/` share one base request/auth implementation (`surfboardClient.base.js`, already scaffolded) so a credential/auth-scheme change is a one-file fix, not seven.
 
-## 3. Merchant Onboarding (Surfboard Merchant API)
+## 3. Merchant Lifecycle
 
-- Triggered automatically as part of [Merchant Registration](05_FEATURES.md#1-merchant-registration) (`POST /auth/register` on the SurfPOS backend).
-- Conceptually: the backend submits the merchant's business details to Surfboard's merchant/KYC onboarding endpoint, receives back a Surfboard-side merchant identifier, and stores it as `merchants/{merchantId}.surfboardMerchantId` (see [03_DATABASE_DESIGN.md § 4.2](03_DATABASE_DESIGN.md#42-merchantsmerchantid)).
-- Onboarding may be asynchronous (KYC review) — `merchants/{merchantId}.status` should reflect this (`pending_verification` → `active`) rather than assuming instant activation. The app should allow the merchant to explore the app in a "payments pending verification" state rather than blocking all access.
-- **To confirm against official docs:** required KYC fields/documents, sync vs. async onboarding, and whether a webhook or polling is used to learn onboarding completion.
+Full step-by-step sequence: [19_SURFBOARD_WORKFLOWS.md § 1](19_SURFBOARD_WORKFLOWS.md#1-merchant-lifecycle). Summary of the integration contract:
 
-## 4. Payment APIs
+- `integrations/surfboard/merchant.client.js` exposes create/get/update operations against Surfboard's Merchant API.
+- Onboarding may be asynchronous (KYC review) — the backend reflects Surfboard's own onboarding/status field live; it does not invent a parallel `status` field in Firebase.
+- **To confirm against official docs:** required KYC fields/documents, sync vs. async onboarding, whether a webhook or polling reveals onboarding completion.
 
-### 4.1 Creating a payment (checkout flow)
+## 4. Store Lifecycle
 
-- Conceptually maps to [05_FEATURES.md § 7 Billing](05_FEATURES.md#7-billing) step 3: once the backend validates a cart total (`POST /sales` in [04_API_DOCUMENTATION.md § 7](04_API_DOCUMENTATION.md#7-billing--sales)), it creates a **payment intent/charge** with Surfboard for that exact validated amount, tied to the merchant's `surfboardMerchantId`.
-- The resulting Surfboard payment-intent identifier is stored on `payments/{paymentId}.surfboardPaymentIntentId` (see [03_DATABASE_DESIGN.md § 4.9](03_DATABASE_DESIGN.md#49-paymentspaymentid)) and returned to the client so it can proceed with the collection step (§4.2).
-- **Never** create the payment intent for a client-submitted amount directly — only for the backend-recomputed total (see [07_CODING_RULES.md § 8](07_CODING_RULES.md#8-never-duplicate-logic--always-reuse-services)).
+Full step-by-step sequence: [19_SURFBOARD_WORKFLOWS.md § 2](19_SURFBOARD_WORKFLOWS.md#2-store-lifecycle). `integrations/surfboard/store.client.js` exposes create/get/update Store operations **and** Payment Methods querying/configuration (folded in per [ADR-016](08_ARCHITECTURE_DECISIONS.md#adr-016--surfboard-domain-module-split) — Payment Methods are a capability of a Store, not a standalone domain worth its own client file).
 
-### 4.2 Collecting payment (client-side)
+## 5. Payment Lifecycle
 
-- Depending on which rails Surfboard supports for this merchant/device (card-present tap-to-pay, UPI/QR, wallet), the Flutter app either invokes a Surfboard-provided mobile SDK flow or displays a QR/deep-link for the customer to complete payment.
-- **To confirm against official docs:** whether Surfboard provides a Flutter/Dart SDK directly, a platform-native SDK requiring a plugin wrapper, or a purely server-driven flow (QR/link) with no client SDK at all — this materially affects [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md) (whether a `surfboard_sdk` wrapper package is needed in `frontend/`).
+Full step-by-step sequence: [19_SURFBOARD_WORKFLOWS.md § 4](19_SURFBOARD_WORKFLOWS.md#4-payment-lifecycle).
 
-### 4.3 Confirming payment status
+### 5.1 Creating a payment (checkout flow)
 
-- Primary mechanism: **webhook** (§5) — the backend should not rely on the client to report success, since a closed app or dropped connection shouldn't be able to fake a completed sale.
-- Secondary mechanism (fallback/reconciliation): the backend can poll Surfboard's payment-status endpoint for a given payment-intent ID if a webhook hasn't arrived within an expected window (protects against missed webhook delivery).
+- Once `billing.service.js` validates a cart total and creates a Firebase-owned Sale (`pending_payment`), `payments.service.js` calls `integrations/surfboard/payment.client.js` to create a payment intent for that exact validated amount, tied to the Store (and Device, if card-present).
+- The resulting Surfboard payment identifier is stored as `sales/{storeId}/{saleId}.surfboardPaymentId` — **not** as a duplicated `payments/{paymentId}` Firebase record (that node no longer exists — see [03_DATABASE_DESIGN.md](03_DATABASE_DESIGN.md)).
+- **Never** create the payment intent for a client-submitted amount directly — only for the backend-recomputed total.
 
-## 5. Webhooks
+### 5.2 Collecting payment (client-side)
+
+- Depending on which rails the Store's Payment Methods (§ 4) support, the Flutter app either invokes a Surfboard-provided mobile SDK flow or displays a QR/deep-link.
+- **To confirm against official docs:** whether Surfboard provides a Flutter/Dart SDK directly, a platform-native SDK requiring a plugin wrapper, or a purely server-driven flow (QR/link) with no client SDK — this affects [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md) (whether a `surfboard_sdk` wrapper package is needed in `frontend/`).
+
+### 5.3 Confirming payment status
+
+- Primary mechanism: **webhook** (§ 7). The backend never relies on the client to report success.
+- Secondary/fallback: the backend can poll Surfboard's payment-status endpoint via `payment.client.js` if a webhook hasn't arrived within an expected window, or when a user opens a "payment details" screen and needs the full, current Payment object (which, per § 1, is never reconstructed from Firebase — it's always a live call).
+- Tips collected as part of a payment flow through the same client — see [19_SURFBOARD_WORKFLOWS.md § 6](19_SURFBOARD_WORKFLOWS.md#6-tips-workflow).
+
+## 6. Device Lifecycle
+
+Full step-by-step sequence: [19_SURFBOARD_WORKFLOWS.md § 3](19_SURFBOARD_WORKFLOWS.md#3-device-lifecycle). `integrations/surfboard/device.client.js` exposes link/unlink/status operations. Device status is always queried live — never cached in Firebase, since a device can go offline independent of any SurfPOS-side event.
+
+## 7. Webhooks
 
 - Endpoint: `POST /webhooks/surfboard` (see [04_API_DOCUMENTATION.md § 8](04_API_DOCUMENTATION.md#8-payments-surfboard)).
-- **Signature verification is mandatory** — every incoming webhook must be verified against `SURFBOARD_WEBHOOK_SECRET` (exact signing scheme — HMAC header, etc. — to confirm against official docs) before any data is trusted or written.
-- **Idempotency is mandatory** — Surfboard (like most payment providers) may retry webhook delivery; the handler must check whether this event ID has already been processed before acting a second time (see [07_CODING_RULES.md § 15](07_CODING_RULES.md#15-nodejs-best-practices)).
-- On a verified `payment.succeeded`-equivalent event: mark `payments/{paymentId}.status = "succeeded"`, flip the linked `sales/{storeId}/{saleId}.status = "completed"`, decrement inventory, and trigger receipt generation — the exact orchestration sequence is in [02_ARCHITECTURE.md § 7](02_ARCHITECTURE.md#7-data-flow-example-a-sale).
-- On a verified failure event: mark `payments/{paymentId}.status = "failed"` and leave the sale in a state the app can offer to retry from (see [05_FEATURES.md § 9 UI](05_FEATURES.md#9-payments)).
+- **Signature verification is mandatory** — every incoming webhook is verified against `SURFBOARD_WEBHOOK_SECRET` (exact signing scheme to confirm against official docs) before any data is trusted or written.
+- **Idempotency is mandatory** — the handler must check whether this event ID has already been processed before acting a second time.
+- On a verified `payment.succeeded`-equivalent event: `sales/{storeId}/{saleId}.status = "completed"`, `paymentStatus = "paid"`, decrement Inventory, trigger Receipt generation — all Firebase-owned writes, none of which duplicate the Payment object itself (see § 5.1).
+- On a verified failure event: `paymentStatus = "failed"`, Sale stays retryable.
+- The webhook handler is owned by `modules/payments/payments.service.js` (see [21_BACKEND_GUIDELINES.md § 13](21_BACKEND_GUIDELINES.md#13-folder-ownership-summary)); if Surfboard's webhook payload ever carries non-payment event types (merchant/device status changes), those route to the owning module's Service, not handled inline in the Payments handler.
 
-## 6. Device APIs
+## 8. Branding Workflow
 
-- If a merchant uses a Surfboard-provided physical card reader/device (rather than phone-only tap-to-pay), the device must be **linked** to the merchant/store, likely via a device-pairing API call, and its identifier stored — candidate field `payments/{paymentId}.surfboardDeviceId` (already reserved in the schema, see [03_DATABASE_DESIGN.md § 4.9](03_DATABASE_DESIGN.md#49-paymentspaymentid)).
-- Device management (list linked devices, unlink, check device status) would live under its own settings sub-section — **not yet scoped as a Phase 1 endpoint**; add to [04_API_DOCUMENTATION.md](04_API_DOCUMENTATION.md) and [10_TASKS.md](10_TASKS.md) once Surfboard's device-support model for this integration is confirmed.
+Full step-by-step sequence: [19_SURFBOARD_WORKFLOWS.md § 5](19_SURFBOARD_WORKFLOWS.md#5-branding-workflow). `integrations/surfboard/branding.client.js` exposes get/update operations against Surfboard's own checkout/receipt branding. This is **not** the same object as SurfPOS's own `settings/{merchantId}.receiptTemplate` (Firebase-owned) — the two are deliberately kept separate since they control different rendering surfaces.
 
-## 7. Workflow Summary (End-to-End)
+## 9. Payment Methods Workflow
+
+Full step-by-step sequence: [19_SURFBOARD_WORKFLOWS.md § 7](19_SURFBOARD_WORKFLOWS.md#7-payment-methods-workflow). Folded into `store.client.js` (§ 4) — queried live before checkout to decide which payment-collection UI to present.
+
+## 10. Tips Workflow
+
+Full step-by-step sequence: [19_SURFBOARD_WORKFLOWS.md § 6](19_SURFBOARD_WORKFLOWS.md#6-tips-workflow). Folded into `payment.client.js` (§ 5) — tip configuration and tip amounts are both payment-adjacent concerns.
+
+## 11. Workflow Summary (End-to-End)
 
 ```
-Registration:  SurfPOS backend → Surfboard merchant onboarding → surfboardMerchantId stored
-Checkout:      SurfPOS backend validates cart → creates Surfboard payment intent
-Collection:    Flutter app → Surfboard SDK/QR flow → customer completes payment
-Confirmation:  Surfboard → webhook → SurfPOS backend verifies signature → updates
-               payments/sales/inventory/receipts (see 02_ARCHITECTURE.md § 7)
-Reconciliation:(fallback) SurfPOS backend polls payment status if webhook is late/missing
+Merchant Creation: SurfPOS backend → Surfboard Merchant Creation → merchantId reference stored
+Store Creation:    SurfPOS backend → Surfboard Store Creation → storeId reference stored
+Checkout:          SurfPOS backend validates cart (Firebase) → creates Surfboard payment intent
+Collection:        Flutter app → Surfboard SDK/QR flow → customer completes payment
+Confirmation:      Surfboard → webhook → SurfPOS backend verifies signature → updates
+                   Sale/Inventory/Receipt (Firebase) — never a duplicated Payment record
+Reconciliation:    (fallback) SurfPOS backend polls payment status if webhook is late/missing
+Device/Branding/
+Payment Methods/
+Tips:              Queried/configured live via their respective clients — never cached in
+                   Firebase (see 20_DOMAIN_MODEL.md § 1)
 ```
 
-## 8. Future APIs
+## 12. Future APIs
 
-- **Refunds/partial refunds** — not scoped for Phase 1 (see [05_FEATURES.md § 9 Future Improvements](05_FEATURES.md#9-payments)); will need a Surfboard refund endpoint plus a `sales` status of `refunded`/`partially_refunded`.
-- **Settlement/payout reporting** — surfacing Surfboard settlement data (when funds actually reach the merchant's bank account) inside Reports/Analytics is future scope.
-- **Multi-device payment collection** (one device bills, a separate linked device collects payment) — future scope, depends on confirming Surfboard's device-linking model (§6).
-- **Split payments** (part card, part cash) — future scope, needs a `payments` schema extension to support multiple payment records per sale.
+- **Refunds/partial refunds** — not scoped yet (see [19_SURFBOARD_WORKFLOWS.md § 4](19_SURFBOARD_WORKFLOWS.md#4-payment-lifecycle) step 7); a Surfboard refund call plus a Sale status of `refunded`/`partially_refunded` — no new Firebase entity needed, consistent with the no-duplication principle.
+- **Settlement/payout reporting** — surfacing Surfboard settlement data inside Reports/Analytics is future scope.
+- **Multi-device payment collection** — future scope, depends on Surfboard's device-linking model (§ 6).
+- **Split payments** (part card, part cash) — future scope; would need Sale to reference more than one `surfboardPaymentId`.
 
 ---
 
-**Next:** [16_AI_MODULE.md](16_AI_MODULE.md) — the OCR + Gemini AI pipeline.
+**Next:** [19_SURFBOARD_WORKFLOWS.md](19_SURFBOARD_WORKFLOWS.md) if arriving here first, otherwise [16_AI_MODULE.md](16_AI_MODULE.md) — the OCR + Gemini AI pipeline (unaffected by this pass).

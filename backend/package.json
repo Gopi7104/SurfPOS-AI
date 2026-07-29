@@ -4,12 +4,42 @@
   "private": true,
   "description": "SurfPOS AI backend API (Node.js + Express). See docs/02_ARCHITECTURE.md and docs/04_API_DOCUMENTATION.md.",
   "main": "src/server.js",
-  "scripts": {
-    "dev": "echo \"Not yet implemented — see docs/14_DEVELOPER_GUIDE.md\" && exit 1",
-    "start": "echo \"Not yet implemented — see docs/14_DEVELOPER_GUIDE.md\" && exit 1",
-    "test": "echo \"Not yet implemented — see docs/18_CONTRIBUTING.md\" && exit 1",
-    "lint": "echo \"Not yet implemented\" && exit 1"
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "build": "node -e \"require('./src/app.js'); console.log('Build check passed — app module loads cleanly.')\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.6.1",
+    "firebase-admin": "^14.2.0",
+    "helmet": "^7.1.0",
+    "pino": "^9.5.0",
+    "pino-http": "^10.3.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.8.0",
+    "nodemon": "^3.1.7",
+    "pino-pretty": "^11.3.0",
+    "prettier": "^3.9.6",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.10"
+  }
 }

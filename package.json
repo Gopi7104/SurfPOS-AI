@@ -4,6 +4,10 @@
   "private": true,
   "description": "SurfPOS AI — AI-powered mobile-first cloud POS for small retailers. See docs/01_PROJECT_OVERVIEW.md. This root package.json is a placeholder for repo-level tooling (e.g. git hooks, commit linting) — it does not build or run the application. Backend dependencies live in backend/package.json; the Flutter app is managed via frontend/pubspec.yaml.",
   "scripts": {
-    "docs": "echo \"See docs/13_CLAUDE_CONTEXT.md to get oriented\""
+    "docs": "echo \"See docs/13_CLAUDE_CONTEXT.md to get oriented\"",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
   }
 }
