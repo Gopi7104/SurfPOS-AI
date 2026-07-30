@@ -129,6 +129,7 @@ Full coding standards: [docs/07_CODING_RULES.md](../docs/07_CODING_RULES.md).
 - ⬜ Resolve pending technical decisions (OCR provider, validation/logging libraries — see [decision.md](decision.md); font is now settled as Inter, see D-012)
 
 **Backend/docs track — Documentation realigned to Surfboard-as-system-of-record; still Phase 1 (Backend Foundation) done in code** (see [docs/22_DEVELOPMENT_ROADMAP.md](../docs/22_DEVELOPMENT_ROADMAP.md), the new 13-phase roadmap superseding the old Phase 0/1/2/3 structure):
+**Documentation realigned to Surfboard-as-system-of-record; still Phase 1 (Backend Foundation) done in code** (see [docs/22_DEVELOPMENT_ROADMAP.md](../docs/22_DEVELOPMENT_ROADMAP.md), the new 13-phase roadmap superseding the old Phase 0/1/2/3 structure):
 - ✅ Documentation system complete and realigned (`/docs`, 22 files — four new: `19_SURFBOARD_WORKFLOWS.md`, `20_DOMAIN_MODEL.md`, `21_BACKEND_GUIDELINES.md`, `22_DEVELOPMENT_ROADMAP.md`)
 - ✅ Enterprise repository folder structure scaffolded
 - ✅ `.claude/` Claude knowledge base created (this folder)

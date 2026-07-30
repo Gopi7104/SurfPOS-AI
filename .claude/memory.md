@@ -8,9 +8,14 @@
 
 **Frontend UI track:**
 - Building the premium Flutter UI per the "Senior Flutter UI/UX Engineer" design brief: full custom design system (done) + 26 screens, one at a time (Splash done, 25 to go — see [projectStatus.md](projectStatus.md)).
+- Just finished a full documentation realignment pass: Surfboard is now confirmed as the system of record for Merchant/Store/Device/Payment/Branding/Tips/Payment Methods (not just a payment processor), Firebase holds application data only, and the Flutter app talks only to the backend. Twelve docs fully rewritten, six lightly updated, four new docs added, old Phase 0/1/2/3 roadmap replaced entirely by a new 13-phase order. See [projectStatus.md § Completed](projectStatus.md#completed) for the full file list.
+- **This was documentation-only — verified no file under `backend/src/`, `backend/tests/`, `.github/workflows/`, or `.husky/` was touched.** The user explicitly said to stop all feature development and wait for approval of the new documentation before writing any code.
+
+Building the premium Flutter UI per the "Senior Flutter UI/UX Engineer" design brief: full custom design system (done) + 26 screens, one at a time (Splash done, 25 to go — see [projectStatus.md](projectStatus.md)).
 - Next screen up: **Login**.
 - The design system + widget library is verified clean (`flutter analyze`: 0 issues — errors, warnings, infos, and lints all zero, confirmed after fixing 7 `prefer_const_constructors`/`prefer_const_literals_to_create_immutables` infos in `skeleton_list.dart`). `flutter test` has passed (3/3) on a confirmed run, but also failed once on the same `impellerc.exe` Application Control block seen with `flutter build web` (release) — which has failed consistently on every attempt (2/2). See `projectStatus.md § Known Issues #5` for the full nuance: don't assume a single passing test run means it's reliable, and don't assume a passing test run implies a release build will also succeed on this machine.
-- **A mandatory verification workflow is now in force for every task** (format → analyze-until-clean → test → build, then a fixed-format report) — see `.claude/workflow.md § Definition of Done` and `.claude/commands.md`. Follow it before considering any task complete, starting now.
+- **A mandatory verification workflow is now in force for every task** (format → analyze-until-clean → test → build, then a fixed-format report) — see `.claude/workflow.md § Definition of Done` and `.claude/commands.md`. Follow it before considering any task complete, starting now
+
 
 ## Current Assumptions
 
