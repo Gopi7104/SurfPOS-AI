@@ -21,11 +21,30 @@ Every task has: **Priority** (P0 = blocking/critical, P1 = important, P2 = nice-
 
 ## Phase 1 — Backend Foundation ✅ Done
 
+**Backend track (as actually shipped, matches the header above):**
+
 | # | Task | Priority | Status | Dependencies | Owner |
 |---|---|---|---|---|---|
 | 1.1 | Express app bootstrap, env config, logger, Firebase Admin SDK init, auth/validation/error middleware, response helper, `GET /health` | P0 | Done | — | Claude |
 | 1.2 | Infrastructure hardening: ESLint/Prettier/Husky, compression + rate limiting, `constants/`/`types/` layers, placeholder Surfboard integration clients, richer logging, tests, CI | P0 | Done | 1.1 | Claude |
 | 1.3 | Documentation realignment to Surfboard-as-system-of-record architecture | P0 | Done | — | Claude |
+
+**Frontend UI track (older Phase 1 numbering scheme, predates the Surfboard-alignment pass — kept for reference, task IDs below are independent of the table above):**
+
+| # | Task | Priority | Status | Dependencies | Est. Time | Owner |
+|---|---|---|---|---|---|---|
+| 1.0 | Premium Flutter UI: design system (done) + 26 screens, one at a time (1/26 — Splash — done; see [09_PROMPT_HISTORY.md](09_PROMPT_HISTORY.md) and `.claude/projectStatus.md`) | P0 | In Progress | 0.6 | ~10 days (26 screens) | Claude |
+| 1.1 | Firebase Auth integration (sign-up/sign-in, email + phone OTP) | P0 | Not Started | 0.3 | 2 days | Unassigned |
+| 1.2 | Merchant Registration flow (`POST /auth/register`, onboarding wizard UI) | P0 | Not Started | 1.1, 0.4 | 3 days | Unassigned |
+| 1.3 | Product catalog CRUD (backend + UI) | P0 | Not Started | 0.3 | 3 days | Unassigned |
+| 1.4 | Inventory management (view, manual adjust) | P0 | Not Started | 1.3 | 2 days | Unassigned |
+| 1.5 | Barcode scanner (camera-based) | P0 | Not Started | 1.3 | 3 days | Unassigned |
+| 1.6 | Cart + Billing checkout flow (client-side cart, `POST /sales`) | P0 | Not Started | 1.3, 1.4 | 4 days | Unassigned |
+| 1.7 | Surfboard Payments integration (payment intent, device/SDK flow, webhook) | P0 | Not Started | 0.4, 1.6 | 5 days | Unassigned |
+| 1.8 | Receipt generation (PDF) + share | P0 | Not Started | 1.7 | 2 days | Unassigned |
+| 1.9 | Dashboard (today's snapshot, no AI insights yet) | P1 | Not Started | 1.6 | 2 days | Unassigned |
+| 1.10 | Settings (business profile, tax, receipt template) | P1 | Not Started | 1.2 | 2 days | Unassigned |
+| 1.11 | Staff accounts + invite flow | P1 | Not Started | 1.1 | 2 days | Unassigned |
 
 ## Phase 2 — Surfboard Client SDK ✅ Done
 

@@ -1,16 +1,26 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
 
-// Firebase config comes from the platform-native files (android/app/google-services.json,
-// ios/Runner/GoogleService-Info.plist) — no generated firebase_options.dart / no FirebaseOptions
-// passed here, so nothing app-specific is hardcoded in source. See docs/14_DEVELOPER_GUIDE.md § 5.
-// The app only ever uses Firebase Authentication directly — Realtime Database/Storage are backend
-// -only (docs/02_ARCHITECTURE.md § 2), so Firebase.initializeApp() failing here should surface
-// loudly rather than be swallowed, since Auth is the one Firebase capability this app owns.
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  runApp(const SurfPosApp());
+
+  try {
+    await Firebase.initializeApp();
+  } catch (error) {
+    // No real Firebase project is configured yet for this app — there is no
+    // google-services.json / GoogleService-Info.plist / firebase_options.dart
+    // (see the Authentication module's Final Report, "Remaining Backend
+    // Requirements"). Swallowing this keeps the UI reachable for
+    // structural/visual verification; any real sign-in attempt still
+    // surfaces a clear, honest Firebase error through the normal auth error
+    // handling path (`AuthFailure.fromException`) once it's actually
+    // attempted — this is not a mock or a bypass of Firebase.
+    debugPrint(
+        'Firebase.initializeApp() failed — no Firebase project configured yet: $error');
+  }
+
+  runApp(const ProviderScope(child: SurfPosApp()));
 }

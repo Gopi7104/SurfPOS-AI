@@ -119,6 +119,16 @@ Full coding standards: [docs/07_CODING_RULES.md](../docs/07_CODING_RULES.md).
 
 ## Current Development Phase
 
+**Frontend UI track — Phase 0 — Foundations, transitioning into Phase 1 frontend UI** (see [docs/10_TASKS.md](../docs/10_TASKS.md)):
+- ✅ Documentation system complete (`/docs`, 18 files)
+- ✅ Enterprise repository folder structure scaffolded (`frontend/`, `backend/`, `firebase/`, etc. — placeholders only)
+- ✅ `.claude/` Claude knowledge base created (this folder)
+- ✅ Frontend design system + reusable widget library complete (`frontend/lib/app/themes/`, `frontend/lib/core/widgets/`) — verified with `flutter analyze`
+- 🔄 26-screen premium UI build, one screen at a time — Splash done (1/26), Login next (see [projectStatus.md](projectStatus.md))
+- ⬜ Firebase project setup, Surfboard sandbox credentials, Gemini API key provisioning
+- ⬜ Resolve pending technical decisions (OCR provider, validation/logging libraries — see [decision.md](decision.md); font is now settled as Inter, see D-012)
+
+**Backend/docs track — Documentation realigned to Surfboard-as-system-of-record; still Phase 1 (Backend Foundation) done in code** (see [docs/22_DEVELOPMENT_ROADMAP.md](../docs/22_DEVELOPMENT_ROADMAP.md), the new 13-phase roadmap superseding the old Phase 0/1/2/3 structure):
 **Documentation realigned to Surfboard-as-system-of-record; still Phase 1 (Backend Foundation) done in code** (see [docs/22_DEVELOPMENT_ROADMAP.md](../docs/22_DEVELOPMENT_ROADMAP.md), the new 13-phase roadmap superseding the old Phase 0/1/2/3 structure):
 - ✅ Documentation system complete and realigned (`/docs`, 22 files — four new: `19_SURFBOARD_WORKFLOWS.md`, `20_DOMAIN_MODEL.md`, `21_BACKEND_GUIDELINES.md`, `22_DEVELOPMENT_ROADMAP.md`)
 - ✅ Enterprise repository folder structure scaffolded
@@ -128,6 +138,8 @@ Full coding standards: [docs/07_CODING_RULES.md](../docs/07_CODING_RULES.md).
 - ⬜ **Waiting for explicit user approval of the realigned documentation before any Roadmap Phase 2+ code (Surfboard Client SDK onward)**
 - ⬜ Firebase project setup, Surfboard sandbox credentials + official API docs, Gemini API key provisioning
 - ⬜ Resolve remaining pending technical decisions (OCR provider, font, real-time client strategy — see [decision.md](decision.md), `docs/08_ARCHITECTURE_DECISIONS.md § ADR-009`)
+
+**Note:** the backend/docs track has since progressed well past Phase 1 in later sessions (Surfboard Client SDK, auth, merchant modules through Roadmap Phase 5 — see [projectStatus.md](projectStatus.md) for the live status); this section preserves both tracks' state as of the point they were merged.
 
 Live, authoritative status: [projectStatus.md](projectStatus.md).
 
