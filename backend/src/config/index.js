@@ -39,6 +39,11 @@ const envSchema = z.object({
   SURFBOARD_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
   SURFBOARD_AUTH_STRATEGY: z.enum(['api_key', 'bearer', 'oauth']).default('api_key'),
   SURFBOARD_BEARER_TOKEN: z.string().optional(),
+  // Partner-gateway credentials — a separate auth model from the api_key/bearer/oauth strategies
+  // above (see docs/15_SURFBOARD_INTEGRATION.md § 2); not yet consumed by any auth strategy class.
+  SURFBOARD_PARTNER_ID: z.string().optional(),
+  SURFBOARD_API_URL: z.string().url().optional(),
+  SURFBOARD_SECRET_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -110,6 +115,9 @@ const config = {
     environment: env.SURFBOARD_ENV,
     authStrategy: env.SURFBOARD_AUTH_STRATEGY,
     bearerToken: env.SURFBOARD_BEARER_TOKEN,
+    partnerId: env.SURFBOARD_PARTNER_ID,
+    apiUrl: env.SURFBOARD_API_URL,
+    secretKey: env.SURFBOARD_SECRET_KEY,
   },
 };
 
