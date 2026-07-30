@@ -18,17 +18,24 @@ function createMerchantRepository({
 } = {}) {
   /**
    * The caller's Surfboard merchant reference, resolved from their tracked application — not a
-   * copy of the Merchant object itself, just the id + last-cached status.
+   * copy of the Merchant object itself, just the ids + last-cached status. `applicationId` is
+   * included so callers can poll the real Check Application Status endpoint (see ADR-025) —
+   * Fetch Merchant Details itself has no status field to derive one from (ADR-022's original
+   * assumption that it did is now disproven by the confirmed docs).
    * @param {string} uid
-   * @returns {Promise<{ merchantId: string, applicationStatus: string }|null>} null if no
-   *   application exists, or one exists but no merchantId has been assigned yet
+   * @returns {Promise<{ merchantId: string, applicationId: string, applicationStatus: string }|null>}
+   *   null if no application exists, or one exists but no merchantId has been assigned yet
    */
   async function getMerchantReference(uid) {
     const application = await merchantApplicationRepository.get(uid);
     if (!application || !application.merchantId) {
       return null;
     }
-    return { merchantId: application.merchantId, applicationStatus: application.applicationStatus };
+    return {
+      merchantId: application.merchantId,
+      applicationId: application.applicationId,
+      applicationStatus: application.applicationStatus,
+    };
   }
 
   /**

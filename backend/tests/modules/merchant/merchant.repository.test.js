@@ -43,6 +43,7 @@ describe('merchant.repository', () => {
 
       await expect(repository.getMerchantReference('uid_1')).resolves.toEqual({
         merchantId: 'sb_merchant_1',
+        applicationId: 'uid_1',
         applicationStatus: 'active',
       });
     });

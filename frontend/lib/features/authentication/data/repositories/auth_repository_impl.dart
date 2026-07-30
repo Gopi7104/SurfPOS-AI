@@ -5,12 +5,13 @@ import '../datasources/firebase_auth_data_source.dart';
 import '../models/auth_user.dart';
 import 'auth_repository.dart';
 
-/// Thrown when a Google sign-in succeeds but the backend has no `users/{uid}`
-/// profile for that account yet (`404 USER_PROFILE_NOT_FOUND`) — there is no
-/// client-only way to complete registration for a Google-first user (calling
-/// `/auth/signup` would hit `409 EMAIL_ALREADY_IN_USE`, since Firebase already
-/// created the account). This is a genuine backend gap, not something worked
-/// around here — see the Final Report's "Remaining Backend Requirements".
+/// Thrown when a Google sign-in succeeds but the backend still has no
+/// `users/{uid}` profile for that account (`404 USER_PROFILE_NOT_FOUND`).
+/// `POST /auth/login` now auto-provisions a profile for any federated
+/// (non-password) sign-in with no existing profile — by uid or by a
+/// previously-registered email — so this should no longer trigger in
+/// practice; kept as a defensive fallback for a genuinely unexpected backend
+/// response (see auth.service.js#login).
 class GoogleAccountNotRegistered implements Exception {
   const GoogleAccountNotRegistered();
 }

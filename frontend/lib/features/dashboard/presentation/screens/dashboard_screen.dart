@@ -5,9 +5,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../app/themes/app_colors.dart';
 import '../../../../app/themes/app_spacing.dart';
 import '../../../../app/themes/app_typography.dart';
+import '../../../../core/widgets/buttons/app_primary_button.dart';
 import '../../../../core/widgets/buttons/app_secondary_button.dart';
 import '../../../authentication/presentation/screens/login_page.dart';
 import '../../../authentication/providers/auth_providers.dart';
+import '../../../merchant/presentation/screens/merchant_onboarding_wizard_page.dart';
 
 /// Placeholder for the real Dashboard (screen 5/26 of the design brief,
 /// not yet built) — exists purely as the post-auth destination so the
@@ -56,6 +58,15 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(height: AppSpacing.xxl),
+                AppPrimaryButton(
+                  label: 'Merchant Onboarding',
+                  icon: LucideIcons.building2,
+                  expand: false,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const MerchantOnboardingWizardPage()),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
                 AppSecondaryButton(
                   label: 'Log Out',
                   icon: LucideIcons.logOut,

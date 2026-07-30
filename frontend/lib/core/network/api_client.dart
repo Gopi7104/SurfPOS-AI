@@ -100,6 +100,7 @@ class ApiClient {
       'CONFLICT' => ConflictException(message),
       'RATE_LIMITED' => RateLimitedException(message),
       'INTERNAL_ERROR' => InternalServerException(message),
+      'SURFBOARD_ERROR' => SurfboardUpstreamException(message),
       _ => UnknownApiException(message),
     };
   }

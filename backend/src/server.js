@@ -7,8 +7,8 @@ const app = require('./app');
 const config = require('./config');
 const { logger } = require('./utils/logger');
 
-const server = app.listen(config.port, () => {
-  logger.info({ port: config.port, env: config.env }, 'SurfPOS AI backend listening');
+const server = app.listen(config.port, config.host, () => {
+  logger.info({ port: config.port, host: config.host, env: config.env }, 'SurfPOS AI backend listening');
 });
 
 function shutdown(signal) {

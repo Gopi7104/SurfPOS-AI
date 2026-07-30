@@ -9,6 +9,7 @@ function createClient({ fetchImpl, config } = {}) {
       environment: 'sandbox',
       baseUrl: 'https://sandbox.example.test',
       apiKey: 'test-api-key',
+      partnerId: 'partner-1',
       timeoutMs: 200,
       maxRetries: 0,
       ...config,
@@ -17,34 +18,39 @@ function createClient({ fetchImpl, config } = {}) {
 }
 
 describe('SurfboardMerchantClient.createMerchant', () => {
-  it('POSTs to /merchants and returns the parsed response body', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ application_id: 'app_1', status: 'pending_verification' }), {
-        status: 201,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+  it('POSTs to /partners/:partnerId/merchants and returns the full response envelope', async () => {
+    const body = {
+      status: 'SUCCESS',
+      data: { applicationId: 'app_1', webKybUrl: 'https://surfkyb.com/app_1' },
+    };
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify(body), { status: 201, headers: { 'Content-Type': 'application/json' } }),
+      );
     const client = createClient({ fetchImpl });
 
-    const result = await client.createMerchant({ business_name: 'Blue Wave Surf Shop' });
+    const result = await client.createMerchant({ country: 'SE' });
 
-    expect(result).toEqual({ application_id: 'app_1', status: 'pending_verification' });
+    expect(result).toEqual(body);
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe('https://sandbox.example.test/merchants');
+    expect(url).toBe('https://sandbox.example.test/partners/partner-1/merchants');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body)).toEqual({ business_name: 'Blue Wave Surf Shop' });
+    expect(JSON.parse(init.body)).toEqual({ country: 'SE' });
   });
 
   it('throws a SurfboardApiError when Surfboard rejects the request', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ message: 'invalid business type' }), { status: 400 }));
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: 'ERROR', data: null, message: 'Invalid request body.' }), {
+        status: 400,
+      }),
+    );
     const client = createClient({ fetchImpl });
 
     await expect(client.createMerchant({})).rejects.toMatchObject({
       name: 'SurfboardApiError',
       code: 'SURFBOARD_ERROR',
-      message: 'invalid business type',
+      message: 'Invalid request body.',
     });
   });
 
@@ -65,28 +71,75 @@ describe('SurfboardMerchantClient.createMerchant', () => {
   });
 });
 
-describe('SurfboardMerchantClient.getMerchant', () => {
-  it('GETs /merchants/:merchantId and returns the parsed response body', async () => {
+describe('SurfboardMerchantClient.getApplicationStatus', () => {
+  it('GETs /partners/:partnerId/merchants/:applicationId/status', async () => {
+    const body = {
+      status: 'SUCCESS',
+      data: {
+        applicationId: 'app_1',
+        applicationStatus: 'MERCHANT_CREATED',
+        merchantId: 'm-1',
+        storeId: 's-1',
+      },
+    };
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
+    const client = createClient({ fetchImpl });
+
+    const result = await client.getApplicationStatus('app_1');
+
+    expect(result).toEqual(body);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe('https://sandbox.example.test/partners/partner-1/merchants/app_1/status');
+    expect(init.method).toBe('GET');
+  });
+
+  it('throws a SurfboardApiError for an unknown application id', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ merchant_id: 'sb_merchant_1', status: 'active' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      new Response(JSON.stringify({ status: 'ERROR', data: null, message: 'Invalid Application ID' }), {
+        status: 400,
       }),
     );
     const client = createClient({ fetchImpl });
 
+    await expect(client.getApplicationStatus('missing')).rejects.toMatchObject({
+      name: 'SurfboardApiError',
+      code: 'SURFBOARD_ERROR',
+    });
+  });
+});
+
+describe('SurfboardMerchantClient.getMerchant', () => {
+  it('GETs /partners/:partnerId/merchants/:merchantId with a MERCHANT-ID header', async () => {
+    const body = {
+      status: 'SUCCESS',
+      data: { merchantId: 'sb_merchant_1', merchantName: 'Blue Wave Surf Shop' },
+    };
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
+    const client = createClient({ fetchImpl });
+
     const result = await client.getMerchant('sb_merchant_1');
 
-    expect(result).toEqual({ merchant_id: 'sb_merchant_1', status: 'active' });
+    expect(result).toEqual(body);
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe('https://sandbox.example.test/merchants/sb_merchant_1');
+    expect(url).toBe('https://sandbox.example.test/partners/partner-1/merchants/sb_merchant_1');
     expect(init.method).toBe('GET');
+    expect(init.headers['MERCHANT-ID']).toBe('sb_merchant_1');
   });
 
   it('throws a SurfboardApiError for a non-2xx response', async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ message: 'not found' }), { status: 404 }));
+      .mockResolvedValue(
+        new Response(JSON.stringify({ status: 'ERROR', data: null, message: 'not found' }), { status: 404 }),
+      );
     const client = createClient({ fetchImpl });
 
     await expect(client.getMerchant('missing')).rejects.toMatchObject({
@@ -97,31 +150,31 @@ describe('SurfboardMerchantClient.getMerchant', () => {
 });
 
 describe('SurfboardMerchantClient.updateMerchant', () => {
-  it('PATCHes /merchants/:merchantId with the wire payload', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ merchant_id: 'sb_merchant_1', business_name: 'New Name', status: 'active' }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
-    );
+  it('PUTs /partners/:partnerId/merchants/:merchantId with the wire payload and a MERCHANT-ID header', async () => {
+    const body = { status: 'SUCCESS', message: 'Successfully updated the merchant details.' };
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
     const client = createClient({ fetchImpl });
 
-    const result = await client.updateMerchant('sb_merchant_1', { business_name: 'New Name' });
+    const result = await client.updateMerchant('sb_merchant_1', { email: 'new@example.com' });
 
-    expect(result).toEqual({ merchant_id: 'sb_merchant_1', business_name: 'New Name', status: 'active' });
+    expect(result).toEqual(body);
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe('https://sandbox.example.test/merchants/sb_merchant_1');
-    expect(init.method).toBe('PATCH');
-    expect(JSON.parse(init.body)).toEqual({ business_name: 'New Name' });
+    expect(url).toBe('https://sandbox.example.test/partners/partner-1/merchants/sb_merchant_1');
+    expect(init.method).toBe('PUT');
+    expect(init.headers['MERCHANT-ID']).toBe('sb_merchant_1');
+    expect(JSON.parse(init.body)).toEqual({ email: 'new@example.com' });
   });
 
   it('throws a SurfboardApiError when Surfboard rejects the update', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ message: 'invalid field' }), { status: 400 }));
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: 'ERROR', data: null, message: 'invalid field' }), {
+        status: 400,
+      }),
+    );
     const client = createClient({ fetchImpl });
 
     await expect(client.updateMerchant('sb_merchant_1', {})).rejects.toMatchObject({

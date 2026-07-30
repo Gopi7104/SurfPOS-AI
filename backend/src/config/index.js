@@ -21,6 +21,9 @@ dotenv.config({ path: path.resolve(process.cwd(), envFile) });
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
+  // 0.0.0.0 binds every network interface (LAN-reachable, and what containers/PaaS platforms
+  // expect in production); override to 127.0.0.1 to restrict to loopback-only.
+  HOST: z.string().default('0.0.0.0'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   CORS_ALLOWED_ORIGINS: z.string().default('*'),
 
@@ -37,7 +40,9 @@ const envSchema = z.object({
   SURFBOARD_API_SECRET: z.string().optional(),
   SURFBOARD_WEBHOOK_SECRET: z.string().optional(),
   SURFBOARD_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
-  SURFBOARD_AUTH_STRATEGY: z.enum(['api_key', 'bearer', 'oauth']).default('api_key'),
+  // api_key_secret is the confirmed scheme for the Merchant Onboarding API family (both API-KEY
+  // and API-SECRET headers together) — see docs/08_ARCHITECTURE_DECISIONS.md § ADR-025.
+  SURFBOARD_AUTH_STRATEGY: z.enum(['api_key', 'api_key_secret', 'bearer', 'oauth']).default('api_key_secret'),
   SURFBOARD_BEARER_TOKEN: z.string().optional(),
   // Partner-gateway credentials — a separate auth model from the api_key/bearer/oauth strategies
   // above (see docs/15_SURFBOARD_INTEGRATION.md § 2); not yet consumed by any auth strategy class.
@@ -86,6 +91,7 @@ const config = {
   env: env.NODE_ENV,
   isProduction: env.NODE_ENV === 'production',
   port: env.PORT,
+  host: env.HOST,
   logLevel: env.LOG_LEVEL,
   corsAllowedOrigins:
     env.CORS_ALLOWED_ORIGINS === '*'

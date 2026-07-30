@@ -7,6 +7,7 @@
 
 const STRATEGY_TYPES = Object.freeze({
   API_KEY: 'api_key',
+  API_KEY_SECRET: 'api_key_secret',
   BEARER: 'bearer',
   OAUTH: 'oauth',
 });

@@ -28,6 +28,14 @@ function validateAuthConfig(strategy, credentials = {}) {
       }
       return;
 
+    case STRATEGY_TYPES.API_KEY_SECRET:
+      if (!credentials.apiKey || !credentials.apiSecret) {
+        throw new SurfboardAuthConfigError(
+          'SURFBOARD_AUTH_STRATEGY=api_key_secret requires both SURFBOARD_API_KEY and SURFBOARD_API_SECRET',
+        );
+      }
+      return;
+
     case STRATEGY_TYPES.BEARER:
       if (!credentials.bearerToken) {
         throw new SurfboardAuthConfigError(

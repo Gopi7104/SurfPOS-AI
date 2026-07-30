@@ -6,6 +6,7 @@
 module.exports = Object.freeze({
   NODE_ENV: 'NODE_ENV',
   PORT: 'PORT',
+  HOST: 'HOST',
   LOG_LEVEL: 'LOG_LEVEL',
   CORS_ALLOWED_ORIGINS: 'CORS_ALLOWED_ORIGINS',
 

@@ -13,6 +13,7 @@ function createFakeFirebaseAuth(overrides = {}) {
 function createFakeUsersRepository(overrides = {}) {
   return {
     get: vi.fn(),
+    getUidByEmail: vi.fn().mockResolvedValue(null),
     create: vi.fn(),
     update: vi.fn(),
     ...overrides,
@@ -130,14 +131,67 @@ describe('auth.service', () => {
       expect(usersRepository.get).toHaveBeenCalledWith('uid_1');
     });
 
-    it('throws NotFoundError when no profile has been provisioned yet', async () => {
+    it('throws NotFoundError for a password sign-in with no provisioned profile', async () => {
       const firebaseAuth = createFakeFirebaseAuth({
-        verifyIdToken: vi.fn().mockResolvedValue({ uid: 'uid_1' }),
+        verifyIdToken: vi
+          .fn()
+          .mockResolvedValue({ uid: 'uid_1', firebase: { sign_in_provider: 'password' } }),
       });
       const usersRepository = createFakeUsersRepository({ get: vi.fn().mockResolvedValue(null) });
       const service = createAuthService({ firebaseAuth, usersRepository });
 
       await expect(service.login('tok')).rejects.toMatchObject({ name: 'NotFoundError' });
+      expect(usersRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the email index when the uid has no profile of its own', async () => {
+      // Same person, second provider: Google sign-in for an email that already has a profile
+      // under the Email/Password account's uid.
+      const firebaseAuth = createFakeFirebaseAuth({
+        verifyIdToken: vi.fn().mockResolvedValue({
+          uid: 'google_uid',
+          email: 'owner@example.com',
+          firebase: { sign_in_provider: 'google.com' },
+        }),
+      });
+      const usersRepository = createFakeUsersRepository({
+        get: vi
+          .fn()
+          .mockImplementation((uid) =>
+            uid === 'password_uid'
+              ? Promise.resolve({ uid: 'password_uid', role: 'owner' })
+              : Promise.resolve(null),
+          ),
+        getUidByEmail: vi.fn().mockResolvedValue('password_uid'),
+      });
+      const service = createAuthService({ firebaseAuth, usersRepository });
+
+      await expect(service.login('tok')).resolves.toEqual({ uid: 'password_uid', role: 'owner' });
+      expect(usersRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('auto-provisions a profile for a brand-new federated sign-in', async () => {
+      const firebaseAuth = createFakeFirebaseAuth({
+        verifyIdToken: vi.fn().mockResolvedValue({
+          uid: 'google_uid_new',
+          email: 'new-google-user@example.com',
+          name: 'New Google User',
+          firebase: { sign_in_provider: 'google.com' },
+        }),
+      });
+      const usersRepository = createFakeUsersRepository({ get: vi.fn().mockResolvedValue(null) });
+      const service = createAuthService({ firebaseAuth, usersRepository });
+
+      const profile = await service.login('tok');
+
+      expect(profile).toMatchObject({
+        uid: 'google_uid_new',
+        email: 'new-google-user@example.com',
+        displayName: 'New Google User',
+        role: 'owner',
+        status: 'active',
+      });
+      expect(usersRepository.create).toHaveBeenCalledWith('google_uid_new', profile);
     });
   });
 
@@ -148,14 +202,37 @@ describe('auth.service', () => {
       });
       const service = createAuthService({ usersRepository });
 
-      await expect(service.getCurrentUser('uid_1')).resolves.toEqual({ uid: 'uid_1', role: 'owner' });
+      await expect(service.getCurrentUser({ uid: 'uid_1' })).resolves.toEqual({
+        uid: 'uid_1',
+        role: 'owner',
+      });
     });
 
-    it('throws NotFoundError for an unknown uid', async () => {
+    it('throws NotFoundError for an unknown uid with no email fallback match', async () => {
       const usersRepository = createFakeUsersRepository({ get: vi.fn().mockResolvedValue(null) });
       const service = createAuthService({ usersRepository });
 
-      await expect(service.getCurrentUser('missing')).rejects.toMatchObject({ name: 'NotFoundError' });
+      await expect(service.getCurrentUser({ uid: 'missing' })).rejects.toMatchObject({
+        name: 'NotFoundError',
+      });
+    });
+
+    it('falls back to the email index when the uid has no profile of its own', async () => {
+      const usersRepository = createFakeUsersRepository({
+        get: vi
+          .fn()
+          .mockImplementation((uid) =>
+            uid === 'password_uid'
+              ? Promise.resolve({ uid: 'password_uid', role: 'owner' })
+              : Promise.resolve(null),
+          ),
+        getUidByEmail: vi.fn().mockResolvedValue('password_uid'),
+      });
+      const service = createAuthService({ usersRepository });
+
+      await expect(
+        service.getCurrentUser({ uid: 'google_uid', email: 'owner@example.com' }),
+      ).resolves.toEqual({ uid: 'password_uid', role: 'owner' });
     });
   });
 

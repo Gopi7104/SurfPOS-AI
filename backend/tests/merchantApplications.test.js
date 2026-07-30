@@ -11,11 +11,17 @@ import app from '../src/app.js';
 // against constructor-injected fakes.
 
 const VALID_APPLICATION = {
-  businessName: 'Blue Wave Surf Shop',
-  businessType: 'retail',
-  contactEmail: 'owner@example.com',
-  contactPhone: '+46700000000',
-  address: { line1: 'Main St 1', city: 'Malmö', country: 'SE' },
+  country: 'SE',
+  organisation: {
+    corporateId: '1234567812',
+    address: { addressLine1: 'Main Street 123', city: 'Stockholm', countryCode: 'SE', postalCode: '123 45' },
+  },
+  store: {
+    name: 'Main Street Store',
+    email: 'store@example.com',
+    phoneNumber: { code: '46', number: '701234567' },
+    address: { addressLine1: 'Main Street 123', city: 'Stockholm', countryCode: 'SE', postalCode: '123 45' },
+  },
 };
 
 describe('POST /merchant/applications', () => {
@@ -26,16 +32,28 @@ describe('POST /merchant/applications', () => {
     expect(response.body.error.code).toBe('UNAUTHENTICATED');
   });
 
-  it('returns 400 VALIDATION_ERROR for a malformed phone number even with a bearer token present', async () => {
+  it('returns 401 (auth runs before validation) for a malformed MCC code even with a bearer token present', async () => {
     const response = await request(app)
       .post('/merchant/applications')
       .set('Authorization', 'Bearer some-token')
-      .send({ ...VALID_APPLICATION, contactPhone: 'not-e164' });
+      .send({
+        ...VALID_APPLICATION,
+        organisation: { ...VALID_APPLICATION.organisation, mccCode: 'not-a-code' },
+      });
 
     // Auth runs before validation on this router (router.use(authenticate)), so an unconfigured
     // Firebase project surfaces as 401 here rather than 400 — this still proves the router chain
     // (auth -> validate -> controller) is wired in the correct order.
     expect(response.status).toBe(401);
+  });
+});
+
+describe('GET /merchant/applications/:id/status', () => {
+  it('returns 401 UNAUTHENTICATED without an Authorization header', async () => {
+    const response = await request(app).get('/merchant/applications/app_1/status');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe('UNAUTHENTICATED');
   });
 });
 

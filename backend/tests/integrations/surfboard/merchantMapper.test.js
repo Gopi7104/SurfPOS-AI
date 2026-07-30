@@ -1,125 +1,254 @@
 import { describe, it, expect } from 'vitest';
 import merchantMapper from '../../../src/integrations/surfboard/mappers/merchant.mapper.js';
 
-describe('merchantMapper.toWire', () => {
-  it('maps the domain application input to Surfboard wire field names', () => {
-    const wire = merchantMapper.toWire({
-      businessName: 'Blue Wave Surf Shop',
-      businessType: 'retail',
-      contactEmail: 'owner@example.com',
-      contactPhone: '+46700000000',
-      address: { line1: 'Main St 1', city: 'Malmö', country: 'SE' },
-    });
+const domainInput = {
+  country: 'SE',
+  organisation: {
+    corporateId: '5591631360',
+    legalName: 'Year Zero Press AB',
+    mccCode: '5192',
+    address: {
+      careOf: 'John Doe',
+      addressLine1: 'Main Street 123',
+      addressLine2: 'Building C',
+      city: 'Stockholm',
+      countryCode: 'SE',
+      postalCode: '123 45',
+    },
+    phoneNumber: { code: '46', number: '701234567' },
+    email: 'contact@test.com',
+  },
+  store: {
+    name: 'Main Street Store',
+    email: 'store@example.com',
+    phoneNumber: { code: '46', number: '701234567' },
+    address: { addressLine1: 'Main Street 123', city: 'Stockholm', countryCode: 'SE', postalCode: '123 45' },
+  },
+};
 
-    expect(wire).toEqual({
-      business_name: 'Blue Wave Surf Shop',
-      business_type: 'retail',
-      contact_email: 'owner@example.com',
-      contact_phone: '+46700000000',
-      address: { line1: 'Main St 1', city: 'Malmö', country: 'SE' },
+describe('merchantMapper.toWire', () => {
+  it('maps the full domain input to the confirmed Surfboard Create Merchant body', () => {
+    expect(merchantMapper.toWire(domainInput)).toEqual({
+      country: 'SE',
+      organisation: {
+        corporateId: '5591631360',
+        legalName: 'Year Zero Press AB',
+        mccCode: '5192',
+        address: {
+          careOf: 'John Doe',
+          addressLine1: 'Main Street 123',
+          addressLine2: 'Building C',
+          city: 'Stockholm',
+          countryCode: 'SE',
+          postalCode: '123 45',
+        },
+        phoneNumber: { code: '46', number: '701234567' },
+        email: 'contact@test.com',
+      },
+      controlFields: {
+        generateShortLink: true,
+        store: {
+          name: 'Main Street Store',
+          email: 'store@example.com',
+          phoneNumber: { code: '46', number: '701234567' },
+          address: {
+            addressLine1: 'Main Street 123',
+            city: 'Stockholm',
+            countryCode: 'SE',
+            postalCode: '123 45',
+          },
+        },
+      },
     });
+  });
+
+  it('omits optional organisation/address fields entirely when not provided', () => {
+    const minimal = {
+      country: 'SE',
+      organisation: {
+        corporateId: '1234567812',
+        address: {
+          addressLine1: 'Main Street 123',
+          city: 'Stockholm',
+          countryCode: 'SE',
+          postalCode: '123 45',
+        },
+      },
+      store: domainInput.store,
+    };
+
+    const wire = merchantMapper.toWire(minimal);
+
+    expect(wire.organisation).toEqual({
+      corporateId: '1234567812',
+      address: {
+        addressLine1: 'Main Street 123',
+        city: 'Stockholm',
+        countryCode: 'SE',
+        postalCode: '123 45',
+      },
+    });
+    expect(wire.organisation.legalName).toBeUndefined();
+    expect(wire.organisation.mccCode).toBeUndefined();
+    expect(wire.organisation.phoneNumber).toBeUndefined();
+    expect(wire.organisation.email).toBeUndefined();
   });
 });
 
 describe('merchantMapper.toDomain', () => {
-  it('maps a full Surfboard response to the normalized application shape', () => {
+  it('maps the confirmed Create Merchant success response (envelope-wrapped)', () => {
     const domain = merchantMapper.toDomain({
-      application_id: 'app_1',
-      merchant_id: 'sb_merchant_1',
-      status: 'pending_verification',
-      onboarding_url: 'https://onboard.surfboardpayments.com/app_1',
+      status: 'SUCCESS',
+      data: {
+        applicationId: '8268abfc4ae6900a10',
+        webKybUrl: 'https://surfkyb.com/8268abfc4ae6900a10',
+      },
+      message: 'Merchant application created successfully.',
     });
 
     expect(domain).toEqual({
-      applicationId: 'app_1',
-      merchantId: 'sb_merchant_1',
-      applicationStatus: 'pending_verification',
-      applicationUrl: 'https://onboard.surfboardpayments.com/app_1',
+      applicationId: '8268abfc4ae6900a10',
+      merchantId: null,
+      storeId: null,
+      applicationStatus: 'APPLICATION_INITIATED',
+      applicationUrl: 'https://surfkyb.com/8268abfc4ae6900a10',
+      shortLinkUrl: null,
     });
   });
 
-  it('falls back to merchant_id as the applicationId when application_id is absent', () => {
-    const domain = merchantMapper.toDomain({ merchant_id: 'sb_merchant_1', status: 'active' });
+  it('captures merchantId/storeId/shortLinkUrl when a PF partner gets them immediately', () => {
+    const domain = merchantMapper.toDomain({
+      status: 'SUCCESS',
+      data: {
+        applicationId: 'app_1',
+        webKybUrl: 'https://surfkyb.com/app_1',
+        merchantId: 'm-1',
+        storeId: 's-1',
+        shortLinkUrl: 'https://surfkyb.com/s/abc',
+      },
+      message: 'ok',
+    });
 
-    expect(domain.applicationId).toBe('sb_merchant_1');
-    expect(domain.merchantId).toBe('sb_merchant_1');
+    expect(domain).toMatchObject({
+      merchantId: 'm-1',
+      storeId: 's-1',
+      shortLinkUrl: 'https://surfkyb.com/s/abc',
+    });
   });
 
-  it('defaults missing fields to null/pending_verification rather than throwing', () => {
-    const domain = merchantMapper.toDomain({});
-
-    expect(domain).toEqual({
+  it('defaults missing fields to null rather than throwing', () => {
+    expect(merchantMapper.toDomain({})).toEqual({
       applicationId: null,
       merchantId: null,
-      applicationStatus: 'pending_verification',
+      storeId: null,
+      applicationStatus: 'APPLICATION_INITIATED',
       applicationUrl: null,
+      shortLinkUrl: null,
+    });
+  });
+});
+
+describe('merchantMapper.toApplicationStatusDomain', () => {
+  it('maps the confirmed Check Application Status success response', () => {
+    const domain = merchantMapper.toApplicationStatusDomain({
+      status: 'SUCCESS',
+      data: {
+        applicationId: '81409507c1a5f00110',
+        webKybUrl: 'http://partner.surfboardpayments.com/81409507c1a5f00110',
+        applicationStatus: 'MERCHANT_CREATED',
+        merchantId: '81412e2e4102f80f0e',
+        storeId: '81412e3c3b1090060f',
+        onlineOnboardingStatus: 'PENDING_VERIFICATION',
+      },
+      message: 'Application status fetched successfully',
+    });
+
+    expect(domain).toEqual({
+      applicationId: '81409507c1a5f00110',
+      applicationStatus: 'MERCHANT_CREATED',
+      merchantId: '81412e2e4102f80f0e',
+      storeId: '81412e3c3b1090060f',
+      applicationUrl: 'http://partner.surfboardpayments.com/81409507c1a5f00110',
+      onlineOnboardingStatus: 'PENDING_VERIFICATION',
+    });
+  });
+
+  it('defaults missing fields to null', () => {
+    expect(merchantMapper.toApplicationStatusDomain({})).toEqual({
+      applicationId: null,
+      applicationStatus: null,
+      merchantId: null,
+      storeId: null,
+      applicationUrl: null,
+      onlineOnboardingStatus: null,
     });
   });
 });
 
 describe('merchantMapper.toMerchantProfile', () => {
-  it('maps a full Surfboard merchant response to the domain Merchant shape', () => {
+  it('maps the confirmed flat Fetch Merchant Details response', () => {
     const merchant = merchantMapper.toMerchantProfile({
-      merchant_id: 'sb_merchant_1',
-      business_name: 'Blue Wave Surf Shop',
-      business_type: 'retail',
-      contact_email: 'owner@example.com',
-      contact_phone: '+46700000000',
-      address: { line1: 'Main St 1', city: 'Malmö', country: 'SE' },
-      status: 'active',
+      status: 'SUCCESS',
+      data: {
+        merchantId: '81fa6b2d8d5dc8040e',
+        merchantName: 'Conroy Hane and Parker',
+        email: 'ashinisb@surfboard.se',
+        companyId: '5590520507',
+        countryCode: 'SE',
+        mccCode: 1520,
+        phoneNumber: '917676576569',
+        merchantLogoUrl: 'https://example.com/logo.png',
+        address: { addressLine1: 'Stockholm', city: 'Sweden', countryCode: 'SE', postalCode: '22331' },
+      },
+      message: 'Successfully fetched merchant details',
     });
 
     expect(merchant).toEqual({
-      id: 'sb_merchant_1',
-      businessName: 'Blue Wave Surf Shop',
-      businessType: 'retail',
-      contactEmail: 'owner@example.com',
-      contactPhone: '+46700000000',
-      address: { line1: 'Main St 1', city: 'Malmö', country: 'SE' },
-      status: 'active',
+      id: '81fa6b2d8d5dc8040e',
+      name: 'Conroy Hane and Parker',
+      companyId: '5590520507',
+      email: 'ashinisb@surfboard.se',
+      phoneNumber: '917676576569',
+      logoUrl: 'https://example.com/logo.png',
+      mccCode: '1520',
+      countryCode: 'SE',
+      address: { addressLine1: 'Stockholm', city: 'Sweden', countryCode: 'SE', postalCode: '22331' },
     });
   });
 
-  it('falls back to onboarding_status and defaults missing fields to null', () => {
-    const merchant = merchantMapper.toMerchantProfile({
-      id: 'sb_merchant_1',
-      onboarding_status: 'pending_verification',
-    });
-
-    expect(merchant).toEqual({
-      id: 'sb_merchant_1',
-      businessName: null,
-      businessType: null,
-      contactEmail: null,
-      contactPhone: null,
+  it('defaults missing fields to null', () => {
+    expect(merchantMapper.toMerchantProfile({})).toEqual({
+      id: null,
+      name: null,
+      companyId: null,
+      email: null,
+      phoneNumber: null,
+      logoUrl: null,
+      mccCode: null,
+      countryCode: null,
       address: null,
-      status: 'pending_verification',
     });
   });
 });
 
 describe('merchantMapper.toMerchantUpdateWire', () => {
-  it('only includes fields that were provided', () => {
-    const wire = merchantMapper.toMerchantUpdateWire({ businessName: 'New Name' });
-
-    expect(wire).toEqual({ business_name: 'New Name' });
+  it('only includes fields that were provided, using Surfboard field names', () => {
+    expect(merchantMapper.toMerchantUpdateWire({ email: 'new@example.com' })).toEqual({
+      email: 'new@example.com',
+    });
   });
 
   it('maps every supported field when all are provided', () => {
     const wire = merchantMapper.toMerchantUpdateWire({
-      businessName: 'New Name',
-      businessType: 'retail',
-      contactEmail: 'new@example.com',
-      contactPhone: '+46700000001',
-      address: { line1: 'New St 2', city: 'Stockholm', country: 'SE' },
+      email: 'new@example.com',
+      logoUrl: 'https://example.com/logo.png',
+      phoneNumber: { code: '46', number: '701234567' },
     });
 
     expect(wire).toEqual({
-      business_name: 'New Name',
-      business_type: 'retail',
-      contact_email: 'new@example.com',
-      contact_phone: '+46700000001',
-      address: { line1: 'New St 2', city: 'Stockholm', country: 'SE' },
+      email: 'new@example.com',
+      merchantLogoUrl: 'https://example.com/logo.png',
+      phoneNumber: { code: '46', number: '701234567' },
     });
   });
 

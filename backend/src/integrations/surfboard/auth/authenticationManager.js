@@ -12,11 +12,14 @@ const { STRATEGY_TYPES, assertValidStrategy } = require('./authStrategy');
 const { validateAuthConfig } = require('./authConfig');
 const { loadCredentials } = require('./credentialLoader');
 const ApiKeyStrategy = require('./strategies/apiKeyStrategy');
+const ApiKeySecretStrategy = require('./strategies/apiKeySecretStrategy');
 const BearerTokenStrategy = require('./strategies/bearerTokenStrategy');
 const OAuthStrategy = require('./strategies/oauthStrategy');
 
 const DEFAULT_STRATEGY_FACTORIES = Object.freeze({
   [STRATEGY_TYPES.API_KEY]: ({ credentials }) => new ApiKeyStrategy({ apiKey: credentials.apiKey }),
+  [STRATEGY_TYPES.API_KEY_SECRET]: ({ credentials }) =>
+    new ApiKeySecretStrategy({ apiKey: credentials.apiKey, apiSecret: credentials.apiSecret }),
   [STRATEGY_TYPES.BEARER]: ({ credentials }) =>
     new BearerTokenStrategy({ bearerToken: credentials.bearerToken }),
   [STRATEGY_TYPES.OAUTH]: ({ credentials, config }) =>

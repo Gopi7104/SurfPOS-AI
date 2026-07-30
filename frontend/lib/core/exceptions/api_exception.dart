@@ -64,6 +64,15 @@ class InternalServerException extends ApiException {
   const InternalServerException(super.message);
 }
 
+/// 502 SURFBOARD_ERROR — a call to Surfboard's own API failed, timed out, or
+/// returned an unexpected shape (see `backend/src/integrations/surfboard/errors/`).
+/// This is a backend-credential/upstream problem, never the caller's own
+/// auth — [message] must stay generic and never imply the user did
+/// something wrong or that their session is at fault.
+class SurfboardUpstreamException extends ApiException {
+  const SurfboardUpstreamException(super.message);
+}
+
 /// No HTTP response at all — timeout, DNS failure, connection refused
 /// (backend unreachable/not running), or no device connectivity.
 class NetworkException extends ApiException {
