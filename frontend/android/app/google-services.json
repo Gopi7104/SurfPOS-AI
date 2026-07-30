@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "964552820279",
+    "firebase_url": "https://surfpos-ai-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "surfpos-ai",
+    "storage_bucket": "surfpos-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:964552820279:android:5a04a5cb7c0de5bd51e1b2",
+        "android_client_info": {
+          "package_name": "com.example.surfpos_ai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "964552820279-t87o1qbtsdl30gj7po0stptsgjko5e08.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALckRmbO2SxjWvDrKv-JQonWCj3CG1zcM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "964552820279-t87o1qbtsdl30gj7po0stptsgjko5e08.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
