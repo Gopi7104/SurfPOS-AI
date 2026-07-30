@@ -65,7 +65,19 @@ function createMerchantService({
     return { merchantId: merchant.id, status: merchant.status };
   }
 
-  return { getMerchantDetails, updateMerchantDetails, getMerchantStatus };
+  /**
+   * Resolves the caller's Surfboard merchantId reference — exposed so other modules (e.g.
+   * `modules/store/`) can depend on this Service instead of reaching into
+   * `modules/merchant/merchant.repository.js` directly, per the cross-module rule
+   * (docs/21_BACKEND_GUIDELINES.md § 8).
+   * @param {string} uid
+   * @returns {Promise<string>} merchantId — throws NotFoundError if none is assigned yet
+   */
+  async function getMerchantId(uid) {
+    return resolveMerchantId(uid);
+  }
+
+  return { getMerchantDetails, updateMerchantDetails, getMerchantStatus, getMerchantId };
 }
 
 module.exports = createMerchantService();

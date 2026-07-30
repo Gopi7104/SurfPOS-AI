@@ -2,7 +2,7 @@
 
 **An AI-powered, mobile-first cloud Point-of-Sale platform for small retailers, fully integrated with Surfboard Payments.**
 
-> **Status:** documentation realigned to Surfboard-as-system-of-record (2026-07-29); backend foundation (Phase 1) is the only application code that exists. See [docs/13_CLAUDE_CONTEXT.md](docs/13_CLAUDE_CONTEXT.md) for current status and [docs/22_DEVELOPMENT_ROADMAP.md](docs/22_DEVELOPMENT_ROADMAP.md) for the roadmap.
+> **Status:** backend Roadmap Phases 1–7 implemented (Surfboard SDK, application auth, merchant application tracking, merchant/store/inventory management); Firebase is now connected end-to-end for Authentication **and Realtime Database** (backend Admin SDK + Flutter client both live-verified against a real project — see `backend/npm run verify:firebase`). Storage is deliberately deferred until a feature needs it. See [docs/13_CLAUDE_CONTEXT.md](docs/13_CLAUDE_CONTEXT.md) for current status and [docs/22_DEVELOPMENT_ROADMAP.md](docs/22_DEVELOPMENT_ROADMAP.md) for the roadmap.
 
 ---
 

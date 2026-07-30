@@ -20,5 +20,8 @@ module.exports = Object.freeze({
   MERCHANT_APPLICATION_NOT_FOUND: 'Merchant application not found',
   MERCHANT_REFERENCE_NOT_FOUND:
     'No merchant reference found for this account — submit a merchant application first, or wait for it to be approved',
+  STORE_NOT_FOUND: 'Store not found',
+  PRODUCT_NOT_FOUND: 'Product not found',
+  INSUFFICIENT_STOCK: 'Insufficient stock for this adjustment',
   routeNotFound: (method, path) => `Route not found: ${method} ${path}`,
 });

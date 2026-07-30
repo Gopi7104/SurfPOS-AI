@@ -6,25 +6,44 @@ version: 0.1.0
 environment:
   sdk: ">=3.0.0 <4.0.0"
 
-# Design-system + UI-shell dependencies only (see docs/09_PROMPT_HISTORY.md for
-# when these were added). Data-layer dependencies (Riverpod, go_router, dio,
-# firebase_auth, firebase_database, firebase_storage, camera/barcode scanning,
-# etc.) are added when those layers are implemented — see
+# Design-system + UI-shell dependencies, plus Firebase Authentication (Firebase infrastructure
+# connection pass — see docs/09_PROMPT_HISTORY.md). The app talks to Firebase RTDB/Storage only
+# through the backend (docs/02_ARCHITECTURE.md § 2) — firebase_database/firebase_storage are
+# deliberately NOT added here. Remaining data-layer dependencies (Riverpod, go_router, dio,
+# camera/barcode scanning, etc.) are added when those layers are implemented — see
 # docs/08_ARCHITECTURE_DECISIONS.md and docs/10_TASKS.md.
 
 dependencies:
+  dio: ^5.11.0
+  firebase_auth: ^6.5.6
+  firebase_core: ^4.12.1
   flutter:
     sdk: flutter
+  flutter_riverpod: ^2.6.1
+  flutter_secure_storage: ^10.3.1
   flutter_svg: ^2.3.0
   google_fonts: ^8.2.0
+  google_sign_in: ^7.2.0
   lucide_icons_flutter: ^3.1.15
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.14.4
+  mocktail: ^1.0.5
 
 flutter:
   uses-material-design: true
   assets:
     - assets/logos/
+    - assets/images/logo/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo/surfpos_logo.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/logo/surfpos_logo.png"
+  remove_alpha_ios: true
 

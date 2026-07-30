@@ -1,3 +1,4 @@
+
 # Decision Log
 
 > Read after [project.md](project.md) and [projectStatus.md](projectStatus.md), before [memory.md](memory.md). See [project.md § Read these files next](project.md#read-these-files-next) for the full session-start reading order.
@@ -310,10 +311,38 @@ Copy this block for every new decision:
 - **Owner:** Velan (Lead Architect direction), implemented by Claude
 - **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-018](../docs/08_ARCHITECTURE_DECISIONS.md#adr-018--surfboard-sdk-implementation-choices-phase-2)
 
+### D-020 — UI dependency choices: google_fonts, flutter_svg, lucide_icons
+
+- **Decision Number:** D-020
+- **Date:** 2026-07-29
+- **Decision:** Use `google_fonts` to load Inter (rather than bundling `.ttf` files under `frontend/assets/fonts/`), `flutter_svg` to render the Surfboard Payments brand mark (an SVG), and the `lucide_icons` package for the Lucide icon set specified in the design brief.
+- **Reason:** These are the standard, actively-maintained Flutter-ecosystem packages for each need; versions were resolved live via `flutter pub add` (not guessed) to guarantee a working `pubspec.yaml` — `flutter_svg ^2.3.0`, `google_fonts ^8.2.0`, `lucide_icons ^0.257.0` at time of writing.
+- **Alternatives Considered:** Bundling Inter `.ttf` files directly (avoids a runtime font-fetch on first launch in debug, but `google_fonts` caches after first load and is far simpler to maintain); a custom/manually-traced icon set instead of `lucide_icons`; converting the Surfboard SVG to a raster PNG to avoid the `flutter_svg` dependency (rejected — rasterizing would blur at large sizes/different pixel densities and risks distorting the mark, which the brand guidance explicitly prohibits).
+- **Pros:** Minimal, well-supported dependency footprint; exact Lucide icon parity with the design brief; crisp brand-mark rendering at any size.
+- **Cons:** `google_fonts` fetches Inter from Google's CDN on first run in a fresh environment (cached afterward) — if fully offline/hermetic builds become a requirement later, revisit bundling the font file directly instead.
+- **Impact:** `frontend/pubspec.yaml`; `app/themes/app_typography.dart`; `core/widgets/branding/surfboard_logo.dart`.
+- **Status:** Accepted, **amended 2026-07-29 (same day, Login-screen session)**
+- **Owner:** Claude (implementation-level tooling choice during the premium-UI build session), Velan (project owner, ok to revisit)
+
+**Amendment:** `lucide_icons 0.257.0` turned out to be unmaintained — its own `pubspec.yaml` declares `sdk: ">=2.12.0 <3.0.0"` (pre-Dart-3), and it defines `class LucideIconData extends IconData`, which fails to compile against the current Flutter SDK because `IconData` is now a `final class` (cannot be extended outside its own library — this restriction applies regardless of the extending package's own pinned language version). This wasn't caught by `flutter analyze` (clean) but *was* caught by `flutter test`'s actual compilation step — first evidence in this project that `analyze` alone is insufficient and the full mandatory sequence (§ workflow.md) matters. **Replaced with `lucide_icons_flutter ^3.1.15`** — same `LucideIcons` class name, same icon identifiers (verified `mail`, `lock`, `eye`, `eyeOff`, `search`, `scanLine`, `alertCircle`, `sparkles`, `cloudOff`, `inbox`, `layoutGrid`, `package`, `receipt`, `barChart3`, `settings` all present), same import path shape (`package:lucide_icons_flutter/lucide_icons.dart`), declares `sdk: ^3.0.0`, and implements icons as `static const IconData` fields (composition, not subclassing) — so it isn't exposed to the same `final class` restriction. All 7 files that imported the old package were updated to the new import path with no other code changes needed.
+
+### D-021 — Floating (non-notched) FAB for a 5-item bottom nav
+
+- **Decision Number:** D-021
+- **Date:** 2026-07-29
+- **Decision:** The bottom navigation renders all 5 destinations (Dashboard, Inventory, Billing, Analytics, Settings) evenly spaced with **no** Material notch, and the "Start New Sale" FAB floats centered *above* the bar (`FloatingActionButtonLocation.centerFloat`) rather than docking into a notch.
+- **Reason:** The design brief specifies 5 bottom-nav destinations *and* a separate FAB — the classic Material `CircularNotchedRectangle` pattern assumes 4 items split 2-2 around a center notch, which doesn't divide evenly for 5 items without an awkward asymmetric gap.
+- **Alternatives Considered:** Dropping one nav item to 4 + notch (rejected — the brief explicitly asks for 5 named destinations); hand-rolling a `CustomPainter` notch shaped for a 5-item bar (rejected as unnecessary complexity/risk for a cosmetic difference the floating variant achieves more simply).
+- **Pros:** All 5 destinations stay evenly spaced and equally weighted; simpler, more robust implementation with no custom painting.
+- **Cons:** Slightly less "physically docked" than a notched FAB — a purely cosmetic trade-off.
+- **Impact:** `core/widgets/navigation/{app_bottom_nav_bar,app_main_scaffold}.dart`.
+- **Status:** Accepted
+- **Owner:** Claude (implementation-level design choice), Velan (project owner, ok to revisit)
+
 ---
 
 ## Future Decisions
 
 _Append new entries here using the [Decision Template](#decision-template) above, in ascending `D-0XX` order. Do not renumber or delete existing entries — if a decision is reversed, mark the old entry's Status as `Superseded by D-0YY` and add the new entry, rather than editing history away._
 
-_(No entries yet beyond D-001–D-019 above.)_
+_(No entries yet beyond D-001–D-021 above.)_

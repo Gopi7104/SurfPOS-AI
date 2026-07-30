@@ -39,11 +39,11 @@ If you're looking for the old `merchants/{merchantId}`, `stores/{storeId}`, or `
 
 ### 4.1 `products/{merchantId}/{productId}`
 
-Product catalog, shared across all of a merchant's Surfboard Stores. `merchantId` is a reference to a Surfboard Merchant.
+Product catalog, shared across all of a merchant's Surfboard Stores. `merchantId` is a reference to a Surfboard Merchant. Implemented in Phase 7 (docs/08_ARCHITECTURE_DECISIONS.md § ADR-024) — the record's own id field is `id` (matching [20_DOMAIN_MODEL.md § 2.9](20_DOMAIN_MODEL.md#29-product--firebase-owned) and every other domain entity's shape in this codebase), correcting this section's earlier `productId` naming, which predated any implementation and never matched the domain model doc. `supplierId` and `reorderLevel` (= "Minimum Stock") are new fields added in Phase 7.
 
 ```jsonc
 {
-  "productId": "prod_123",
+  "id": "prod_123",
   "merchantId": "sb_merchant_xxx",
   "name": "Wax — Tropical",
   "sku": "WAX-TRP-01",
@@ -53,12 +53,17 @@ Product catalog, shared across all of a merchant's Surfboard Stores. `merchantId
   "costPrice": 60,
   "sellingPrice": 99,
   "taxRate": 25,
+  "supplierId": null,
+  "reorderLevel": 10,
   "imageUrl": "https://firebasestorage.../wax-tropical.jpg",
   "isActive": true,
   "createdAt": 1732000000000,
   "updatedAt": 1732000000000
 }
 ```
+
+- `supplierId` — nullable reference to the already-documented but not-yet-built Supplier entity ([§ 4.6](#46-suppliersmerchantidsupplierid)/[20_DOMAIN_MODEL.md § 2.16](20_DOMAIN_MODEL.md#216-supplier--firebase-owned-new-in-this-pass)); Supplier CRUD itself is task 7.4, not implemented this pass.
+- `reorderLevel` — the "Minimum Stock" facet requested for Phase 7; kept this existing field name (not renamed to `minimumStock`) for continuity with [§ 4.2](#42-inventorystoreidproductid) below, which already used it.
 
 ### 4.2 `inventory/{storeId}/{productId}`
 

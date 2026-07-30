@@ -8,4 +8,6 @@ module.exports = Object.freeze({
   AUTH: '/auth',
   MERCHANT_APPLICATIONS: '/merchant/applications',
   MERCHANT: '/merchant',
+  STORES: '/stores',
+  INVENTORY: '/inventory',
 });

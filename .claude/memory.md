@@ -6,6 +6,8 @@
 
 ## Current Focus
 
+**Frontend UI track:**
+- Building the premium Flutter UI per the "Senior Flutter UI/UX Engineer" design brief: full custom design system (done) + 26 screens, one at a time (Splash done, 25 to go — see [projectStatus.md](projectStatus.md)).
 - Just finished a full documentation realignment pass: Surfboard is now confirmed as the system of record for Merchant/Store/Device/Payment/Branding/Tips/Payment Methods (not just a payment processor), Firebase holds application data only, and the Flutter app talks only to the backend. Twelve docs fully rewritten, six lightly updated, four new docs added, old Phase 0/1/2/3 roadmap replaced entirely by a new 13-phase order. See [projectStatus.md § Completed](projectStatus.md#completed) for the full file list.
 - **This was documentation-only — verified no file under `backend/src/`, `backend/tests/`, `.github/workflows/`, or `.husky/` was touched.** The user explicitly said to stop all feature development and wait for approval of the new documentation before writing any code.
 
@@ -17,12 +19,18 @@ Building the premium Flutter UI per the "Senior Flutter UI/UX Engineer" design b
 
 ## Current Assumptions
 
+**Frontend UI track:**
 - Documentation/structure is complete project-wide, but **the frontend now has real code**: full design system + widget library, plus Splash (1/26 screens). Backend/Firebase remain entirely placeholder. Don't assume any file under `backend/src/` etc. is real, but do assume `frontend/lib/app/themes/` and `frontend/lib/core/widgets/` are real and should be reused, not recreated.
 - **WSL2 setup is agreed but NOT started.** The user chose "set up Flutter inside WSL2" as the fix for the Windows Smart App Control block (see Temporary Notes below), but as of the last check, `wsl --status` still reports "The Windows Subsystem for Linux is not installed" — the user has not yet run `wsl --install` as Administrator + restarted. Do not assume WSL exists; check `wsl --status` fresh each time this comes up before proceeding with Flutter/Android SDK setup inside it.
 - Sweden/SEK is the **current, correct** target market per [decision.md § D-010](decision.md#d-010--sweden-sek-selected-instead-of-inr) — but several `/docs` files still contain India/INR examples. Treat those specific examples as stale, not the rest of the surrounding document.
 - Riverpod + `go_router` is the **proposed** (not yet formally confirmed) Flutter state-management/navigation choice — see `docs/08_ARCHITECTURE_DECISIONS.md § ADR-007`, Status: Proposed. Don't treat it as settled without checking that ADR's current status first.
 - The exact Surfboard Payments API surface is unconfirmed against official docs — everything in `docs/15_SURFBOARD_INTEGRATION.md` is a pattern to verify, not a verified fact.
- Backend foundational + infrastructure code (`backend/src/{config,utils,firebase,middleware,routes,controllers,services,constants,types,integrations}`, `app.js`, `server.js`, lint/format/test/CI tooling) is real. Everything business-domain — `frontend/lib/`, top-level `firebase/`, and every backend module under `src/modules/` — is still placeholder-only.
+
+**Backend/docs track:**
+- Just finished a full documentation realignment pass: Surfboard is now confirmed as the system of record for Merchant/Store/Device/Payment/Branding/Tips/Payment Methods (not just a payment processor), Firebase holds application data only, and the Flutter app talks only to the backend. Twelve docs fully rewritten, six lightly updated, four new docs added, old Phase 0/1/2/3 roadmap replaced entirely by a new 13-phase order. See [projectStatus.md § Completed](projectStatus.md#completed) for the full file list.
+- **This was documentation-only — verified no file under `backend/src/`, `backend/tests/`, `.github/workflows/`, or `.husky/` was touched.** The user explicitly said to stop all feature development and wait for approval of the new documentation before writing any code.
+
+- Backend foundational + infrastructure code (`backend/src/{config,utils,firebase,middleware,routes,controllers,services,constants,types,integrations}`, `app.js`, `server.js`, lint/format/test/CI tooling) is real. Everything business-domain — `frontend/lib/`, top-level `firebase/`, and every backend module under `src/modules/` — is still placeholder-only.
 - **The most important assumption to get right now:** `merchants/{merchantId}`, `stores/{storeId}`, and `payments/{paymentId}` are **not** Firebase nodes — they never were implemented in code, and the docs describing them as Firebase nodes were wrong and have been corrected. Surfboard owns that data; it's fetched live through `src/integrations/surfboard/`. See [decision.md § D-016](decision.md#d-016--surfboard-is-the-system-of-record-for-merchant-store-device-payment-branding-tips-and-payment-methods).
 - `src/integrations/<provider>/` (raw third-party HTTP clients) and `src/modules/<provider>/` (business/orchestration logic) are separate folders — see [decision.md § D-015](decision.md#d-015--srcintegrations-vs-srcmodules-split). This pass further split `modules/surfboard/` into `modules/{merchant,store,device,payments,branding}/`, one per Surfboard-owned entity — see [D-018](decision.md#d-018--surfboard-domain-module-split-tipspayment-methods-folded-in-not-standalone).
 - `auth.middleware.js` verifies the Firebase ID token only; it does not yet fetch `merchantId`/`role` from `users/{uid}`. Don't assume `req.user.merchantId` or `req.user.role` are populated anywhere yet.

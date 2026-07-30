@@ -57,6 +57,12 @@ class RateLimitedError extends AppError {
   }
 }
 
+class InsufficientStockError extends AppError {
+  constructor(message = MESSAGES.INSUFFICIENT_STOCK) {
+    super(message, { code: ERROR_CODES.INSUFFICIENT_STOCK, statusCode: HTTP_STATUS.UNPROCESSABLE_ENTITY });
+  }
+}
+
 module.exports = {
   AppError,
   ValidationError,
@@ -65,4 +71,5 @@ module.exports = {
   NotFoundError,
   ConflictError,
   RateLimitedError,
+  InsufficientStockError,
 };

@@ -166,16 +166,39 @@
 - **Auth:** Required, owner only.
 - **Errors:** `FORBIDDEN`, `VALIDATION_ERROR`, `SURFBOARD_ERROR`.
 
-### `GET /stores?merchantId=` 🔵
-- **Purpose:** List Stores for a merchant, live from Surfboard.
+### `GET /stores?merchantId=` 🔵 — *originally-planned Phase 6 shape, not implemented; deferred*
+- **Purpose:** List Stores for a merchant, live from Surfboard, by explicit `merchantId` query param.
+- **Status:** Re-scoped to the caller-scoped `GET /stores` below (no query param, and served from a local registry rather than a live Surfboard list call — see [ADR-023](08_ARCHITECTURE_DECISIONS.md#adr-023--store-capabilities-local-registry--no-invented-list-endpoint-phase-6)).
 - **Auth:** Required.
 - **Response (200):** `{ "stores": [ {...} ] }`
 - **Errors:** `FORBIDDEN`, `SURFBOARD_ERROR`.
 
-### `POST /stores` 🔵
-- **Purpose:** Create an additional Store (multi-store; disabled behind a flag in Phase 6 — see [22_DEVELOPMENT_ROADMAP.md](22_DEVELOPMENT_ROADMAP.md)).
-- **Auth:** Required, owner only.
-- **Errors:** `FORBIDDEN`, `VALIDATION_ERROR`, `SURFBOARD_ERROR`.
+### `POST /stores` 🔵🟢 — *Phase 6 (implemented)*
+- **Purpose:** Create a Store for the caller's own merchant. Multi-store was never actually flag-disabled in this implementation — any number of stores per merchant is supported (see [10_TASKS.md](10_TASKS.md) task 6.3).
+- **Auth:** Required.
+- **Request:** `{ "name": "Blue Wave Surf Shop — Main", "address": { "line1": "...", "city": "...", "country": "SE" } }`
+- **Response (201):** `{ "store": { "id", "merchantId", "name", "address", "capabilities", "status" } }`, mapped by `store.mapper.js#toDomain()`.
+- **Validation:** `name` min 2 chars, `address.{line1,city,country}` required.
+- **Errors:** `VALIDATION_ERROR` (400), `UNAUTHENTICATED` (401), `NOT_FOUND` (404, no `merchantId` yet — see [ADR-022](08_ARCHITECTURE_DECISIONS.md#adr-022--merchant-functions-merchantid-resolution--repository-composition-phase-5)), `SURFBOARD_ERROR` (502).
+
+### `GET /stores` 🔵🟢 — *Phase 6 (implemented)*
+- **Purpose:** List the caller's own Stores. Served from SurfPOS's own `storeReferences/{uid}` registry (no confirmed Surfboard list-by-merchant endpoint — see [ADR-023](08_ARCHITECTURE_DECISIONS.md#adr-023--store-capabilities-local-registry--no-invented-list-endpoint-phase-6)), each entry hydrated with a live Surfboard `GET` — only Stores SurfPOS itself created will appear.
+- **Auth:** Required.
+- **Response (200):** `{ "stores": [ {...} ] }` (same shape as `POST /stores`'s response).
+- **Errors:** `UNAUTHENTICATED` (401), `SURFBOARD_ERROR` (502).
+
+### `GET /stores/:storeId` 🔵 — *Phase 6 (implemented)*
+- **Purpose:** Fetch a single Store, live from Surfboard. `:storeId` must be one the caller's own registry lists (structurally ownership-scoped, not a live-field cross-check).
+- **Auth:** Required.
+- **Response (200):** `{ "store": {...} }`
+- **Errors:** `UNAUTHENTICATED` (401), `NOT_FOUND` (404, unknown or not owned by caller), `SURFBOARD_ERROR` (502).
+
+### `PATCH /stores/:storeId` 🔵 — *Phase 6 (implemented)*
+- **Purpose:** Update Store fields — proxied directly to Surfboard's Store API.
+- **Auth:** Required; same ownership scoping as `GET /stores/:storeId`.
+- **Request:** Partial store object — `name` and/or `address` (at least one required).
+- **Response (200):** `{ "store": {...} }`
+- **Errors:** `VALIDATION_ERROR` (400), `UNAUTHENTICATED` (401), `NOT_FOUND` (404), `SURFBOARD_ERROR` (502).
 
 ### `GET /stores/:storeId/payment-methods` 🔵
 - **Purpose:** List which payment rails this Store currently accepts — see [19_SURFBOARD_WORKFLOWS.md § 7](19_SURFBOARD_WORKFLOWS.md#7-payment-methods-workflow).
@@ -207,42 +230,45 @@
 - **Auth:** Required, owner only.
 - **Errors:** `FORBIDDEN`, `NOT_FOUND`, `SURFBOARD_ERROR`.
 
-## 5. Products (Catalog) 🟢
+## 5. Products (Catalog) 🟢 — *Phase 7 (implemented)*
 
-Unchanged in shape from earlier plans — entirely Firebase-owned application data. `merchantId` below is a reference to a Surfboard Merchant, not a locally-owned record.
+Entirely Firebase-owned application data, `merchantId`-scoped (a reference to a Surfboard Merchant, resolved server-side from the caller — no request field or route param carries it). **Implemented under an `/inventory/products` prefix** rather than the bare `/products` illustrative path in earlier plans — see [ADR-024](08_ARCHITECTURE_DECISIONS.md#adr-024--inventory-management-in-memory-search--transactional-stock-phase-7).
 
-### `GET /products?merchantId=&search=&barcode=&cursor=&limit=`
-- **Purpose:** List/search the merchant's product catalog.
-- **Auth:** Required.
-- **Response (200):** `{ "products": [ {...} ], "nextCursor": "..." }`
-
-### `POST /products`
+### `POST /inventory/products`
 - **Purpose:** Create a product.
-- **Auth:** Required, owner or staff-with-inventory-permission.
-- **Request:** `{ "name", "sku", "barcode", "category", "unit", "costPrice", "sellingPrice", "taxRate", "imageUrl"? }`
-- **Validation:** `name` required; `sku`/`barcode` unique per merchant; prices ≥ 0; `taxRate` 0–100.
-- **Errors:** `CONFLICT` (409, duplicate SKU/barcode), `VALIDATION_ERROR`.
+- **Auth:** Required.
+- **Request:** `{ "name", "sku", "unit", "costPrice", "sellingPrice", "taxRate", "barcode"?, "category"?, "supplierId"?, "imageUrl"?, "reorderLevel"? }`
+- **Response (201):** `{ "product": { "id", "merchantId", "name", "sku", "barcode", "category", "unit", "costPrice", "sellingPrice", "taxRate", "supplierId", "imageUrl", "reorderLevel", "isActive", "createdAt", "updatedAt" } }`
+- **Validation:** `name` min 2 chars; `sku`/`unit` required; `costPrice`/`sellingPrice` ≥ 0; `taxRate` 0–100.
+- **Errors:** `VALIDATION_ERROR` (400), `UNAUTHENTICATED` (401), `NOT_FOUND` (404, no merchant reference yet).
 
-### `GET /products/:productId`
-- **Purpose:** Fetch a single product. **Auth:** Required.
+### `GET /inventory/products?search=&category=&barcode=&includeInactive=&limit=&cursor=`
+- **Purpose:** List/search/filter the caller's own merchant's product catalog, paginated.
+- **Auth:** Required.
+- **Response (200):** `{ "products": [ {...} ], "nextCursor": "..." | null }`
+- **Notes:** `search` matches a case-insensitive substring of `name`; `barcode` is exact-match (serves barcode-scanner lookup, folding in the originally-separate task 7.3); excludes `isActive: false` products unless `includeInactive=true`; `limit` defaults to 20, max 100.
 
-### `PATCH /products/:productId`
-- **Purpose:** Update product fields. **Auth:** Required. Same validation as create, partial.
+### `GET /inventory/products/:productId`
+- **Purpose:** Fetch a single product. **Auth:** Required. **Errors:** `NOT_FOUND` (404).
 
-### `DELETE /products/:productId`
-- **Purpose:** Soft-delete (`isActive: false`). **Auth:** Required, owner only.
+### `PATCH /inventory/products/:productId`
+- **Purpose:** Update product fields — partial, at least one required. **Auth:** Required. Same validation as create.
+- **Errors:** `VALIDATION_ERROR` (400), `NOT_FOUND` (404).
 
-## 6. Inventory 🟢
+### `DELETE /inventory/products/:productId`
+- **Purpose:** Soft-delete — sets `isActive: false`, never removes the record. **Auth:** Required.
+- **Errors:** `NOT_FOUND` (404).
 
-Unchanged from earlier plans — entirely Firebase-owned.
+## 6. Inventory (Stock) 🟢 — *Phase 7 (implemented)*
 
-### `GET /inventory?storeId=&lowStockOnly=`
-- **Purpose:** List stock levels for a store. **Auth:** Required.
+Entirely Firebase-owned, per-Store stock levels.
 
-### `PATCH /inventory/:storeId/:productId`
-- **Purpose:** Manual stock adjustment. **Auth:** Required.
-- **Request:** `{ "quantityDelta": -2, "reason": "damaged" }`
-- **Errors:** `INSUFFICIENT_STOCK` (422), `VALIDATION_ERROR`.
+### `PATCH /inventory/products/:productId/stock`
+- **Purpose:** Adjust stock for a product at a specific Store — transactional, never lets quantity go negative. Lazily creates the store's stock record on its first (positive-delta) adjustment.
+- **Auth:** Required; `storeId` must belong to the caller (same registry check as [§ 3](#3-merchants--stores)).
+- **Request:** `{ "storeId": "sb_store_xxx", "quantityDelta": -2, "reason": "damaged" }` (`reason` is logged, not persisted)
+- **Response (200):** `{ "stock": { "productId", "storeId", "quantity", "reorderLevel", "lastRestockedAt", "lastUpdatedBy" } }`
+- **Errors:** `VALIDATION_ERROR` (400, `quantityDelta` must be a non-zero integer), `NOT_FOUND` (404, unknown product or store not owned by caller), `INSUFFICIENT_STOCK` (422, would go negative).
 
 ## 7. Suppliers 🟢
 

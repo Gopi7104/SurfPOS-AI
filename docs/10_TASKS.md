@@ -14,18 +14,37 @@ Every task has: **Priority** (P0 = blocking/critical, P1 = important, P2 = nice-
 
 | # | Task | Priority | Status | Dependencies | Owner |
 |---|---|---|---|---|---|
-| P.1 | Firebase project setup (Auth, RTDB, Storage) + `database.rules.json` skeleton (application data only) | P0 | Not Started | — | Unassigned |
+| P.1 | Firebase project setup (Auth, RTDB, Storage) + `database.rules.json` skeleton (application data only) | P0 | Auth + RTDB: Done (backend + frontend wired, both live-verified against the real `surfpos-ai` project); Storage: deliberately deferred — `FIREBASE_STORAGE_BUCKET` intentionally left unset for now, revisit when Storage is actually needed (Receipts/AI invoice images) | — | Claude |
 | P.2 | Surfboard Payments sandbox/developer account + API credentials + official API documentation | P0 | Not Started | — | Unassigned |
 | P.3 | Gemini API key provisioning (blocks Phase 13 only) | P0 | Not Started | — | Unassigned |
 | P.4 | Resolve remaining [ADR-009](08_ARCHITECTURE_DECISIONS.md#adr-009--pending-decisions-to-record-here-once-made) items relevant to near-term phases (real-time client strategy — blocks Phase 8/12) | P0 | Not Started | — | Unassigned |
 
 ## Phase 1 — Backend Foundation ✅ Done
 
+**Backend track (as actually shipped, matches the header above):**
+
 | # | Task | Priority | Status | Dependencies | Owner |
 |---|---|---|---|---|---|
 | 1.1 | Express app bootstrap, env config, logger, Firebase Admin SDK init, auth/validation/error middleware, response helper, `GET /health` | P0 | Done | — | Claude |
 | 1.2 | Infrastructure hardening: ESLint/Prettier/Husky, compression + rate limiting, `constants/`/`types/` layers, placeholder Surfboard integration clients, richer logging, tests, CI | P0 | Done | 1.1 | Claude |
 | 1.3 | Documentation realignment to Surfboard-as-system-of-record architecture | P0 | Done | — | Claude |
+
+**Frontend UI track (older Phase 1 numbering scheme, predates the Surfboard-alignment pass — kept for reference, task IDs below are independent of the table above):**
+
+| # | Task | Priority | Status | Dependencies | Est. Time | Owner |
+|---|---|---|---|---|---|---|
+| 1.0 | Premium Flutter UI: design system (done) + 26 screens, one at a time (1/26 — Splash — done; see [09_PROMPT_HISTORY.md](09_PROMPT_HISTORY.md) and `.claude/projectStatus.md`) | P0 | In Progress | 0.6 | ~10 days (26 screens) | Claude |
+| 1.1 | Firebase Auth integration (sign-up/sign-in, email + phone OTP) | P0 | Not Started | 0.3 | 2 days | Unassigned |
+| 1.2 | Merchant Registration flow (`POST /auth/register`, onboarding wizard UI) | P0 | Not Started | 1.1, 0.4 | 3 days | Unassigned |
+| 1.3 | Product catalog CRUD (backend + UI) | P0 | Not Started | 0.3 | 3 days | Unassigned |
+| 1.4 | Inventory management (view, manual adjust) | P0 | Not Started | 1.3 | 2 days | Unassigned |
+| 1.5 | Barcode scanner (camera-based) | P0 | Not Started | 1.3 | 3 days | Unassigned |
+| 1.6 | Cart + Billing checkout flow (client-side cart, `POST /sales`) | P0 | Not Started | 1.3, 1.4 | 4 days | Unassigned |
+| 1.7 | Surfboard Payments integration (payment intent, device/SDK flow, webhook) | P0 | Not Started | 0.4, 1.6 | 5 days | Unassigned |
+| 1.8 | Receipt generation (PDF) + share | P0 | Not Started | 1.7 | 2 days | Unassigned |
+| 1.9 | Dashboard (today's snapshot, no AI insights yet) | P1 | Not Started | 1.6 | 2 days | Unassigned |
+| 1.10 | Settings (business profile, tax, receipt template) | P1 | Not Started | 1.2 | 2 days | Unassigned |
+| 1.11 | Staff accounts + invite flow | P1 | Not Started | 1.1 | 2 days | Unassigned |
 
 ## Phase 2 — Surfboard Client SDK ✅ Done
 
@@ -73,20 +92,24 @@ Every task has: **Priority** (P0 = blocking/critical, P1 = important, P2 = nice-
 
 ## Phase 6 — Store Capabilities
 
+> **Re-scoped 2026-07-29**: implemented as caller-scoped CRUD (`POST/GET /stores`, `GET/PATCH /stores/:storeId`) rather than "default-store creation as part of registration" — Phase 4 never orchestrated Store creation (see [ADR-021](08_ARCHITECTURE_DECISIONS.md#adr-021--merchant-application-tracking-entity-phase-4)), so Store creation is its own explicit, standalone action here. Payment Methods (task 6.2) and multi-store UX flagging (6.3) are unchanged/still open. See [ADR-023](08_ARCHITECTURE_DECISIONS.md#adr-023--store-capabilities-local-registry--no-invented-list-endpoint-phase-6).
+
 | # | Task | Priority | Status | Dependencies | Owner |
 |---|---|---|---|---|---|
-| 6.1 | `store.client.js` Store CRUD + default-store creation (part of Phase 4 registration flow) | P0 | Not Started | Phase 2 | Unassigned |
+| 6.1 | `store.client.js` Store CRUD (`createStore`/`getStore`/`updateStore`) + `mappers/store.mapper.js`; `POST/GET /stores`, `GET/PATCH /stores/:storeId` | P0 | Done | Phase 2, Phase 5 | Claude |
 | 6.2 | `GET/PATCH /stores/:storeId/payment-methods` (folded per [ADR-016](08_ARCHITECTURE_DECISIONS.md#adr-016--surfboard-domain-module-split)) | P0 | Not Started | 6.1 | Unassigned |
-| 6.3 | `GET/POST /stores` multi-store endpoints (flagged off for single-store Phase 1 UX) | P1 | Not Started | 6.1 | Unassigned |
+| 6.3 | Multi-store UX flagging (single-store Phase 1 UX) — largely moot now: `POST/GET /stores` already support multiple stores per merchant since Phase 4 never limited to one | P2 | Not Started | 6.1 | Unassigned |
 
 ## Phase 7 — Inventory
 
+> **Implemented as a single `modules/inventory/` module** (`product.repository.js` + `stock.repository.js` + one `inventory.service.js`) rather than separate `products.*`/`inventory.*` files — see [ADR-024](08_ARCHITECTURE_DECISIONS.md#adr-024--inventory-management-in-memory-search--transactional-stock-phase-7). Barcode lookup (7.3) folded into `GET /inventory/products?barcode=` rather than a separate endpoint.
+
 | # | Task | Priority | Status | Dependencies | Owner |
 |---|---|---|---|---|---|
-| 7.1 | Product catalog CRUD (`products.repository.js`, `products.service.js`) | P0 | Not Started | Phase 6 | Unassigned |
-| 7.2 | Inventory read/adjust endpoints (`inventory.repository.js`, `inventory.service.js`) | P0 | Not Started | 7.1 | Unassigned |
-| 7.3 | Barcode scanner backend lookup (`GET /products?barcode=`) | P0 | Not Started | 7.1 | Unassigned |
-| 7.4 | Supplier CRUD (`suppliers.repository.js`, `suppliers.service.js` — new entity, see [20_DOMAIN_MODEL.md § 2.16](20_DOMAIN_MODEL.md#216-supplier--firebase-owned-new-in-this-pass)) | P1 | Not Started | Phase 6 | Unassigned |
+| 7.1 | Product catalog CRUD (`product.repository.js`, `inventory.service.js`) — search/filter/pagination/soft-delete | P0 | Done | Phase 6 | Claude |
+| 7.2 | Inventory read/adjust endpoints (`stock.repository.js`, `inventory.service.js#adjustStock`) — transactional, never negative | P0 | Done | 7.1 | Claude |
+| 7.3 | Barcode scanner backend lookup (`GET /inventory/products?barcode=`) | P0 | Done | 7.1 | Claude |
+| 7.4 | Supplier CRUD (`suppliers.repository.js`, `suppliers.service.js` — new entity, see [20_DOMAIN_MODEL.md § 2.16](20_DOMAIN_MODEL.md#216-supplier--firebase-owned-new-in-this-pass)) — Product carries an optional `supplierId` reference field, but Supplier's own CRUD is **not** built this pass | P1 | Not Started | Phase 6 | Unassigned |
 
 ## Phase 8 — Billing
 
