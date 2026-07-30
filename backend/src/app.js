@@ -20,6 +20,8 @@ const healthRoutes = require('./routes/health.routes');
 const authRoutes = require('./routes/auth.routes');
 const merchantApplicationRoutes = require('./routes/merchantApplication.routes');
 const merchantRoutes = require('./routes/merchant.routes');
+const storeRoutes = require('./routes/store.routes');
+const inventoryRoutes = require('./routes/inventory.routes');
 
 const app = express();
 
@@ -70,6 +72,8 @@ app.use(API_ROUTES.AUTH, authRoutes);
 // Express matches app.use() mounts in registration order, not by specificity.
 app.use(API_ROUTES.MERCHANT_APPLICATIONS, merchantApplicationRoutes);
 app.use(API_ROUTES.MERCHANT, merchantRoutes);
+app.use(API_ROUTES.STORES, storeRoutes);
+app.use(API_ROUTES.INVENTORY, inventoryRoutes);
 
 app.use((req, res, next) => {
   next(new NotFoundError(MESSAGES.routeNotFound(req.method, req.originalUrl)));

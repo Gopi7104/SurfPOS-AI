@@ -164,7 +164,7 @@ Full schema: [03_DATABASE_DESIGN.md § 4.2](03_DATABASE_DESIGN.md#42-inventoryst
 
 ### 2.9 Product — *Firebase-owned*
 
-A catalog item belonging to a Merchant, shared across that Merchant's Stores.
+A catalog item belonging to a Merchant, shared across that Merchant's Stores. Implemented in Phase 7 (see [08_ARCHITECTURE_DECISIONS.md § ADR-024](08_ARCHITECTURE_DECISIONS.md#adr-024--inventory-management-in-memory-search--transactional-stock-phase-7)).
 
 ```jsonc
 {
@@ -173,9 +173,12 @@ A catalog item belonging to a Merchant, shared across that Merchant's Stores.
   "name": "Wax — Tropical",
   "sku": "WAX-TRP-01",
   "barcode": "8901234567890",
+  "category": "Accessories",
   "costPrice": 60,
   "sellingPrice": 99,
   "taxRate": 25,
+  "supplierId": null,          // reference to § 2.16 Supplier — not yet built, field only
+  "reorderLevel": 10,          // "minimum stock" threshold
   "isActive": true
 }
 ```

@@ -40,5 +40,13 @@ module.exports = [
       },
     },
   },
+  {
+    // Standalone CLI operator tools (docs/17_FOLDER_STRUCTURE.md) legitimately print to stdout —
+    // the app's own utils/logger.js rule still applies to everything under src/.
+    files: ['scripts/**/*.js'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
   prettier,
 ];
