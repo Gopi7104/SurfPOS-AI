@@ -4,84 +4,99 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../app/themes/app_colors.dart';
 import '../../../../app/themes/app_spacing.dart';
 import '../../../../app/themes/app_typography.dart';
+import '../../../../core/validators/auth_validators.dart';
 import '../../../../core/widgets/branding/surfboard_logo.dart';
 import '../../../../core/widgets/buttons/app_primary_button.dart';
 import '../../../../core/widgets/buttons/app_secondary_button.dart';
 import '../../../../core/widgets/dialogs/error_banner.dart';
 import '../../../../core/widgets/text_fields/app_text_field.dart';
 
-/// Screen 2 — Login.
+/// Signup screen — presentation-only, mirrors [LoginScreen]'s pattern
+/// exactly (see docs/07_CODING_RULES.md § 8: screens hold no business
+/// logic, only local field-level validation feedback). [isLoading] and
+/// [errorMessage] are controlled by the caller (`SignupPage`).
 ///
-/// Presentation-only: captures an email + password and reports them via
-/// [onSignIn]. No auth/business logic lives here —
-/// that arrives with Firebase Authentication integration (see
-/// docs/05_FEATURES.md § 2, docs/07_CODING_RULES.md § 14). [isLoading] is
-/// controlled by the caller once real submission exists; local validation
-/// below is feedback-only (required-field checks), never the source of
-/// truth. See BRANDING in the design brief — the Surfboard mark is
-/// required on this screen, shown here via [SurfboardLogo.badge] since the
-/// background is a light surface (see
-/// core/widgets/branding/surfboard_logo.dart for the white-icon rationale).
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({
-    this.onSignIn,
-    this.onForgotPassword,
-    this.onCreateAccount,
+/// The Google "G" mark isn't an asset in this project (no official brand
+/// asset has been supplied, same situation the Surfboard logo was in before
+/// it existed) — [LucideIcons.globe] is a neutral placeholder. Google's
+/// brand guidelines require their official mark before shipping; swap this
+/// out once that asset is available (see the Final Report's packaging note).
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({
+    this.onSignUp,
     this.onGoogleSignIn,
+    this.onLogin,
     this.isLoading = false,
     this.errorMessage,
     super.key,
   });
 
-  final void Function(String email, String password)? onSignIn;
+  /// [mobileNumber] is `null` when left blank — it is captured here per the
+  /// design brief but the backend's signup schema has no phone field yet,
+  /// so the caller intentionally does not forward it (see
+  /// `AuthRepositoryImpl.signUp`'s doc comment).
+  final void Function(
+    String fullName,
+    String email,
+    String? mobileNumber,
+    String password,
+  )? onSignUp;
 
-  /// Called with the currently-typed email (may be empty) when "Forgot
-  /// password?" is tapped, so the caller can act on it without a second
-  /// input dialog.
-  final void Function(String email)? onForgotPassword;
-  final VoidCallback? onCreateAccount;
-
-  /// See `SignupScreen`'s doc comment on `onGoogleSignIn` for why this uses
-  /// a neutral placeholder icon rather than Google's official mark.
   final VoidCallback? onGoogleSignIn;
+  final VoidCallback? onLogin;
   final bool isLoading;
   final String? errorMessage;
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _SignupScreenState extends State<SignupScreen> {
+  final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _mobileController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
+  String? _fullNameError;
   String? _emailError;
   String? _passwordError;
+  String? _confirmPasswordError;
 
   @override
   void dispose() {
+    _fullNameController.dispose();
     _emailController.dispose();
+    _mobileController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _handleSignIn() {
+  void _handleCreateAccount() {
+    final fullName = _fullNameController.text.trim();
     final email = _emailController.text.trim();
+    final mobile = _mobileController.text.trim();
     final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
 
     setState(() {
-      _emailError = email.isEmpty ? 'Enter your email' : null;
-      // Deliberately distinct from the field's hint text ("Enter your
-      // password") so a `find.text('Enter your password')` in tests (or a
-      // screen reader) doesn't ambiguously match two widgets at once.
-      _passwordError = password.isEmpty ? 'Password is required' : null;
+      _fullNameError = validateFullName(fullName);
+      _emailError = validateEmail(email);
+      _passwordError = validateSignupPassword(password);
+      _confirmPasswordError =
+          validateConfirmPassword(password, confirmPassword);
     });
 
-    if (_emailError != null || _passwordError != null) {
+    if (_fullNameError != null ||
+        _emailError != null ||
+        _passwordError != null ||
+        _confirmPasswordError != null) {
       return;
     }
 
-    widget.onSignIn?.call(email, password);
+    widget.onSignUp
+        ?.call(fullName, email, mobile.isEmpty ? null : mobile, password);
   }
 
   @override
@@ -101,13 +116,13 @@ class _LoginScreenState extends State<LoginScreen> {
               const Center(child: SurfboardLogo.badge(size: 64)),
               const SizedBox(height: AppSpacing.xl),
               Text(
-                'Welcome back',
+                'Create your account',
                 textAlign: TextAlign.center,
                 style: AppTypography.headingLG,
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'Sign in to manage your store',
+                'Set up SurfPOS AI for your store',
                 textAlign: TextAlign.center,
                 style: AppTypography.bodyMD.copyWith(color: AppColors.textGrey),
               ),
@@ -116,6 +131,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 ErrorBanner(message: widget.errorMessage!),
                 const SizedBox(height: AppSpacing.md),
               ],
+              AppTextField(
+                label: 'Full Name',
+                hint: 'Jane Doe',
+                leadingIcon: LucideIcons.user,
+                controller: _fullNameController,
+                errorText: _fullNameError,
+                enabled: !widget.isLoading,
+              ),
+              const SizedBox(height: AppSpacing.md),
               AppTextField(
                 label: 'Email',
                 hint: 'you@business.com',
@@ -127,29 +151,37 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
               AppTextField(
+                label: 'Mobile Number (optional)',
+                hint: '070 123 45 67',
+                leadingIcon: LucideIcons.phone,
+                keyboardType: TextInputType.phone,
+                controller: _mobileController,
+                enabled: !widget.isLoading,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
                 label: 'Password',
-                hint: 'Enter your password',
+                hint: 'Create a password',
                 leadingIcon: LucideIcons.lock,
                 obscureText: true,
                 controller: _passwordController,
                 errorText: _passwordError,
                 enabled: !widget.isLoading,
               ),
-              const SizedBox(height: AppSpacing.sm),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: widget.isLoading
-                      ? null
-                      : () => widget.onForgotPassword
-                          ?.call(_emailController.text.trim()),
-                  child: const Text('Forgot password?'),
-                ),
-              ),
               const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                label: 'Confirm Password',
+                hint: 'Re-enter your password',
+                leadingIcon: LucideIcons.lock,
+                obscureText: true,
+                controller: _confirmPasswordController,
+                errorText: _confirmPasswordError,
+                enabled: !widget.isLoading,
+              ),
+              const SizedBox(height: AppSpacing.lg),
               AppPrimaryButton(
-                label: 'Sign In',
-                onPressed: widget.isLoading ? null : _handleSignIn,
+                label: 'Create Account',
+                onPressed: widget.isLoading ? null : _handleCreateAccount,
                 isLoading: widget.isLoading,
               ),
               const SizedBox(height: AppSpacing.md),
@@ -163,14 +195,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    "Don't have an account? ",
+                    'Already have an account? ',
                     style: AppTypography.bodyMD
                         .copyWith(color: AppColors.textGrey),
                   ),
                   GestureDetector(
-                    onTap: widget.isLoading ? null : widget.onCreateAccount,
+                    onTap: widget.isLoading ? null : widget.onLogin,
                     child: Text(
-                      'Create one',
+                      'Login',
                       style: AppTypography.bodyMD.copyWith(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w600,

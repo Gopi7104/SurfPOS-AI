@@ -13,14 +13,26 @@ import 'package:surfpos_ai/features/authentication/presentation/screens/login_sc
 // .claude/projectStatus.md § Known Issues #5). Testing under the real
 // theme is also simply more representative of the actual app.
 
+/// LoginScreen's content (logo, copy, two fields, forgot-password link, two
+/// buttons, sign-up link) is taller than flutter_test's default 800x600
+/// surface, which leaves the lower elements scrolled out of view and
+/// unreachable by `tester.tap`. Sizing the surface to fit the whole form
+/// avoids needing a `dragUntilVisible` before every tap.
+void _useTallTestSurface(WidgetTester tester) {
+  tester.view.physicalSize = const Size(800, 1400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+}
+
 void main() {
   testWidgets('LoginScreen renders the core form elements', (tester) async {
+    _useTallTestSurface(tester);
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.light, home: const LoginScreen()),
     );
 
     expect(find.text('Welcome back'), findsOneWidget);
-    expect(find.text('Email or phone number'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Sign In'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
@@ -30,6 +42,7 @@ void main() {
   testWidgets(
     'Submitting empty fields shows validation errors and does not call onSignIn',
     (tester) async {
+      _useTallTestSurface(tester);
       var signInCalled = false;
       await tester.pumpWidget(
         MaterialApp(
@@ -41,7 +54,7 @@ void main() {
       await tester.tap(find.text('Sign In'));
       await tester.pump();
 
-      expect(find.text('Enter your email or phone number'), findsOneWidget);
+      expect(find.text('Enter your email'), findsOneWidget);
       expect(find.text('Password is required'), findsOneWidget);
       expect(signInCalled, isFalse);
     },
@@ -50,14 +63,15 @@ void main() {
   testWidgets('Submitting valid fields calls onSignIn with trimmed values', (
     tester,
   ) async {
-    String? capturedIdentifier;
+    _useTallTestSurface(tester);
+    String? capturedEmail;
     String? capturedPassword;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
         home: LoginScreen(
-          onSignIn: (identifier, password) {
-            capturedIdentifier = identifier;
+          onSignIn: (email, password) {
+            capturedEmail = email;
             capturedPassword = password;
           },
         ),
@@ -75,36 +89,42 @@ void main() {
     await tester.tap(find.text('Sign In'));
     await tester.pump();
 
-    expect(capturedIdentifier, 'owner@surfpos.se');
+    expect(capturedEmail, 'owner@surfpos.se');
     expect(capturedPassword, 'hunter2');
   });
 
   testWidgets('Forgot password and create account callbacks fire', (
     tester,
   ) async {
-    var forgotTapped = false;
+    _useTallTestSurface(tester);
+    String? forgotTappedEmail;
     var createTapped = false;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
         home: LoginScreen(
-          onForgotPassword: () => forgotTapped = true,
+          onForgotPassword: (email) => forgotTappedEmail = email,
           onCreateAccount: () => createTapped = true,
         ),
       ),
     );
 
+    await tester.enterText(
+      find.widgetWithText(TextField, 'you@business.com'),
+      'owner@surfpos.se',
+    );
     await tester.tap(find.text('Forgot password?'));
     await tester.tap(find.text('Create one'));
     await tester.pump();
 
-    expect(forgotTapped, isTrue);
+    expect(forgotTappedEmail, 'owner@surfpos.se');
     expect(createTapped, isTrue);
   });
 
   testWidgets('isLoading shows a spinner and disables interaction', (
     tester,
   ) async {
+    _useTallTestSurface(tester);
     var signInCalled = false;
     await tester.pumpWidget(
       MaterialApp(
