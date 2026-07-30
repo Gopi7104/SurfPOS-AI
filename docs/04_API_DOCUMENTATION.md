@@ -86,19 +86,45 @@
 - **Validation:** `businessName` required (min 2 chars), `contactPhone` required E.164 format, `idToken` must verify.
 - **Errors:** `VALIDATION_ERROR` (400), `CONFLICT` (409, this UID already has a `merchantId`), `SURFBOARD_ERROR` (502, Merchant/Store creation failed upstream).
 
-### `POST /merchant/applications` 🔵🟢 — *Phase 4 (implemented)*
-- **Purpose:** Submit a merchant application — calls Surfboard's Merchant Creation API and tracks the result as Firebase-owned application metadata. Does **not** create a Store and does **not** write `users/{uid}.merchantId` (see [ADR-021](08_ARCHITECTURE_DECISIONS.md#adr-021--merchant-application-tracking-entity-phase-4)).
+### `POST /merchant/applications` 🔵🟢 — *Phase 4 (implemented, wire format confirmed — see [ADR-026](08_ARCHITECTURE_DECISIONS.md#adr-026--merchant-onboarding-api-contract-confirmed-phase-4-correction))*
+- **Purpose:** Submit a merchant application — calls Surfboard's real Create Merchant API and tracks the result as Firebase-owned application metadata. A Store **is** created as part of this call (`controlFields.store`, required — SurfPOS is in-store-only, an onboarded merchant with no store can't process payments yet), but no `users/{uid}.merchantId`/`storeIds` reference is written (see [ADR-021](08_ARCHITECTURE_DECISIONS.md#adr-021--merchant-application-tracking-entity-phase-4)).
 - **Auth:** Required.
-- **Request:** `{ "businessName": "Blue Wave Surf Shop", "businessType": "retail", "contactEmail": "owner@example.com", "contactPhone": "+46xxxxxxxxx", "address": { "line1": "...", "city": "...", "country": "SE" } }`
-- **Response (201):** `{ "application": { "applicationId", "merchantId", "applicationStatus", "applicationUrl", "submittedAt", "updatedAt" } }`
-- **Validation:** `businessName` min 2 chars, `contactEmail` valid email, `contactPhone` E.164, `address.{line1,city,country}` required.
+- **Request:**
+  ```json
+  {
+    "country": "SE",
+    "organisation": {
+      "corporateId": "1234567812",
+      "legalName": "Blue Wave Surf Shop AB",
+      "mccCode": "5941",
+      "address": { "addressLine1": "Main St 1", "city": "Malmö", "countryCode": "SE", "postalCode": "211 34" },
+      "phoneNumber": { "code": "46", "number": "701234567" },
+      "email": "owner@example.com"
+    },
+    "store": {
+      "name": "Blue Wave Surf Shop — Main",
+      "email": "store@example.com",
+      "phoneNumber": { "code": "46", "number": "701234567" },
+      "address": { "addressLine1": "Main St 1", "city": "Malmö", "countryCode": "SE", "postalCode": "211 34" }
+    }
+  }
+  ```
+  `organisation.legalName`/`mccCode`/`phoneNumber`/`email` are optional (Surfboard requires them only for PF partners — SurfPOS always collects them anyway, since sending extra fields for a non-PF partner is harmless).
+- **Response (201):** `{ "application": { "applicationId", "merchantId", "storeId", "applicationStatus": "APPLICATION_INITIATED", "applicationUrl" (the Surfboard-hosted KYB link), "shortLinkUrl", "submittedAt", "updatedAt" } }` — `merchantId`/`storeId` are usually `null` until the KYB flow completes (see `GET /merchant/applications/:id/status` below); Create Merchant's own response never carries a status.
+- **Validation:** `country` 2-letter, `organisation.corporateId` required, `organisation.mccCode` (if provided) 4 digits, `organisation.address.{addressLine1,city,countryCode,postalCode}` required, `store.{name,email,phoneNumber,address}` all required.
 - **Errors:** `VALIDATION_ERROR` (400), `UNAUTHENTICATED` (401), `CONFLICT` (409, an application already exists for this account), `SURFBOARD_ERROR` (502).
 
 ### `GET /merchant/applications/:id` 🟢 — *Phase 4 (implemented)*
-- **Purpose:** Fetch the caller's own merchant application by `applicationId`.
+- **Purpose:** Fetch the caller's own merchant application by `applicationId` — returns the last **cached** snapshot (from creation or the last `/status` refresh), not a live Surfboard call.
 - **Auth:** Required — scoped to the caller's own application (there is no cross-user lookup path).
 - **Response (200):** `{ "application": {...} }` (same shape as the `POST` response).
 - **Errors:** `UNAUTHENTICATED` (401), `NOT_FOUND` (404, no application, or `:id` doesn't match the caller's own).
+
+### `GET /merchant/applications/:id/status` 🟢 — *Phase 4 (implemented — new, see [ADR-026](08_ARCHITECTURE_DECISIONS.md#adr-026--merchant-onboarding-api-contract-confirmed-phase-4-correction))*
+- **Purpose:** Poll Surfboard's real Check Application Status endpoint and refresh the cached record — the only way to observe KYB progress short of a webhook receiver (out of scope here).
+- **Auth:** Required — same ownership scoping as `GET /merchant/applications/:id`.
+- **Response (200):** `{ "application": { "applicationId", "merchantId", "storeId", "applicationStatus", "applicationUrl", "submittedAt", "updatedAt" } }` — `applicationStatus` is one of `APPLICATION_INITIATED`, `APPLICATION_STARTED`, `APPLICATION_SUBMITTED`, `APPLICATION_PENDING_INFORMATION`, `APPLICATION_SIGNED`, `APPLICATION_REJECTED`, `APPLICATION_COMPLETED`, `APPLICATION_EXPIRED`, `MERCHANT_CREATED` (`merchantId`/`storeId` only populate at `MERCHANT_CREATED`).
+- **Errors:** `UNAUTHENTICATED` (401), `NOT_FOUND` (404), `SURFBOARD_ERROR` (502).
 
 ### `GET /merchant/applications` 🟢 — *Phase 4 (implemented)*
 - **Purpose:** List the caller's own merchant application(s) — not a global/admin listing.
@@ -137,24 +163,24 @@
 - **Request:** Partial merchant object (`businessName`, `address`, `contactPhone`, `contactEmail`).
 - **Errors:** `FORBIDDEN`, `VALIDATION_ERROR`, `SURFBOARD_ERROR`.
 
-### `GET /merchant` 🔵 — *Phase 5 (implemented)*
+### `GET /merchant` 🔵 — *Phase 5 (implemented, wire format confirmed — see [ADR-026](08_ARCHITECTURE_DECISIONS.md#adr-026--merchant-onboarding-api-contract-confirmed-phase-4-correction))*
 - **Purpose:** Fetch the authenticated caller's own Merchant profile, live from Surfboard. No `:merchantId` param — the `merchantId` is resolved server-side from the caller's own `merchantApplications/{uid}.merchantId` (see [ADR-022](08_ARCHITECTURE_DECISIONS.md#adr-022--merchant-functions-merchantid-resolution--repository-composition-phase-5)).
 - **Auth:** Required.
-- **Response (200):** `{ "merchant": { "id", "businessName", "businessType", "contactEmail", "contactPhone", "address", "status" } }`, mapped from Surfboard's response by `merchant.mapper.js#toMerchantProfile()`.
+- **Response (200):** `{ "merchant": { "id", "name", "companyId", "email", "phoneNumber", "logoUrl", "mccCode", "countryCode", "address" } }` — flat fields (Surfboard's Fetch Merchant Details response is not nested the way Create Merchant's request is), mapped from Surfboard's response by `merchant.mapper.js#toMerchantProfile()`. Note: **no `status` field** — Fetch Merchant Details doesn't return one; use `GET /merchant/status` below.
 - **Errors:** `UNAUTHENTICATED` (401), `NOT_FOUND` (404, no `merchantId` assigned yet — application still pending or not submitted), `SURFBOARD_ERROR` (502).
 
-### `PATCH /merchant` 🔵 — *Phase 5 (implemented)*
-- **Purpose:** Update the caller's own Merchant profile fields — proxied directly to Surfboard's Merchant API.
+### `PATCH /merchant` 🔵 — *Phase 5 (implemented, wire format confirmed)*
+- **Purpose:** Update the caller's own Merchant profile fields — proxied to Surfboard's Update Merchant Details API (`PUT`, confirmed — Surfboard's own method, not `PATCH`; the SurfPOS-facing route stays `PATCH` since that's the correct verb for a partial update from the client's perspective).
 - **Auth:** Required.
-- **Request:** Partial merchant object — any of `businessName`, `businessType`, `contactEmail`, `contactPhone`, `address` (at least one required).
-- **Response (200):** `{ "merchant": {...} }` (same shape as `GET /merchant`).
+- **Request:** Partial merchant object — any of `email`, `logoUrl`, `phoneNumber` (at least one required). Surfboard's Update endpoint only supports these three fields — `name`/`address`/`mccCode` are **not** updatable via this API.
+- **Response (200):** `{ "merchant": {...} }` (same shape as `GET /merchant` — Surfboard's update response itself has no body to reflect, so this re-fetches the profile after a successful write).
 - **Errors:** `VALIDATION_ERROR` (400), `UNAUTHENTICATED` (401), `NOT_FOUND` (404, no `merchantId` yet), `SURFBOARD_ERROR` (502).
 
-### `GET /merchant/status` 🔵 — *Phase 5 (implemented)*
-- **Purpose:** Fetch the caller's Merchant onboarding/verification status, normalized. **No separate Surfboard status endpoint is assumed** — this is a normalized view built on the same call `GET /merchant` uses (see [ADR-022](08_ARCHITECTURE_DECISIONS.md#adr-022--merchant-functions-merchantid-resolution--repository-composition-phase-5)); update the SDK call site if Surfboard's confirmed docs reveal a distinct status endpoint.
+### `GET /merchant/status` 🔵 — *Phase 5 (implemented, wire format confirmed)*
+- **Purpose:** Fetch the caller's Merchant onboarding/verification status, live. **Now backed by the real Check Application Status endpoint** (`GET /partners/:partnerId/merchants/:applicationId/status`, keyed by the caller's tracked `applicationId`) — ADR-022's original assumption that this could be derived from `GET /merchant` is disproven by the confirmed docs (Fetch Merchant Details has no status field at all).
 - **Auth:** Required.
-- **Response (200):** `{ "merchantId": "sb_merchant_xxx", "status": "pending_verification" }`
-- **Errors:** `UNAUTHENTICATED` (401), `NOT_FOUND` (404, no `merchantId` yet), `SURFBOARD_ERROR` (502).
+- **Response (200):** `{ "merchantId": "sb_merchant_xxx", "status": "MERCHANT_CREATED" }` — `status` is the same 9-value enum as `GET /merchant/applications/:id/status`.
+- **Errors:** `UNAUTHENTICATED` (401), `NOT_FOUND` (404, no `merchantId`/`applicationId` yet), `SURFBOARD_ERROR` (502).
 
 ### `GET /merchants/:merchantId/branding` 🔵
 - **Purpose:** Fetch Surfboard checkout/receipt branding (logo, color, footer text) — see [19_SURFBOARD_WORKFLOWS.md § 5](19_SURFBOARD_WORKFLOWS.md#5-branding-workflow). Distinct from `GET /settings/:merchantId` (§ 11), which controls SurfPOS's own receipt template.

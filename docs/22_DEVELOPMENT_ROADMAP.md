@@ -39,9 +39,13 @@ Firebase Auth sign-up/sign-in (email/password + phone OTP), `auth.middleware.js`
 
 ## Phase 4 — Merchant Creation
 
+> **This section describes the original plan; it was re-scoped during implementation.** `POST /auth/register` as described below was never built — see [ADR-021](08_ARCHITECTURE_DECISIONS.md#adr-021--merchant-application-tracking-entity-phase-4) for what was actually implemented (`POST/GET /merchant/applications`), and [ADR-026](08_ARCHITECTURE_DECISIONS.md#adr-026--merchant-onboarding-api-contract-confirmed-phase-4-correction) for the now-confirmed real Surfboard wire format (this section's shape below was always a placeholder, never sent over the wire). [10_TASKS.md](10_TASKS.md) Phase 4 is authoritative for current status.
+
 `POST /auth/register` orchestrates: Firebase Auth account (already created client-side) → Surfboard Merchant Creation call (via Phase 2's client) → `users/{uid}.merchantId` reference write. See [19_SURFBOARD_WORKFLOWS.md § 1](19_SURFBOARD_WORKFLOWS.md#1-merchant-lifecycle).
 
 ## Phase 5 — Merchant Functions
+
+> **Wire format confirmed** — see [ADR-026](08_ARCHITECTURE_DECISIONS.md#adr-026--merchant-onboarding-api-contract-confirmed-phase-4-correction). `GET /merchant/status` is backed by Surfboard's real Check Application Status endpoint, not a derived view of `GET /merchant` as originally assumed (ADR-022).
 
 `GET/PATCH` merchant profile proxy endpoints, staff invite flow (`POST /auth/staff-invite`, Firebase-owned — staff are a SurfPOS access-control concept, not a Surfboard one). See [19_SURFBOARD_WORKFLOWS.md § 1](19_SURFBOARD_WORKFLOWS.md#1-merchant-lifecycle).
 

@@ -15,6 +15,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "964552820279-be162ea57v8v3bmqpk8rlpnca0ukg8km.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.surfpos_ai",
+            "certificate_hash": "523d3cb8d25bffcf2dae516896a98c4e711ccb43"
+          }
+        },
+        {
           "client_id": "964552820279-t87o1qbtsdl30gj7po0stptsgjko5e08.apps.googleusercontent.com",
           "client_type": 3
         }

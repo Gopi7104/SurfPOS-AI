@@ -15,9 +15,14 @@ const getApplication = asyncHandler(async (req, res) => {
   sendSuccess(res, { application });
 });
 
+const refreshApplicationStatus = asyncHandler(async (req, res) => {
+  const application = await merchantApplicationService.refreshApplicationStatus(req.user.uid, req.params.id);
+  sendSuccess(res, { application });
+});
+
 const listApplications = asyncHandler(async (req, res) => {
   const applications = await merchantApplicationService.listApplications(req.user.uid);
   sendSuccess(res, { applications });
 });
 
-module.exports = { submitApplication, getApplication, listApplications };
+module.exports = { submitApplication, getApplication, refreshApplicationStatus, listApplications };

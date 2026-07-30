@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -88,7 +89,24 @@ class FirebaseAuthDataSource {
 
     final credential = GoogleAuthProvider.credential(idToken: googleIdToken);
     final userCredential = await _firebaseAuth.signInWithCredential(credential);
-    final firebaseIdToken = await userCredential.user!.getIdToken();
+    final user = userCredential.user!;
+    final firebaseIdToken = await user.getIdToken();
+
+    if (kDebugMode) {
+      debugPrint('[GoogleSignIn] uid=${user.uid}');
+      debugPrint('[GoogleSignIn] email=${user.email}');
+      debugPrint('[GoogleSignIn] displayName=${user.displayName}');
+      debugPrint('[GoogleSignIn] providerId=${credential.providerId}');
+      debugPrint(
+        '[GoogleSignIn] providerData=${user.providerData.map((p) => p.providerId).toList()}',
+      );
+      // Full token deliberately not logged (it's a live bearer credential) — length + a short
+      // prefix is enough to confirm one was actually issued.
+      debugPrint(
+        '[GoogleSignIn] idToken=${firebaseIdToken?.substring(0, 16)}... (${firebaseIdToken?.length} chars)',
+      );
+    }
+
     return firebaseIdToken!;
   }
 

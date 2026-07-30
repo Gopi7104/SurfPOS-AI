@@ -16,7 +16,7 @@ const login = asyncHandler(async (req, res) => {
 });
 
 const getMe = asyncHandler(async (req, res) => {
-  const profile = await authService.getCurrentUser(req.user.uid);
+  const profile = await authService.getCurrentUser({ uid: req.user.uid, email: req.user.email });
   sendSuccess(res, { user: profile, role: profile.role });
 });
 

@@ -17,7 +17,7 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_RETRIES = 2;
 
 /**
- * @returns {{ environment: string, baseUrl: string, apiKey?: string, apiSecret?: string, webhookSecret?: string, authStrategy: string, bearerToken?: string, timeoutMs: number, maxRetries: number }}
+ * @returns {{ environment: string, baseUrl: string, apiKey?: string, apiSecret?: string, webhookSecret?: string, authStrategy: string, bearerToken?: string, partnerId?: string, secretKey?: string, timeoutMs: number, maxRetries: number }}
  */
 function resolveSurfboardConfig() {
   const environment =
@@ -25,12 +25,16 @@ function resolveSurfboardConfig() {
 
   return {
     environment,
-    baseUrl: BASE_URLS[environment],
+    // SURFBOARD_API_URL (partner/white-label gateway) overrides the default sandbox/production
+    // hosts when set — see docs/15_SURFBOARD_INTEGRATION.md § 2.
+    baseUrl: config.surfboard.apiUrl || BASE_URLS[environment],
     apiKey: config.surfboard.apiKey,
     apiSecret: config.surfboard.apiSecret,
     webhookSecret: config.surfboard.webhookSecret,
     authStrategy: config.surfboard.authStrategy,
     bearerToken: config.surfboard.bearerToken,
+    partnerId: config.surfboard.partnerId,
+    secretKey: config.surfboard.secretKey,
     timeoutMs: DEFAULT_TIMEOUT_MS,
     maxRetries: DEFAULT_MAX_RETRIES,
   };

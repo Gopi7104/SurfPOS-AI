@@ -10,6 +10,7 @@ const {
 const {
   submitApplication,
   getApplication,
+  refreshApplicationStatus,
   listApplications,
 } = require('../controllers/merchantApplication.controller');
 
@@ -20,6 +21,7 @@ const router = Router();
 router.use(authenticate);
 
 router.post('/', validate(submitApplicationSchema), submitApplication);
+router.get('/:id/status', validate(applicationIdParamsSchema, 'params'), refreshApplicationStatus);
 router.get('/:id', validate(applicationIdParamsSchema, 'params'), getApplication);
 router.get('/', listApplications);
 

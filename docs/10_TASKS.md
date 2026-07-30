@@ -74,21 +74,27 @@ Every task has: **Priority** (P0 = blocking/critical, P1 = important, P2 = nice-
 ## Phase 4 — Merchant Creation
 
 > **Re-scoped 2026-07-29 from the original plan below.** Implemented as a `merchantApplications/{uid}` application-tracking resource (`POST/GET /merchant/applications`) rather than the originally-planned `POST /auth/register` orchestration — no Store creation, no `users/{uid}.merchantId` write in this pass. See [ADR-021](08_ARCHITECTURE_DECISIONS.md#adr-021--merchant-application-tracking-entity-phase-4).
+>
+> **Wire format confirmed 2026-07-30** against the real Surfboard docs (previously a guess, per ADR-021's own caveat) — see [ADR-026](08_ARCHITECTURE_DECISIONS.md#adr-026--merchant-onboarding-api-contract-confirmed-phase-4-correction). Store creation is now included in the same call (`controlFields.store`, required, not optional as Surfboard's own docs suggest — SurfPOS is in-store-only) — still no `users/{uid}.storeIds` write, same boundary as before. A real status-polling endpoint (`GET /merchant/applications/:id/status`) was added, backed by Surfboard's actual Check Application Status API. The Flutter onboarding wizard (`frontend/lib/features/merchant/`, previously empty) is built against this confirmed contract.
 
 | # | Task | Priority | Status | Dependencies | Owner |
 |---|---|---|---|---|---|
-| 4.1 | `merchant.client.js` Merchant Creation call (`createMerchant()`) + `mappers/merchant.mapper.js` | P0 | Done | Phase 2 | Claude |
+| 4.1 | `merchant.client.js` Merchant Creation call (`createMerchant()`) + `mappers/merchant.mapper.js` | P0 | Done, wire format confirmed | Phase 2 | Claude |
 | 4.2 | `POST/GET /merchant/applications`, `GET /merchant/applications/:id` — `modules/merchant/{merchantApplication.service,merchantApplication.repository}.js`, Firebase-owned `merchantApplications/{uid}` tracking record | P0 | Done | 4.1 | Claude |
 | 4.3 | `POST /auth/register` orchestration (Firebase Auth → Surfboard Merchant/Store creation → `users/{uid}.merchantId` reference write) — **original plan, not implemented this pass**, superseded in scope by 4.1/4.2; revisit if a single-call registration flow is still wanted | P1 | Not Started | 4.2, Phase 6 | Unassigned |
+| 4.4 | `GET /merchant/applications/:id/status` — real Check Application Status polling, `merchant.client.js#getApplicationStatus()` | P0 | Done | 4.1 | Claude |
+| 4.5 | Flutter Merchant Onboarding wizard (`features/merchant/`) — multi-step form, DI wiring, local status persistence, error handling | P0 | Done | 4.2, 4.4 | Claude |
 
 ## Phase 5 — Merchant Functions
 
 > **Re-scoped 2026-07-29** from `GET/PATCH /merchants/:merchantId` (param-based) to `GET/PATCH /merchant` + `GET /merchant/status` (caller-scoped, no route param) — `merchantId` is resolved server-side from the caller's own `merchantApplications/{uid}.merchantId`, since `users/{uid}.merchantId` still doesn't exist (see [ADR-021](08_ARCHITECTURE_DECISIONS.md#adr-021--merchant-application-tracking-entity-phase-4)). See [ADR-022](08_ARCHITECTURE_DECISIONS.md#adr-022--merchant-functions-merchantid-resolution--repository-composition-phase-5).
+>
+> **Wire format confirmed 2026-07-30** — see [ADR-026](08_ARCHITECTURE_DECISIONS.md#adr-026--merchant-onboarding-api-contract-confirmed-phase-4-correction). ADR-022's assumption that `GET /merchant/status` could be derived from `GET /merchant` is disproven (Fetch Merchant Details has no status field); it now polls the real Check Application Status endpoint via the caller's tracked `applicationId`. 3 real bugs fixed: missing `/partners/:partnerId` prefix, missing required `MERCHANT-ID` header, `PATCH` corrected to `PUT` (Surfboard's own method).
 
 | # | Task | Priority | Status | Dependencies | Owner |
 |---|---|---|---|---|---|
-| 5.1 | `GET/PATCH /merchant` proxy endpoints (caller-scoped) + `GET /merchant/status` (normalized view, no separate Surfboard endpoint assumed) | P0 | Done | Phase 4 | Claude |
-| 5.2 | `merchant.mapper.js` extended (`toMerchantProfile`/`toMerchantUpdateWire`, Surfboard DTO → domain Merchant) | P0 | Done | 5.1 | Claude |
+| 5.1 | `GET/PATCH /merchant` proxy endpoints (caller-scoped) + `GET /merchant/status` (now backed by the real status endpoint) | P0 | Done, wire format confirmed | Phase 4 | Claude |
+| 5.2 | `merchant.mapper.js` extended (`toMerchantProfile`/`toMerchantUpdateWire`, Surfboard DTO → domain Merchant) | P0 | Done, wire format confirmed | 5.1 | Claude |
 
 ## Phase 6 — Store Capabilities
 

@@ -23,12 +23,16 @@ function createMerchantService({
   merchantRepository = defaultMerchantRepository,
   logger = defaultLogger,
 } = {}) {
-  async function resolveMerchantId(uid) {
+  async function resolveReference(uid) {
     const reference = await merchantRepository.getMerchantReference(uid);
     if (!reference) {
       throw new NotFoundError(MESSAGES.MERCHANT_REFERENCE_NOT_FOUND);
     }
-    return reference.merchantId;
+    return reference;
+  }
+
+  async function resolveMerchantId(uid) {
+    return (await resolveReference(uid)).merchantId;
   }
 
   /** @param {string} uid */
@@ -37,9 +41,7 @@ function createMerchantService({
     const surfboardResponse = await merchantClient.getMerchant(merchantId);
     const merchant = mapper.toMerchantProfile(surfboardResponse);
 
-    await merchantRepository.cacheMerchantMetadata(uid, { applicationStatus: merchant.status });
     logger.info({ uid, merchantId }, 'Fetched merchant profile');
-
     return merchant;
   }
 
@@ -50,19 +52,38 @@ function createMerchantService({
   async function updateMerchantDetails(uid, patch) {
     const merchantId = await resolveMerchantId(uid);
     const wirePayload = mapper.toMerchantUpdateWire(patch);
-    const surfboardResponse = await merchantClient.updateMerchant(merchantId, wirePayload);
+    // Update Merchant Details' own response is just `{ status, message }` — no updated profile
+    // (confirmed from docs) — re-fetch to return the current one, same as any other write-then-read.
+    await merchantClient.updateMerchant(merchantId, wirePayload);
+    const surfboardResponse = await merchantClient.getMerchant(merchantId);
     const merchant = mapper.toMerchantProfile(surfboardResponse);
 
-    await merchantRepository.cacheMerchantMetadata(uid, { applicationStatus: merchant.status });
     logger.info({ uid, merchantId }, 'Updated merchant profile');
-
     return merchant;
   }
 
-  /** @param {string} uid */
+  /**
+   * Live application-status check — Fetch Merchant Details has no status field to derive this
+   * from (see merchant.repository.js#getMerchantReference's doc comment); the real source is the
+   * Check Application Status endpoint, keyed by `applicationId`, not `merchantId`.
+   * @param {string} uid
+   */
   async function getMerchantStatus(uid) {
-    const merchant = await getMerchantDetails(uid);
-    return { merchantId: merchant.id, status: merchant.status };
+    const reference = await resolveReference(uid);
+    if (!reference.applicationId) {
+      throw new NotFoundError(MESSAGES.MERCHANT_REFERENCE_NOT_FOUND);
+    }
+
+    const surfboardResponse = await merchantClient.getApplicationStatus(reference.applicationId);
+    const domain = mapper.toApplicationStatusDomain(surfboardResponse);
+
+    await merchantRepository.cacheMerchantMetadata(uid, {
+      applicationStatus: domain.applicationStatus,
+      ...(domain.merchantId && { merchantId: domain.merchantId }),
+    });
+    logger.info({ uid, applicationId: reference.applicationId }, 'Refreshed merchant application status');
+
+    return { merchantId: domain.merchantId ?? reference.merchantId, status: domain.applicationStatus };
   }
 
   /**

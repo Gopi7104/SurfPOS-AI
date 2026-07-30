@@ -1,37 +1,66 @@
 'use strict';
 
 // Surfboard merchant onboarding/creation API — see docs/15_SURFBOARD_INTEGRATION.md,
-// docs/19_SURFBOARD_WORKFLOWS.md § 1. Wire format is unconfirmed against official Surfboard docs
-// (docs/08_ARCHITECTURE_DECISIONS.md § ADR-009) — isolated to this file + merchant.mapper.js so
-// confirming it later is a two-file change, not a rewrite of modules/merchant/.
+// docs/19_SURFBOARD_WORKFLOWS.md § 1. Wire format confirmed against the real Surfboard docs
+// (Create Merchant, Check Application Status, Fetch/Update Merchant Details) — see
+// docs/08_ARCHITECTURE_DECISIONS.md § ADR-025. Isolated to this file + merchant.mapper.js per
+// ADR-009/ADR-018's original isolation intent, now resolved rather than still-pending.
 
 const SurfboardBaseClient = require('./client/surfboardClient.base');
 
-const CREATE_MERCHANT_PATH = '/merchants';
-const merchantPath = (merchantId) => `/merchants/${merchantId}`;
+const merchantsPath = (partnerId) => `/partners/${partnerId}/merchants`;
+const merchantPath = (partnerId, merchantId) => `/partners/${partnerId}/merchants/${merchantId}`;
+const applicationStatusPath = (partnerId, applicationId) =>
+  `/partners/${partnerId}/merchants/${applicationId}/status`;
 
 class SurfboardMerchantClient extends SurfboardBaseClient {
   /**
-   * Submits a merchant application to Surfboard. Onboarding may be asynchronous (KYC review) —
-   * the raw response shape is normalized by mappers/merchant.mapper.js, not here.
+   * Submits a merchant application to Surfboard. Onboarding is asynchronous (KYB review) — the
+   * response only ever carries an `applicationId`/`webKybUrl` (+ `merchantId`/`storeId` for
+   * already-approved partner types), never a status; poll via `getApplicationStatus()`. The raw
+   * response shape is normalized by mappers/merchant.mapper.js, not here.
    * @param {object} wirePayload — already in Surfboard's wire format (see merchant.mapper.js#toWire)
-   * @returns {Promise<object>} raw Surfboard response body
+   * @returns {Promise<object>} raw Surfboard response body ({ status, data, message })
    */
   async createMerchant(wirePayload) {
-    const { data } = await this.request({ method: 'POST', path: CREATE_MERCHANT_PATH, body: wirePayload });
+    const { data } = await this.request({
+      method: 'POST',
+      path: merchantsPath(this.config.partnerId),
+      body: wirePayload,
+    });
+    return data;
+  }
+
+  /**
+   * Polls the Check Application Status endpoint — the only source of the real
+   * `applicationStatus` enum (`APPLICATION_INITIATED` ... `MERCHANT_CREATED`); Create Merchant's
+   * own response never carries one.
+   * @param {string} applicationId
+   * @returns {Promise<object>} raw Surfboard response body ({ status, data, message })
+   */
+  async getApplicationStatus(applicationId) {
+    const { data } = await this.request({
+      method: 'GET',
+      path: applicationStatusPath(this.config.partnerId, applicationId),
+    });
     return data;
   }
 
   /**
    * Fetches the current Merchant profile — live, never cached in Firebase beyond the minimal
-   * reference (docs/20_DOMAIN_MODEL.md § 1). Also the basis for the normalized "status" view
-   * (Roadmap Phase 5 § 3) — Surfboard's docs don't define a separate status endpoint, so no
-   * separate wire call is assumed for it (see docs/08_ARCHITECTURE_DECISIONS.md § ADR-022).
+   * reference (docs/20_DOMAIN_MODEL.md § 1). Requires the `MERCHANT-ID` header in addition to the
+   * usual auth headers (confirmed from docs) — this is the one Surfboard call that needs a header
+   * beyond what the auth strategy attaches, so it's passed through `request()`'s `headers` option
+   * rather than added to the auth strategy itself (auth headers are identity, this is a target).
    * @param {string} merchantId
    * @returns {Promise<object>} raw Surfboard response body
    */
   async getMerchant(merchantId) {
-    const { data } = await this.request({ method: 'GET', path: merchantPath(merchantId) });
+    const { data } = await this.request({
+      method: 'GET',
+      path: merchantPath(this.config.partnerId, merchantId),
+      headers: { 'MERCHANT-ID': merchantId },
+    });
     return data;
   }
 
@@ -42,8 +71,9 @@ class SurfboardMerchantClient extends SurfboardBaseClient {
    */
   async updateMerchant(merchantId, wirePayload) {
     const { data } = await this.request({
-      method: 'PATCH',
-      path: merchantPath(merchantId),
+      method: 'PUT',
+      path: merchantPath(this.config.partnerId, merchantId),
+      headers: { 'MERCHANT-ID': merchantId },
       body: wirePayload,
     });
     return data;
