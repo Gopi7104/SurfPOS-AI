@@ -20,12 +20,15 @@ describe('storeMapper.toWire', () => {
 describe('storeMapper.toDomain', () => {
   it('maps a full Surfboard response to the domain Store shape', () => {
     const store = storeMapper.toDomain({
-      store_id: 'sb_store_1',
-      merchant_id: 'sb_merchant_1',
-      name: 'Main Store',
-      address: { line1: 'Main St 1', city: 'Malmö', country: 'SE' },
-      capabilities: { supportedPaymentMethods: ['card'], tipsEnabled: true },
-      status: 'active',
+      status: 'SUCCESS',
+      data: {
+        storeId: 'sb_store_1',
+        merchantId: 'sb_merchant_1',
+        name: 'Main Store',
+        address: { line1: 'Main St 1', city: 'Malmö', country: 'SE' },
+        capabilities: { supportedPaymentMethods: ['card'], tipsEnabled: true },
+        status: 'active',
+      },
     });
 
     expect(store).toEqual({

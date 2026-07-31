@@ -53,7 +53,8 @@ function createStoreService({
    */
   async function getStore(uid, storeId) {
     await assertOwnsStore(uid, storeId);
-    const surfboardResponse = await storeClient.getStore(storeId);
+    const merchantId = await merchantService.getMerchantId(uid);
+    const surfboardResponse = await storeClient.getStore(merchantId, storeId);
     return mapper.toDomain(surfboardResponse);
   }
 
@@ -76,8 +77,12 @@ function createStoreService({
   /** @param {string} uid */
   async function listStores(uid) {
     const storeIds = await storeRepository.listReferences(uid);
+    if (storeIds.length === 0) {
+      return [];
+    }
+    const merchantId = await merchantService.getMerchantId(uid);
     const stores = await Promise.all(
-      storeIds.map((storeId) => storeClient.getStore(storeId).then(mapper.toDomain)),
+      storeIds.map((storeId) => storeClient.getStore(merchantId, storeId).then(mapper.toDomain)),
     );
     return stores;
   }
@@ -94,7 +99,30 @@ function createStoreService({
     return assertOwnsStore(uid, storeId);
   }
 
-  return { createStore, getStore, updateStore, listStores, verifyStoreOwnership };
+  /**
+   * Registers a storeId this caller didn't create via `createStore()` here directly — Surfboard's
+   * Create Merchant call can create a Store as a side effect of onboarding (`controlFields.store`,
+   * see merchantApplication.service.js), so that storeId would otherwise never appear in this
+   * caller's `storeReferences/{uid}` registry and every `GET /stores/:storeId` call for it would
+   * incorrectly 404. Idempotent (`addReference` is a plain `.set()`), safe to call every time the
+   * onboarding flow observes a storeId. Exposed for `modules/merchant/` to depend on instead of
+   * reaching into `store.repository.js` directly, per the cross-module rule.
+   * @param {string} uid
+   * @param {{ storeId: string, merchantId: string }} reference
+   */
+  async function registerDiscoveredStore(uid, { storeId, merchantId }) {
+    await storeRepository.addReference(uid, storeId, { merchantId });
+    logger.info({ uid, merchantId, storeId }, 'Registered store discovered via merchant onboarding');
+  }
+
+  return {
+    createStore,
+    getStore,
+    updateStore,
+    listStores,
+    verifyStoreOwnership,
+    registerDiscoveredStore,
+  };
 }
 
 module.exports = createStoreService();

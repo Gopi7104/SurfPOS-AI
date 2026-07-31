@@ -48,30 +48,50 @@ describe('SurfboardStoreClient.createStore', () => {
 });
 
 describe('SurfboardStoreClient.getStore', () => {
-  it('GETs /stores/:storeId and returns the parsed response body', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ store_id: 'sb_store_1', name: 'Main Store', status: 'active' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-    const client = createClient({ fetchImpl });
+  it('GETs /partners/:partnerId/merchants/:merchantId/stores/:storeId with a MERCHANT-ID header', async () => {
+    const body = { status: 'SUCCESS', data: { storeId: 'sb_store_1', name: 'Main Store', status: 'ACTIVE' } };
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
+    const client = createClient({ fetchImpl, config: { partnerId: 'partner-1' } });
 
-    const result = await client.getStore('sb_store_1');
+    const result = await client.getStore('sb_merchant_1', 'sb_store_1');
 
-    expect(result).toEqual({ store_id: 'sb_store_1', name: 'Main Store', status: 'active' });
+    expect(result).toEqual(body);
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe('https://sandbox.example.test/stores/sb_store_1');
+    expect(url).toBe(
+      'https://sandbox.example.test/partners/partner-1/merchants/sb_merchant_1/stores/sb_store_1',
+    );
     expect(init.method).toBe('GET');
+    expect(init.headers['MERCHANT-ID']).toBe('sb_merchant_1');
   });
 
   it('throws a SurfboardApiError for a non-2xx response', async () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(new Response(JSON.stringify({ message: 'not found' }), { status: 404 }));
-    const client = createClient({ fetchImpl });
+    const client = createClient({ fetchImpl, config: { partnerId: 'partner-1' } });
 
-    await expect(client.getStore('missing')).rejects.toMatchObject({ name: 'SurfboardApiError' });
+    await expect(client.getStore('sb_merchant_1', 'missing')).rejects.toMatchObject({
+      name: 'SurfboardApiError',
+    });
+  });
+
+  it('throws a SurfboardApiError when a 2xx response envelope reports status ERROR', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: 'ERROR', message: 'Unauthorized.' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = createClient({ fetchImpl, config: { partnerId: 'partner-1' } });
+
+    await expect(client.getStore('sb_merchant_1', 'sb_store_1')).rejects.toMatchObject({
+      name: 'SurfboardApiError',
+      surfboardStatus: 'ERROR',
+    });
   });
 });
 

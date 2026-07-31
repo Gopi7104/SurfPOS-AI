@@ -6,8 +6,8 @@ import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
 import 'app_nav_item.dart';
 
-/// The 5-destination bottom navigation bar (Dashboard, Inventory, Billing,
-/// Analytics, Settings). Flat, top-rounded, soft-shadow-lifted surface —
+/// The 5-destination bottom navigation bar (Dashboard, Billing, Inventory,
+/// Reports, Settings). Flat, top-rounded, soft-shadow-lifted surface —
 /// the "Start New Sale" [AppFab] floats independently above it via
 /// [AppMainScaffold] rather than a Material notch, so all 5 destinations
 /// stay evenly spaced. See the BOTTOM NAVIGATION design brief.

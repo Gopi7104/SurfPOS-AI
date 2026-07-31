@@ -19,7 +19,7 @@ const { logResponse } = require('../middleware/responseLogger.middleware');
 const { buildRequest } = require('../utils/requestBuilder');
 const { parseResponse } = require('../utils/responseParser');
 const { generateRequestId } = require('../utils/requestId');
-const { mapError } = require('../errors/errorMapper');
+const { mapError, assertSurfboardSuccess } = require('../errors/errorMapper');
 const AuthenticationManager = require('../auth/authenticationManager');
 
 class SurfboardBaseClient {
@@ -52,10 +52,18 @@ class SurfboardBaseClient {
 
   /**
    * The single request path every domain client method calls through.
-   * @param {import('../models/requestOptions').SurfboardRequestOptions} options
+   *
+   * `expectsEnvelope` opts a call into validating Surfboard's `{ status, data, message }`
+   * envelope (docs/08_ARCHITECTURE_DECISIONS.md § ADR-025) — HTTP 2xx alone is not enough,
+   * Surfboard can report its own business-level failure inside a 2xx body (confirmed live: an
+   * invalid corporate-id returns HTTP 201 with `{status:"ERROR", ...}`). Deliberately opt-in, not
+   * automatic for every call: only endpoints *confirmed* to use this envelope should be checked
+   * against it — Store's wire format is unconfirmed and reuses `status` for the store's own
+   * active/inactive state, which collides with envelope-sniffing by field name alone.
+   * @param {import('../models/requestOptions').SurfboardRequestOptions & { expectsEnvelope?: boolean }} options
    * @returns {Promise<import('../models/response').SurfboardResponse>}
    */
-  async request({ method, path, query, body, headers } = {}) {
+  async request({ method, path, query, body, headers, expectsEnvelope = false } = {}) {
     const requestId = generateRequestId();
     const authedHeaders = await attachAuthentication({
       headers: { ...headers, 'X-Request-Id': requestId },
@@ -103,6 +111,10 @@ class SurfboardBaseClient {
 
     if (!parsed.ok) {
       throw mapError({ status: parsed.status, data: parsed.data }, { requestId });
+    }
+
+    if (expectsEnvelope) {
+      assertSurfboardSuccess(parsed, { requestId });
     }
 
     return parsed;

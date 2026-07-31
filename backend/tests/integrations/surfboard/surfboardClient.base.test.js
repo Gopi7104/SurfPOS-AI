@@ -68,6 +68,55 @@ describe('SurfboardBaseClient', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it('throws a SurfboardApiError when a 2xx response envelope reports status ERROR on an expectsEnvelope call (never returns it as success)', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: 'ERROR', message: 'Invalid swedish corporate-id length.' }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = createClient({ fetchImpl });
+
+    await expect(
+      client.request({ method: 'POST', path: '/merchants', expectsEnvelope: true }),
+    ).rejects.toMatchObject({
+      name: 'SurfboardApiError',
+      code: ERROR_CODES.VALIDATION_ERROR,
+      httpStatus: 201,
+      surfboardStatus: 'ERROR',
+      surfboardMessage: 'Invalid swedish corporate-id length.',
+      message: 'Invalid swedish corporate-id length.',
+    });
+  });
+
+  it('does not throw for a 2xx envelope reporting status SUCCESS on an expectsEnvelope call', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: 'SUCCESS', data: { applicationId: 'app_1' } }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = createClient({ fetchImpl });
+
+    const result = await client.request({ method: 'POST', path: '/merchants', expectsEnvelope: true });
+
+    expect(result.data).toEqual({ status: 'SUCCESS', data: { applicationId: 'app_1' } });
+  });
+
+  it('does not validate the envelope at all when expectsEnvelope is not set, even if the body reports status ERROR', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: 'ERROR', message: 'some other field misuse of "status"' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = createClient({ fetchImpl });
+
+    const result = await client.request({ method: 'GET', path: '/stores/1' });
+
+    expect(result.ok).toBe(true);
+  });
+
   it('retries a retryable status code and succeeds', async () => {
     const fetchImpl = vi
       .fn()

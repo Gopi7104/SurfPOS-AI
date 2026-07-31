@@ -21,18 +21,33 @@ final merchantOnboardingApiServiceProvider = Provider<MerchantOnboardingApiServi
   return MerchantOnboardingApiService(ref.watch(apiClientProvider));
 });
 
-final merchantOnboardingLocalStorageProvider = Provider<MerchantOnboardingLocalStorage>((ref) {
-  return MerchantOnboardingLocalStorage(ref.watch(secureStorageServiceProvider));
+/// Keyed by Firebase uid — the local cache key itself embeds the uid (see
+/// [MerchantOnboardingLocalStorage]), so this must be a `.family` too:
+/// a plain singleton here would hand every uid the same
+/// [MerchantOnboardingLocalStorage] instance, but the uid is only known at
+/// read time, which is exactly what `.family` provides.
+final merchantOnboardingLocalStorageProvider =
+    Provider.family<MerchantOnboardingLocalStorage, String>((ref, uid) {
+  return MerchantOnboardingLocalStorage(ref.watch(secureStorageServiceProvider), uid);
 });
 
-final merchantOnboardingRepositoryProvider = Provider<MerchantOnboardingRepository>((ref) {
+/// Keyed by Firebase uid (see docs/22_DEVELOPMENT_ROADMAP.md, cross-user
+/// isolation fix) — without this, Merchant B's controller would resolve the
+/// same repository instance as Merchant A's and could read Merchant A's
+/// cached application straight out of local storage on `build()`.
+final merchantOnboardingRepositoryProvider =
+    Provider.family<MerchantOnboardingRepository, String>((ref, uid) {
   return MerchantOnboardingRepositoryImpl(
     apiService: ref.watch(merchantOnboardingApiServiceProvider),
-    localStorage: ref.watch(merchantOnboardingLocalStorageProvider),
+    localStorage: ref.watch(merchantOnboardingLocalStorageProvider(uid)),
   );
 });
 
-final merchantOnboardingControllerProvider =
-    AsyncNotifierProvider<MerchantOnboardingController, MerchantApplication?>(
+/// Keyed by Firebase uid — never a global singleton (see
+/// docs/22_DEVELOPMENT_ROADMAP.md, cross-user isolation fix). `autoDispose`
+/// frees a previous user's cached application the moment nothing watches it
+/// anymore (i.e. as soon as the signed-in uid changes).
+final merchantOnboardingControllerProvider = AsyncNotifierProvider.autoDispose
+    .family<MerchantOnboardingController, MerchantApplication?, String>(
   MerchantOnboardingController.new,
 );

@@ -10,6 +10,8 @@
  * @property {Record<string, string|number|boolean|undefined|null>} [query]
  * @property {*} [body]
  * @property {Record<string, string>} [headers]
+ * @property {boolean} [expectsEnvelope] validate Surfboard's `{status,data,message}` envelope —
+ *   only for endpoints confirmed to use it (see surfboardClient.base.js#request)
  */
 
 module.exports = {};

@@ -6,8 +6,8 @@ import '../buttons/app_fab.dart';
 import 'app_bottom_nav_bar.dart';
 import 'app_nav_item.dart';
 
-/// The shell every top-level tab screen (Dashboard, Inventory, Billing,
-/// Analytics, Settings) is rendered inside — wires up [AppBottomNavBar]
+/// The shell every top-level tab screen (Dashboard, Billing, Inventory,
+/// Reports, Settings) is rendered inside — wires up [AppBottomNavBar]
 /// and the floating "Start New Sale" [AppFab] consistently so no screen
 /// re-implements this composition. See docs/17_FOLDER_STRUCTURE.md and the
 /// BOTTOM NAVIGATION design brief.
@@ -25,6 +25,10 @@ class AppMainScaffold extends StatelessWidget {
   final ValueChanged<int> onNavTap;
   final VoidCallback onNewSale;
 
+  /// Order matches the Merchant Dashboard build brief exactly — index 0..4
+  /// is Dashboard/Billing/Inventory/Reports/Settings; see
+  /// `DashboardTabTargets` in `features/dashboard/pages/dashboard_page.dart`
+  /// for the indices Quick Actions navigate to.
   static const items = [
     AppNavItem(
       icon: LucideIcons.layoutGrid,
@@ -32,19 +36,19 @@ class AppMainScaffold extends StatelessWidget {
       label: 'Dashboard',
     ),
     AppNavItem(
-      icon: LucideIcons.package,
-      activeIcon: LucideIcons.package,
-      label: 'Inventory',
-    ),
-    AppNavItem(
       icon: LucideIcons.receipt,
       activeIcon: LucideIcons.receipt,
       label: 'Billing',
     ),
     AppNavItem(
+      icon: LucideIcons.package,
+      activeIcon: LucideIcons.package,
+      label: 'Inventory',
+    ),
+    AppNavItem(
       icon: LucideIcons.barChart3,
       activeIcon: LucideIcons.barChart3,
-      label: 'Analytics',
+      label: 'Reports',
     ),
     AppNavItem(
       icon: LucideIcons.settings,

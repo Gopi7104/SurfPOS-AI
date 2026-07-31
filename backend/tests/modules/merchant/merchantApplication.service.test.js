@@ -37,6 +37,10 @@ function createFakeRepository(overrides = {}) {
   };
 }
 
+function createFakeStoreService(overrides = {}) {
+  return { registerDiscoveredStore: vi.fn().mockResolvedValue(undefined), ...overrides };
+}
+
 const VALID_INPUT = {
   country: 'SE',
   organisation: {
@@ -85,28 +89,56 @@ describe('merchantApplication.service', () => {
       expect(merchantApplicationRepository.create).toHaveBeenCalledWith('uid_1', application);
     });
 
-    it('falls back to uid as the applicationId when Surfboard omits one', async () => {
+    it('registers the discovered store reference when Create Merchant returns a merchantId and storeId together', async () => {
       const merchantClient = createFakeMerchantClient({
-        createMerchant: vi.fn().mockResolvedValue({ status: 'SUCCESS', data: {}, message: 'ok' }),
+        createMerchant: vi.fn().mockResolvedValue({
+          status: 'SUCCESS',
+          data: { applicationId: 'app_1', merchantId: 'm-1', storeId: 's-1' },
+          message: 'ok',
+        }),
       });
+      const storeService = createFakeStoreService();
       const service = createMerchantApplicationService({
         merchantClient,
         mapper: createFakeMapper(),
         merchantApplicationRepository: createFakeRepository(),
+        storeService,
       });
 
-      const application = await service.submitApplication('uid_1', VALID_INPUT);
+      await service.submitApplication('uid_1', VALID_INPUT);
 
-      expect(application.applicationId).toBe('uid_1');
+      expect(storeService.registerDiscoveredStore).toHaveBeenCalledWith('uid_1', {
+        merchantId: 'm-1',
+        storeId: 's-1',
+      });
     });
 
-    it('throws ConflictError when an application already exists for this uid', async () => {
-      const merchantClient = createFakeMerchantClient();
-      const merchantApplicationRepository = createFakeRepository({
-        get: vi
-          .fn()
-          .mockResolvedValue({ applicationId: 'uid_1', applicationStatus: 'APPLICATION_INITIATED' }),
+    it('does not register a store reference when no storeId is present yet', async () => {
+      const merchantClient = createFakeMerchantClient({
+        createMerchant: vi.fn().mockResolvedValue({
+          status: 'SUCCESS',
+          data: { applicationId: 'app_1' },
+          message: 'ok',
+        }),
       });
+      const storeService = createFakeStoreService();
+      const service = createMerchantApplicationService({
+        merchantClient,
+        mapper: createFakeMapper(),
+        merchantApplicationRepository: createFakeRepository(),
+        storeService,
+      });
+
+      await service.submitApplication('uid_1', VALID_INPUT);
+
+      expect(storeService.registerDiscoveredStore).not.toHaveBeenCalled();
+    });
+
+    it('throws instead of inventing an applicationId when Surfboard omits one, and persists nothing', async () => {
+      const merchantClient = createFakeMerchantClient({
+        createMerchant: vi.fn().mockResolvedValue({ status: 'SUCCESS', data: {}, message: 'ok' }),
+      });
+      const merchantApplicationRepository = createFakeRepository();
       const service = createMerchantApplicationService({
         merchantClient,
         mapper: createFakeMapper(),
@@ -114,10 +146,128 @@ describe('merchantApplication.service', () => {
       });
 
       await expect(service.submitApplication('uid_1', VALID_INPUT)).rejects.toMatchObject({
-        name: 'ConflictError',
-        code: 'CONFLICT',
+        name: 'SurfboardApiError',
       });
+      expect(merchantApplicationRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('does not create a duplicate application when the existing one is still pending on Surfboard', async () => {
+      const merchantClient = createFakeMerchantClient({
+        getApplicationStatus: vi.fn().mockResolvedValue({
+          status: 'SUCCESS',
+          data: { applicationId: 'app_1', applicationStatus: 'APPLICATION_SUBMITTED' },
+          message: 'ok',
+        }),
+      });
+      const merchantApplicationRepository = createFakeRepository({
+        get: vi.fn().mockResolvedValue({
+          applicationId: 'app_1',
+          applicationStatus: 'APPLICATION_INITIATED',
+          merchantId: null,
+          storeId: null,
+          applicationUrl: 'https://surfkyb.com/app_1',
+        }),
+      });
+      const service = createMerchantApplicationService({
+        merchantClient,
+        mapper: createFakeMapper(),
+        merchantApplicationRepository,
+      });
+
+      const application = await service.submitApplication('uid_1', VALID_INPUT);
+
+      expect(merchantClient.getApplicationStatus).toHaveBeenCalledWith('app_1');
       expect(merchantClient.createMerchant).not.toHaveBeenCalled();
+      expect(merchantApplicationRepository.create).not.toHaveBeenCalled();
+      expect(merchantApplicationRepository.update).toHaveBeenCalledWith('uid_1', {
+        applicationStatus: 'APPLICATION_SUBMITTED',
+        merchantId: null,
+        storeId: null,
+        applicationUrl: 'https://surfkyb.com/app_1',
+      });
+      expect(application).toMatchObject({ applicationStatus: 'APPLICATION_SUBMITTED' });
+    });
+
+    it('does not create a duplicate application when the existing one is already approved on Surfboard', async () => {
+      const merchantClient = createFakeMerchantClient({
+        getApplicationStatus: vi.fn().mockResolvedValue({
+          status: 'SUCCESS',
+          data: {
+            applicationId: 'app_1',
+            applicationStatus: 'MERCHANT_CREATED',
+            merchantId: 'm-1',
+            storeId: 's-1',
+          },
+          message: 'ok',
+        }),
+      });
+      const merchantApplicationRepository = createFakeRepository({
+        get: vi.fn().mockResolvedValue({
+          applicationId: 'app_1',
+          applicationStatus: 'APPLICATION_SIGNED',
+          merchantId: null,
+          storeId: null,
+        }),
+      });
+      const storeService = createFakeStoreService();
+      const service = createMerchantApplicationService({
+        merchantClient,
+        mapper: createFakeMapper(),
+        merchantApplicationRepository,
+        storeService,
+      });
+
+      const application = await service.submitApplication('uid_1', VALID_INPUT);
+
+      expect(merchantClient.createMerchant).not.toHaveBeenCalled();
+      expect(merchantApplicationRepository.update).toHaveBeenCalledWith('uid_1', {
+        applicationStatus: 'MERCHANT_CREATED',
+        merchantId: 'm-1',
+        storeId: 's-1',
+        applicationUrl: null,
+      });
+      expect(application).toMatchObject({ applicationStatus: 'MERCHANT_CREATED' });
+      expect(storeService.registerDiscoveredStore).toHaveBeenCalledWith('uid_1', {
+        merchantId: 'm-1',
+        storeId: 's-1',
+      });
+    });
+
+    it('allows a new application once the existing one was rejected by Surfboard', async () => {
+      const merchantClient = createFakeMerchantClient({
+        getApplicationStatus: vi.fn().mockResolvedValue({
+          status: 'SUCCESS',
+          data: { applicationId: 'app_1', applicationStatus: 'APPLICATION_REJECTED' },
+          message: 'ok',
+        }),
+        createMerchant: vi.fn().mockResolvedValue({
+          status: 'SUCCESS',
+          data: { applicationId: 'app_2', webKybUrl: 'https://surfkyb.com/app_2' },
+          message: 'ok',
+        }),
+      });
+      const merchantApplicationRepository = createFakeRepository({
+        get: vi.fn().mockResolvedValue({
+          applicationId: 'app_1',
+          applicationStatus: 'APPLICATION_REJECTED',
+          merchantId: null,
+          storeId: null,
+        }),
+      });
+      const service = createMerchantApplicationService({
+        merchantClient,
+        mapper: createFakeMapper(),
+        merchantApplicationRepository,
+      });
+
+      const application = await service.submitApplication('uid_1', VALID_INPUT);
+
+      expect(merchantClient.createMerchant).toHaveBeenCalledWith({ country: 'SE' });
+      expect(merchantApplicationRepository.create).toHaveBeenCalledWith(
+        'uid_1',
+        expect.objectContaining({ applicationId: 'app_2' }),
+      );
+      expect(application).toMatchObject({ applicationId: 'app_2' });
     });
 
     it('propagates a SurfboardApiError from the SDK untouched', async () => {
@@ -203,10 +353,12 @@ describe('merchantApplication.service', () => {
           storeId: null,
         }),
       });
+      const storeService = createFakeStoreService();
       const service = createMerchantApplicationService({
         merchantClient,
         mapper: createFakeMapper(),
         merchantApplicationRepository,
+        storeService,
       });
 
       const application = await service.refreshApplicationStatus('uid_1', 'app_1');
@@ -220,6 +372,10 @@ describe('merchantApplication.service', () => {
       });
       expect(application).toMatchObject({
         applicationStatus: 'MERCHANT_CREATED',
+        merchantId: 'm-1',
+        storeId: 's-1',
+      });
+      expect(storeService.registerDiscoveredStore).toHaveBeenCalledWith('uid_1', {
         merchantId: 'm-1',
         storeId: 's-1',
       });

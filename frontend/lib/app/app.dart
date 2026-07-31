@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/authentication/presentation/screens/login_page.dart';
 import '../features/authentication/presentation/screens/splash_screen.dart';
 import '../features/authentication/providers/auth_providers.dart';
-import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'app_scaffold_messenger.dart';
+import 'main_shell_page.dart';
 import 'themes/app_theme.dart';
 
 /// Root app widget.
@@ -19,11 +19,12 @@ import 'themes/app_theme.dart';
 ///
 /// Splash now waits on [authControllerProvider]'s restored session (see
 /// `AuthRepository.restoreSession`) before deciding whether to land on
-/// [LoginPage] or [DashboardScreen] — this is a genuine session check, not
-/// just the splash animation timer. Login/Signup → Dashboard (and Dashboard
-/// → Login on logout) both use `pushAndRemoveUntil` so the previous screen
-/// is fully removed from the stack — signed-in users can't navigate back to
-/// Login, and signed-out users can't navigate back to Dashboard.
+/// [LoginPage] or [MainShellPage] — this is a genuine session check, not
+/// just the splash animation timer. Login/Signup → shell (and shell's
+/// Settings tab → Login on logout) both use `pushAndRemoveUntil` so the
+/// previous screen is fully removed from the stack — signed-in users can't
+/// navigate back to Login, and signed-out users can't navigate back to the
+/// shell.
 class SurfPosApp extends ConsumerWidget {
   const SurfPosApp({super.key});
 
@@ -48,8 +49,7 @@ class SurfPosApp extends ConsumerWidget {
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) =>
-            user == null ? const LoginPage() : const DashboardScreen(),
+        builder: (_) => user == null ? const LoginPage() : const MainShellPage(),
       ),
     );
   }

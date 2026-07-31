@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../app/themes/app_colors.dart';
 import '../../../../app/themes/app_spacing.dart';
 import '../../../../app/themes/app_typography.dart';
+import '../../../authentication/providers/auth_providers.dart';
 import '../../data/models/merchant_application.dart';
 import '../../domain/merchant_onboarding_failure.dart';
 import '../providers/merchant_onboarding_providers.dart';
@@ -47,8 +48,9 @@ class _MerchantOnboardingWizardPageState extends ConsumerState<MerchantOnboardin
     final contact = _contact!;
     final address = _address!;
     final store = _store!;
+    final uid = ref.read(authControllerProvider).valueOrNull!.uid;
 
-    ref.read(merchantOnboardingControllerProvider.notifier).submit(
+    ref.read(merchantOnboardingControllerProvider(uid).notifier).submit(
           country: business.country,
           corporateId: business.corporateId,
           legalName: business.legalName,
@@ -75,11 +77,26 @@ class _MerchantOnboardingWizardPageState extends ConsumerState<MerchantOnboardin
         );
   }
 
+  // Deliberately does not gate on canLaunchUrl() first — on Android, canLaunchUrl relies on
+  // PackageManager.resolveActivity, which package-visibility restrictions (Android 11+) can make
+  // return a false negative even when a browser is installed and launchUrl() itself would succeed
+  // (confirmed via device logcat: AppsFilter BLOCKED the app's *query* for Chrome, while launching
+  // Chrome directly via an implicit ACTION_VIEW intent is not subject to the same restriction).
+  // launchUrl()'s own boolean return + a try/catch is the actual signal to trust here.
   Future<void> _handleOpenKybLink(String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else if (mounted) {
+    debugPrint(
+      '[MerchantOnboarding] Opening KYB link — raw: $url | scheme: ${uri.scheme} | host: ${uri.host}',
+    );
+
+    var launched = false;
+    try {
+      launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (error) {
+      debugPrint('[MerchantOnboarding] launchUrl threw: $error');
+    }
+
+    if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open the link. Try copying it instead.')),
       );
@@ -88,7 +105,15 @@ class _MerchantOnboardingWizardPageState extends ConsumerState<MerchantOnboardin
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(merchantOnboardingControllerProvider);
+    // Keyed by uid — a different signed-in account gets a completely separate controller
+    // instance, so this screen can never render another account's cached application.
+    final uid = ref.watch(authControllerProvider.select((s) => s.valueOrNull?.uid));
+    if (uid == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final provider = merchantOnboardingControllerProvider(uid);
+    final state = ref.watch(provider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -103,7 +128,7 @@ class _MerchantOnboardingWizardPageState extends ConsumerState<MerchantOnboardin
           AsyncData(value: final application?) => ResultStepScreen(
               application: application,
               isRefreshing: state.isLoading,
-              onRefresh: () => ref.read(merchantOnboardingControllerProvider.notifier).refreshStatus(),
+              onRefresh: () => ref.read(provider.notifier).refreshStatus(),
               onOpenKybLink: _handleOpenKybLink,
             ),
           _ => _buildWizard(state),

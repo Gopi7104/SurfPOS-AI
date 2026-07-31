@@ -69,6 +69,24 @@ describe('SurfboardMerchantClient.createMerchant', () => {
 
     await expect(client.createMerchant({})).rejects.toMatchObject({ code: 'SURFBOARD_ERROR' });
   });
+
+  it('throws a SurfboardApiError — not a fake success — when Surfboard answers HTTP 201 with an ERROR envelope (confirmed live bug: invalid corporate-id length)', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: 'ERROR', message: 'Invalid swedish corporate-id length.' }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = createClient({ fetchImpl });
+
+    await expect(client.createMerchant({ organisation: { corporateId: '12345678' } })).rejects.toMatchObject({
+      name: 'SurfboardApiError',
+      code: 'VALIDATION_ERROR',
+      message: 'Invalid swedish corporate-id length.',
+      surfboardStatus: 'ERROR',
+      httpStatus: 201,
+    });
+  });
 });
 
 describe('SurfboardMerchantClient.getApplicationStatus', () => {

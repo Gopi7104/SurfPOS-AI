@@ -41,5 +41,19 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Required by url_launcher (Merchant Onboarding's "Open KYB Application" link) so
+             canLaunchUrl()/launchUrl() can see an installed browser on Android 11+ package
+             visibility — see https://pub.dev/packages/url_launcher#android-setup. Without this,
+             canLaunchUrl() returns a false negative even when Chrome is installed. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <category android:name="android.intent.category.BROWSABLE"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <category android:name="android.intent.category.BROWSABLE"/>
+            <data android:scheme="http"/>
+        </intent>
     </queries>
 </manifest>

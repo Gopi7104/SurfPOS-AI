@@ -27,6 +27,7 @@ class SurfboardMerchantClient extends SurfboardBaseClient {
       method: 'POST',
       path: merchantsPath(this.config.partnerId),
       body: wirePayload,
+      expectsEnvelope: true,
     });
     return data;
   }
@@ -42,6 +43,7 @@ class SurfboardMerchantClient extends SurfboardBaseClient {
     const { data } = await this.request({
       method: 'GET',
       path: applicationStatusPath(this.config.partnerId, applicationId),
+      expectsEnvelope: true,
     });
     return data;
   }
@@ -60,6 +62,7 @@ class SurfboardMerchantClient extends SurfboardBaseClient {
       method: 'GET',
       path: merchantPath(this.config.partnerId, merchantId),
       headers: { 'MERCHANT-ID': merchantId },
+      expectsEnvelope: true,
     });
     return data;
   }
@@ -75,6 +78,7 @@ class SurfboardMerchantClient extends SurfboardBaseClient {
       path: merchantPath(this.config.partnerId, merchantId),
       headers: { 'MERCHANT-ID': merchantId },
       body: wirePayload,
+      expectsEnvelope: true,
     });
     return data;
   }

@@ -3,15 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/merchant_application.dart';
 import '../providers/merchant_onboarding_providers.dart';
 
-/// Onboarding-application state for the whole app: `null` = nothing
-/// submitted yet, non-null = an application exists (any status). `build()`
-/// restores the last locally-cached snapshot (no network call) so the
-/// wizard's result screen survives an app restart; callers should still
-/// `refreshStatus()` to get the live value.
-class MerchantOnboardingController extends AsyncNotifier<MerchantApplication?> {
+/// Onboarding-application state for exactly one Firebase uid (see
+/// [merchantOnboardingControllerProvider] — a `.family` provider, the uid is
+/// this notifier's `arg`) — never a global singleton, so one account's
+/// application can never be observed under another account's session, even
+/// transiently (see docs/22_DEVELOPMENT_ROADMAP.md, cross-user isolation
+/// fix). `build()` restores the last locally-cached snapshot (no network
+/// call) so the wizard's result screen survives an app restart; callers
+/// should still `refreshStatus()` to get the live value.
+class MerchantOnboardingController extends AutoDisposeFamilyAsyncNotifier<MerchantApplication?, String> {
   @override
-  Future<MerchantApplication?> build() {
-    return ref.read(merchantOnboardingRepositoryProvider).restoreCachedApplication();
+  Future<MerchantApplication?> build(String uid) {
+    return ref.read(merchantOnboardingRepositoryProvider(uid)).restoreCachedApplication();
   }
 
   /// Submits the merchant application. A no-op while a previous call is
@@ -48,7 +51,7 @@ class MerchantOnboardingController extends AsyncNotifier<MerchantApplication?> {
 
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
-      () => ref.read(merchantOnboardingRepositoryProvider).submit(
+      () => ref.read(merchantOnboardingRepositoryProvider(arg)).submit(
             country: country,
             corporateId: corporateId,
             legalName: legalName,
@@ -84,7 +87,7 @@ class MerchantOnboardingController extends AsyncNotifier<MerchantApplication?> {
 
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
-      () => ref.read(merchantOnboardingRepositoryProvider).refreshStatus(current.applicationId),
+      () => ref.read(merchantOnboardingRepositoryProvider(arg)).refreshStatus(current.applicationId),
     );
   }
 }

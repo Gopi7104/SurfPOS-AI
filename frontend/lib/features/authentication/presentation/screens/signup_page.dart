@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_scaffold_messenger.dart';
-import '../../../dashboard/presentation/screens/dashboard_screen.dart';
+import '../../../../app/main_shell_page.dart';
 import '../../data/models/auth_user.dart';
 import '../../domain/auth_failure.dart';
 import '../../providers/auth_providers.dart';
@@ -28,7 +28,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
         const SnackBar(content: Text('Account created successfully')),
       );
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        MaterialPageRoute(builder: (_) => const MainShellPage()),
         (route) => false,
       );
     });

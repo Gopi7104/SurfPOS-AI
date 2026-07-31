@@ -9,8 +9,8 @@ function createFakeMapper(overrides = {}) {
   return {
     toWire: vi.fn((domain) => ({ merchant_id: domain.merchantId, name: domain.name })),
     toDomain: vi.fn((raw) => ({
-      id: raw.store_id ?? null,
-      merchantId: raw.merchant_id ?? null,
+      id: raw.storeId ?? null,
+      merchantId: raw.merchantId ?? null,
       name: raw.name ?? null,
       address: raw.address ?? null,
       capabilities: raw.capabilities ?? null,
@@ -46,7 +46,7 @@ describe('store.service', () => {
       const storeClient = createFakeStoreClient({
         createStore: vi
           .fn()
-          .mockResolvedValue({ store_id: 'sb_store_1', merchant_id: 'sb_merchant_1', name: 'Main Store' }),
+          .mockResolvedValue({ storeId: 'sb_store_1', merchantId: 'sb_merchant_1', name: 'Main Store' }),
       });
       const merchantService = createFakeMerchantService();
       const storeRepository = createFakeStoreRepository();
@@ -108,20 +108,22 @@ describe('store.service', () => {
   });
 
   describe('getStore', () => {
-    it('returns the live store when the caller owns it', async () => {
+    it("resolves the caller's merchantId and returns the live store when the caller owns it", async () => {
       const storeClient = createFakeStoreClient({
-        getStore: vi.fn().mockResolvedValue({ store_id: 'sb_store_1', name: 'Main Store' }),
+        getStore: vi.fn().mockResolvedValue({ storeId: 'sb_store_1', name: 'Main Store' }),
       });
+      const merchantService = createFakeMerchantService();
       const service = createStoreService({
         storeClient,
         mapper: createFakeMapper(),
         storeRepository: createFakeStoreRepository({ hasReference: vi.fn().mockResolvedValue(true) }),
-        merchantService: createFakeMerchantService(),
+        merchantService,
         logger: createFakeLogger(),
       });
 
       await expect(service.getStore('uid_1', 'sb_store_1')).resolves.toMatchObject({ id: 'sb_store_1' });
-      expect(storeClient.getStore).toHaveBeenCalledWith('sb_store_1');
+      expect(merchantService.getMerchantId).toHaveBeenCalledWith('uid_1');
+      expect(storeClient.getStore).toHaveBeenCalledWith('sb_merchant_1', 'sb_store_1');
     });
 
     it('throws NotFoundError when the caller does not own the storeId', async () => {
@@ -145,7 +147,7 @@ describe('store.service', () => {
   describe('updateStore', () => {
     it('maps the patch to wire format and calls updateStore when the caller owns it', async () => {
       const storeClient = createFakeStoreClient({
-        updateStore: vi.fn().mockResolvedValue({ store_id: 'sb_store_1', name: 'New Name' }),
+        updateStore: vi.fn().mockResolvedValue({ storeId: 'sb_store_1', name: 'New Name' }),
       });
       const mapper = createFakeMapper();
       const service = createStoreService({
@@ -202,17 +204,18 @@ describe('store.service', () => {
       const storeClient = createFakeStoreClient({
         getStore: vi
           .fn()
-          .mockResolvedValueOnce({ store_id: 'sb_store_1', name: 'Store One' })
-          .mockResolvedValueOnce({ store_id: 'sb_store_2', name: 'Store Two' }),
+          .mockResolvedValueOnce({ storeId: 'sb_store_1', name: 'Store One' })
+          .mockResolvedValueOnce({ storeId: 'sb_store_2', name: 'Store Two' }),
       });
       const storeRepository = createFakeStoreRepository({
         listReferences: vi.fn().mockResolvedValue(['sb_store_1', 'sb_store_2']),
       });
+      const merchantService = createFakeMerchantService();
       const service = createStoreService({
         storeClient,
         mapper: createFakeMapper(),
         storeRepository,
-        merchantService: createFakeMerchantService(),
+        merchantService,
         logger: createFakeLogger(),
       });
 
@@ -220,6 +223,8 @@ describe('store.service', () => {
 
       expect(stores).toHaveLength(2);
       expect(stores.map((s) => s.id)).toEqual(['sb_store_1', 'sb_store_2']);
+      expect(storeClient.getStore).toHaveBeenCalledWith('sb_merchant_1', 'sb_store_1');
+      expect(storeClient.getStore).toHaveBeenCalledWith('sb_merchant_1', 'sb_store_2');
     });
 
     it('returns an empty array when the caller has no stores registered', async () => {
@@ -232,6 +237,27 @@ describe('store.service', () => {
       });
 
       await expect(service.listStores('uid_1')).resolves.toEqual([]);
+    });
+  });
+
+  describe('registerDiscoveredStore', () => {
+    it('registers the storeId reference directly, without calling Surfboard', async () => {
+      const storeClient = createFakeStoreClient();
+      const storeRepository = createFakeStoreRepository();
+      const service = createStoreService({
+        storeClient,
+        mapper: createFakeMapper(),
+        storeRepository,
+        merchantService: createFakeMerchantService(),
+        logger: createFakeLogger(),
+      });
+
+      await service.registerDiscoveredStore('uid_1', { storeId: 'sb_store_9', merchantId: 'sb_merchant_9' });
+
+      expect(storeRepository.addReference).toHaveBeenCalledWith('uid_1', 'sb_store_9', {
+        merchantId: 'sb_merchant_9',
+      });
+      expect(storeClient.createStore).not.toHaveBeenCalled();
     });
   });
 });

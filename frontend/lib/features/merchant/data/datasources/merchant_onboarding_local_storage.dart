@@ -10,12 +10,20 @@ import '../models/merchant_application.dart';
 /// feature's own keys, never [SecureStorageService.deleteAll] — merchant
 /// onboarding state must not be wiped as a side effect of logging out (a
 /// user can log back in and resume checking their application status).
+///
+/// Scoped to a single Firebase [uid] — the key embeds it — so Merchant B
+/// signing in right after Merchant A can never read Merchant A's cached
+/// application back out of shared storage (see
+/// docs/22_DEVELOPMENT_ROADMAP.md, cross-user isolation fix). One instance
+/// per uid is constructed via [merchantOnboardingLocalStorageProvider],
+/// which is itself a `.family` keyed the same way.
 class MerchantOnboardingLocalStorage {
-  MerchantOnboardingLocalStorage(this._storage);
+  MerchantOnboardingLocalStorage(this._storage, this.uid);
 
   final SecureStorageService _storage;
+  final String uid;
 
-  static const _applicationKey = 'merchant.onboardingApplication';
+  String get _applicationKey => 'merchant.onboardingApplication.$uid';
 
   Future<void> cacheApplication(MerchantApplication application) {
     return _storage.write(_applicationKey, jsonEncode(application.toJson()));

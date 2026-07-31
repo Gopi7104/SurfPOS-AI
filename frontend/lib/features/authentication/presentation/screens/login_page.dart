@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_scaffold_messenger.dart';
+import '../../../../app/main_shell_page.dart';
 import '../../../../core/validators/auth_validators.dart';
-import '../../../dashboard/presentation/screens/dashboard_screen.dart';
 import '../../data/models/auth_user.dart';
 import '../../domain/auth_failure.dart';
 import '../../providers/auth_providers.dart';
@@ -31,7 +31,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         const SnackBar(content: Text('Signed in successfully')),
       );
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        MaterialPageRoute(builder: (_) => const MainShellPage()),
         (route) => false,
       );
     });

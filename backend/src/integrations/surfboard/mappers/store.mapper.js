@@ -1,8 +1,11 @@
 'use strict';
 
 // Translates between SurfPOS's domain shape and Surfboard's wire format for Store Capabilities —
-// see docs/21_BACKEND_GUIDELINES.md § 6. Isolates the still-unconfirmed Surfboard field names
-// (docs/08_ARCHITECTURE_DECISIONS.md § ADR-009) to this one file.
+// see docs/21_BACKEND_GUIDELINES.md § 6. `toDomain()` is confirmed against the real Fetch/Create
+// Store Details docs (both share the same camelCase `storeId`/`merchantId` response shape — see
+// store.client.js's header comment); `toWire()`/`toUpdateWire()` remain unconfirmed
+// (docs/08_ARCHITECTURE_DECISIONS.md § ADR-009) since createStore()/updateStore() aren't called
+// from any live flow yet.
 
 const BaseMapper = require('./baseMapper');
 
@@ -20,17 +23,18 @@ class StoreMapper extends BaseMapper {
   }
 
   /**
-   * @param {object} raw Surfboard's Store GET/POST/PATCH response body
+   * @param {{ data?: object }} raw Surfboard's `{status, data, message}` Store GET/POST/PATCH envelope
    * @returns {{ id: string, merchantId: string, name: string, address: object, capabilities: object|null, status: string|null }}
    */
   toDomain(raw = {}) {
+    const data = raw.data ?? {};
     return {
-      id: raw.store_id ?? raw.id ?? null,
-      merchantId: raw.merchant_id ?? null,
-      name: raw.name ?? null,
-      address: raw.address ?? null,
-      capabilities: raw.capabilities ?? null,
-      status: raw.status ?? null,
+      id: data.storeId ?? null,
+      merchantId: data.merchantId ?? null,
+      name: data.name ?? null,
+      address: data.address ?? null,
+      capabilities: data.capabilities ?? null,
+      status: data.status ?? null,
     };
   }
 
