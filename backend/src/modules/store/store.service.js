@@ -100,6 +100,18 @@ function createStoreService({
   }
 
   /**
+   * Returns the caller's first registered storeId, or null if they have none yet — a cheap,
+   * registry-only lookup (no live Surfboard call, unlike [listStores]) so callers that only need
+   * *which* store to scope something to (e.g. `modules/inventory/`'s stock hydration, when no
+   * explicit `storeId` was requested) don't pay for a full Store fetch just to pick a default.
+   * @param {string} uid
+   */
+  async function getPrimaryStoreId(uid) {
+    const storeIds = await storeRepository.listReferences(uid);
+    return storeIds[0] ?? null;
+  }
+
+  /**
    * Registers a storeId this caller didn't create via `createStore()` here directly — Surfboard's
    * Create Merchant call can create a Store as a side effect of onboarding (`controlFields.store`,
    * see merchantApplication.service.js), so that storeId would otherwise never appear in this
@@ -122,6 +134,7 @@ function createStoreService({
     listStores,
     verifyStoreOwnership,
     registerDiscoveredStore,
+    getPrimaryStoreId,
   };
 }
 

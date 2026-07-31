@@ -38,9 +38,12 @@ class ContactStepScreen extends StatefulWidget {
 }
 
 class _ContactStepScreenState extends State<ContactStepScreen> {
-  late final _emailController = TextEditingController(text: widget.initialData?.email ?? '');
-  late final _phoneCodeController = TextEditingController(text: widget.initialData?.phoneCode ?? '');
-  late final _phoneNumberController = TextEditingController(text: widget.initialData?.phoneNumber ?? '');
+  late final _emailController =
+      TextEditingController(text: widget.initialData?.email ?? '');
+  late final _phoneCodeController =
+      TextEditingController(text: widget.initialData?.phoneCode ?? '');
+  late final _phoneNumberController =
+      TextEditingController(text: widget.initialData?.phoneNumber ?? '');
 
   String? _emailError;
   String? _phoneCodeError;
@@ -66,10 +69,13 @@ class _ContactStepScreenState extends State<ContactStepScreen> {
       // Surfboard's phoneNumber is a single object, not two independent
       // optional values.
       _phoneCodeError = anyPhoneEntered ? validatePhoneCode(phoneCode) : null;
-      _phoneNumberError = anyPhoneEntered ? validatePhoneNumber(phoneNumber) : null;
+      _phoneNumberError =
+          anyPhoneEntered ? validatePhoneNumber(phoneNumber) : null;
     });
 
-    if (_emailError != null || _phoneCodeError != null || _phoneNumberError != null) {
+    if (_emailError != null ||
+        _phoneCodeError != null ||
+        _phoneNumberError != null) {
       return;
     }
 
@@ -85,7 +91,8 @@ class _ContactStepScreenState extends State<ContactStepScreen> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

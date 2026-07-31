@@ -25,9 +25,16 @@ class ApiClient {
   /// there isn't one. Only consulted when a call passes `requiresAuth: true`.
   final Future<String?> Function()? authTokenProvider;
 
-  Future<Map<String, dynamic>> get(String path, {bool requiresAuth = false}) {
-    return _send(
-        () async => _dio.get(path, options: await _optionsFor(requiresAuth)));
+  Future<Map<String, dynamic>> get(
+    String path, {
+    bool requiresAuth = false,
+    Map<String, dynamic>? queryParameters,
+  }) {
+    return _send(() async => _dio.get(
+          path,
+          queryParameters: queryParameters,
+          options: await _optionsFor(requiresAuth),
+        ));
   }
 
   Future<Map<String, dynamic>> post(
@@ -38,6 +45,24 @@ class ApiClient {
     return _send(
       () async =>
           _dio.post(path, data: body, options: await _optionsFor(requiresAuth)),
+    );
+  }
+
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    Map<String, dynamic>? body,
+    bool requiresAuth = false,
+  }) {
+    return _send(
+      () async => _dio.patch(path,
+          data: body, options: await _optionsFor(requiresAuth)),
+    );
+  }
+
+  Future<Map<String, dynamic>> delete(String path,
+      {bool requiresAuth = false}) {
+    return _send(
+      () async => _dio.delete(path, options: await _optionsFor(requiresAuth)),
     );
   }
 

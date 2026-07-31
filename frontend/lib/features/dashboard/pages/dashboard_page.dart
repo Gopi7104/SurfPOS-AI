@@ -6,21 +6,21 @@ import '../../../app/themes/app_colors.dart';
 import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
 import '../../../core/widgets/app_bars/app_gradient_header.dart';
+import '../../../core/widgets/cards/section_card.dart';
+import '../../../core/widgets/chips/status_chip.dart';
 import '../../../core/widgets/empty_states/empty_state.dart';
 import '../../../core/widgets/empty_states/error_state.dart';
+import '../../../core/widgets/headers/section_header.dart';
 import '../../../core/widgets/loading/app_loading_indicator.dart';
 import '../../authentication/providers/auth_providers.dart';
 import '../../merchant/data/models/merchant_application.dart';
 import '../../merchant/presentation/screens/merchant_onboarding_wizard_page.dart';
 import '../models/dashboard_state.dart';
 import '../providers/dashboard_providers.dart';
-import '../widgets/dashboard_card.dart';
 import '../widgets/dashboard_loading_skeleton.dart';
 import '../widgets/dashboard_summary_stat_card.dart';
 import '../widgets/merchant_info_tile.dart';
 import '../widgets/quick_action_card.dart';
-import '../widgets/section_header.dart';
-import '../widgets/status_chip.dart';
 
 /// Tab indices in [AppMainScaffold.items] (Dashboard, Billing, Inventory,
 /// Reports, Settings) — kept here (not re-exported from the shell) since
@@ -51,7 +51,8 @@ class DashboardPage extends ConsumerWidget {
     // The family key IS the isolation boundary — watching by uid (not just watching
     // authControllerProvider for a display name) means a different signed-in user gets a
     // completely separate DashboardController instance/cache, never this one's stale value.
-    final uid = ref.watch(authControllerProvider.select((s) => s.valueOrNull?.uid));
+    final uid =
+        ref.watch(authControllerProvider.select((s) => s.valueOrNull?.uid));
     if (uid == null) {
       // Only reachable for a brief instant around sign-out/sign-in, before routing moves away
       // from the shell — never render stale merchant data while waiting that out.
@@ -71,7 +72,8 @@ class DashboardPage extends ConsumerWidget {
         AsyncLoading() when !state.hasValue => const DashboardLoadingSkeleton(),
         AsyncError() when !state.hasValue => _scrollable(
             ErrorState(
-              message: 'Could not load your Merchant Dashboard. Please check your connection and try again.',
+              message:
+                  'Could not load your Merchant Dashboard. Please check your connection and try again.',
               onRetry: notifier.refresh,
             ),
           ),
@@ -92,7 +94,8 @@ class DashboardPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, DashboardState data) {
+  Widget _buildContent(
+      BuildContext context, WidgetRef ref, DashboardState data) {
     if (!data.hasMerchant) {
       return _scrollable(
         EmptyState(
@@ -101,20 +104,24 @@ class DashboardPage extends ConsumerWidget {
           message: 'Submit your merchant application to unlock your Dashboard.',
           actionLabel: 'Start Onboarding',
           onAction: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const MerchantOnboardingWizardPage()),
+            MaterialPageRoute(
+                builder: (_) => const MerchantOnboardingWizardPage()),
           ),
         ),
       );
     }
 
-    final displayName = ref.watch(authControllerProvider).valueOrNull?.displayName;
+    final displayName =
+        ref.watch(authControllerProvider).valueOrNull?.displayName;
 
     return ListView(
       padding: const EdgeInsets.only(bottom: AppSpacing.xxl * 2),
       children: [
         AppGradientHeader(
           child: Text(
-            displayName?.isNotEmpty == true ? 'Welcome back, $displayName' : 'Welcome back',
+            displayName?.isNotEmpty == true
+                ? 'Welcome back, $displayName'
+                : 'Welcome back',
             style: AppTypography.headingLG.copyWith(color: AppColors.white),
           ),
         ),
@@ -131,7 +138,7 @@ class DashboardPage extends ConsumerWidget {
               const SectionHeader(title: 'Quick Actions'),
               _QuickActionsGrid(onNavigateToTab: onNavigateToTab),
               const SizedBox(height: AppSpacing.lg),
-              const DashboardCard(
+              const SectionCard(
                 title: 'Recent Activity',
                 child: EmptyState(
                   icon: LucideIcons.receipt,
@@ -158,7 +165,7 @@ class _MerchantInformationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final application = data.applicationStatus;
 
-    return DashboardCard(
+    return SectionCard(
       title: 'Merchant Information',
       child: Column(
         children: [
@@ -170,13 +177,17 @@ class _MerchantInformationCard extends StatelessWidget {
             label: 'Merchant Status',
             trailing: application == null
                 ? null
-                : StatusChip(label: _merchantStatusLabel(application), tone: _applicationTone(application)),
+                : StatusChip(
+                    label: _merchantStatusLabel(application),
+                    tone: _applicationTone(application)),
           ),
           MerchantInfoTile(
             label: 'Store Status',
             trailing: data.store?.status == null
                 ? null
-                : StatusChip(label: data.store!.status!, tone: _storeTone(data.store!.status!)),
+                : StatusChip(
+                    label: data.store!.status!,
+                    tone: _storeTone(data.store!.status!)),
           ),
           MerchantInfoTile(
             label: 'Application Status',
@@ -185,16 +196,21 @@ class _MerchantInformationCard extends StatelessWidget {
                 // The full descriptive copy (Merchant Status above uses the short form) —
                 // Surfboard has no separate Merchant-object status field, both are genuinely
                 // derived from the same applicationStatus, so only the label differs.
-                : StatusChip(label: application.label, tone: _applicationTone(application)),
+                : StatusChip(
+                    label: application.label,
+                    tone: _applicationTone(application)),
           ),
-          MerchantInfoTile(label: 'Last Synced', value: _formatTime(data.lastSyncedAt)),
+          MerchantInfoTile(
+              label: 'Last Synced', value: _formatTime(data.lastSyncedAt)),
         ],
       ),
     );
   }
 
   String _merchantStatusLabel(ApplicationStatus status) => switch (status) {
-        ApplicationStatus.merchantCreated || ApplicationStatus.applicationCompleted => 'Active',
+        ApplicationStatus.merchantCreated ||
+        ApplicationStatus.applicationCompleted =>
+          'Active',
         ApplicationStatus.applicationRejected => 'Rejected',
         ApplicationStatus.applicationExpired => 'Expired',
         ApplicationStatus.unknown => 'Unknown',
@@ -202,14 +218,20 @@ class _MerchantInformationCard extends StatelessWidget {
       };
 
   StatusTone _applicationTone(ApplicationStatus status) => switch (status) {
-        ApplicationStatus.merchantCreated || ApplicationStatus.applicationCompleted => StatusTone.success,
-        ApplicationStatus.applicationRejected || ApplicationStatus.applicationExpired => StatusTone.error,
+        ApplicationStatus.merchantCreated ||
+        ApplicationStatus.applicationCompleted =>
+          StatusTone.success,
+        ApplicationStatus.applicationRejected ||
+        ApplicationStatus.applicationExpired =>
+          StatusTone.error,
         ApplicationStatus.unknown => StatusTone.neutral,
         _ => StatusTone.warning,
       };
 
   StatusTone _storeTone(String status) =>
-      status.toLowerCase().contains('active') ? StatusTone.success : StatusTone.neutral;
+      status.toLowerCase().contains('active')
+          ? StatusTone.success
+          : StatusTone.neutral;
 
   String _formatTime(DateTime time) {
     final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
@@ -314,16 +336,22 @@ class _SystemStatusCard extends StatelessWidget {
     // auth + backend + Surfboard round trip) already succeeded — so all
     // three are, by construction, connected. There's no separate per-service
     // health-check endpoint yet (Phase 1 scope); revisit if one is added.
-    return const DashboardCard(
+    return const SectionCard(
       title: 'System Status',
       child: Column(
         children: [
-          MerchantInfoTile(label: 'Backend', trailing: StatusChip(label: 'Connected', tone: StatusTone.success)),
+          MerchantInfoTile(
+              label: 'Backend',
+              trailing:
+                  StatusChip(label: 'Connected', tone: StatusTone.success)),
           MerchantInfoTile(
             label: 'Surfboard',
             trailing: StatusChip(label: 'Connected', tone: StatusTone.success),
           ),
-          MerchantInfoTile(label: 'Firebase', trailing: StatusChip(label: 'Connected', tone: StatusTone.success)),
+          MerchantInfoTile(
+              label: 'Firebase',
+              trailing:
+                  StatusChip(label: 'Connected', tone: StatusTone.success)),
         ],
       ),
     );

@@ -10,4 +10,5 @@ module.exports = Object.freeze({
   MERCHANT: '/merchant',
   STORES: '/stores',
   INVENTORY: '/inventory',
+  PAYMENTS: '/payments',
 });

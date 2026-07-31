@@ -34,7 +34,8 @@ class FakeMerchantOnboardingRepository implements MerchantOnboardingRepository {
       required String storePostalCode,
     })? submit,
     Future<MerchantApplication> Function(String applicationId)? refreshStatus,
-  })  : _restoreCachedApplication = restoreCachedApplication ?? (() async => null),
+  })  : _restoreCachedApplication =
+            restoreCachedApplication ?? (() async => null),
         _submit = submit,
         _refreshStatus = refreshStatus;
 
@@ -64,10 +65,12 @@ class FakeMerchantOnboardingRepository implements MerchantOnboardingRepository {
     required String storeCountryCode,
     required String storePostalCode,
   })? _submit;
-  final Future<MerchantApplication> Function(String applicationId)? _refreshStatus;
+  final Future<MerchantApplication> Function(String applicationId)?
+      _refreshStatus;
 
   @override
-  Future<MerchantApplication?> restoreCachedApplication() => _restoreCachedApplication();
+  Future<MerchantApplication?> restoreCachedApplication() =>
+      _restoreCachedApplication();
 
   @override
   Future<MerchantApplication> submit({

@@ -17,7 +17,8 @@ import '../controllers/merchant_onboarding_controller.dart';
 /// comments), and a second `Provider<ApiClient>` would construct a second
 /// dio instance with no `authTokenProvider` wired to it.
 
-final merchantOnboardingApiServiceProvider = Provider<MerchantOnboardingApiService>((ref) {
+final merchantOnboardingApiServiceProvider =
+    Provider<MerchantOnboardingApiService>((ref) {
   return MerchantOnboardingApiService(ref.watch(apiClientProvider));
 });
 
@@ -28,7 +29,8 @@ final merchantOnboardingApiServiceProvider = Provider<MerchantOnboardingApiServi
 /// read time, which is exactly what `.family` provides.
 final merchantOnboardingLocalStorageProvider =
     Provider.family<MerchantOnboardingLocalStorage, String>((ref, uid) {
-  return MerchantOnboardingLocalStorage(ref.watch(secureStorageServiceProvider), uid);
+  return MerchantOnboardingLocalStorage(
+      ref.watch(secureStorageServiceProvider), uid);
 });
 
 /// Keyed by Firebase uid (see docs/22_DEVELOPMENT_ROADMAP.md, cross-user

@@ -9,7 +9,8 @@ import 'package:surfpos_ai/features/dashboard/repositories/dashboard_repository.
 /// shape: defaults to a no-op, overridable per test, never touches network.
 class FakeDashboardRepository implements DashboardRepository {
   FakeDashboardRepository({Future<DashboardState> Function()? loadDashboard})
-      : _loadDashboard = loadDashboard ?? (() async => testDashboardState(hasMerchant: false));
+      : _loadDashboard = loadDashboard ??
+            (() async => testDashboardState(hasMerchant: false));
 
   final Future<DashboardState> Function() _loadDashboard;
 

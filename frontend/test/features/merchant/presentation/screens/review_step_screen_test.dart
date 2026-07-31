@@ -10,7 +10,8 @@ import 'package:surfpos_ai/features/merchant/presentation/screens/store_step_scr
 
 import 'test_surface.dart';
 
-const _business = BusinessStepData(country: 'SE', corporateId: '1234567812', legalName: null, mccCode: null);
+const _business = BusinessStepData(
+    country: 'SE', corporateId: '1234567812', legalName: null, mccCode: null);
 const _contact = ContactStepData();
 const _address = AddressStepData(
   addressLine1: 'Main St 1',
@@ -31,7 +32,11 @@ const _store = StoreStepData(
   postalCode: '123 45',
 );
 
-Widget _buildScreen({VoidCallback? onSubmit, VoidCallback? onBack, bool isLoading = false, String? errorMessage}) {
+Widget _buildScreen(
+    {VoidCallback? onSubmit,
+    VoidCallback? onBack,
+    bool isLoading = false,
+    String? errorMessage}) {
   return MaterialApp(
     theme: AppTheme.light,
     home: Scaffold(
@@ -74,7 +79,8 @@ void main() {
   testWidgets('isLoading shows a spinner and disables Submit', (tester) async {
     useTallTestSurface(tester);
     var submitted = false;
-    await tester.pumpWidget(_buildScreen(onSubmit: () => submitted = true, isLoading: true));
+    await tester.pumpWidget(
+        _buildScreen(onSubmit: () => submitted = true, isLoading: true));
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     // The button's label is replaced by the spinner while loading, so tap
@@ -87,8 +93,10 @@ void main() {
 
   testWidgets('errorMessage displays an error banner', (tester) async {
     useTallTestSurface(tester);
-    await tester.pumpWidget(_buildScreen(errorMessage: 'You already have an application in progress.'));
+    await tester.pumpWidget(_buildScreen(
+        errorMessage: 'You already have an application in progress.'));
 
-    expect(find.text('You already have an application in progress.'), findsOneWidget);
+    expect(find.text('You already have an application in progress.'),
+        findsOneWidget);
   });
 }

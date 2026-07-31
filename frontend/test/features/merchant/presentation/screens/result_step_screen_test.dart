@@ -24,13 +24,16 @@ MerchantApplication _application({
 }
 
 void main() {
-  testWidgets('shows the KYB link button while the application is initiated', (tester) async {
+  testWidgets('shows the KYB link button while the application is initiated',
+      (tester) async {
     String? openedUrl;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
-          body: ResultStepScreen(application: _application(), onOpenKybLink: (url) => openedUrl = url),
+          body: ResultStepScreen(
+              application: _application(),
+              onOpenKybLink: (url) => openedUrl = url),
         ),
       ),
     );
@@ -44,7 +47,9 @@ void main() {
     expect(openedUrl, 'https://surfkyb.com/app-1');
   });
 
-  testWidgets('hides the KYB link once the merchant is created and shows merchant/store ids', (
+  testWidgets(
+      'hides the KYB link once the merchant is created and shows merchant/store ids',
+      (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -72,7 +77,10 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: Scaffold(body: ResultStepScreen(application: _application(), onRefresh: () => refreshed = true)),
+        home: Scaffold(
+            body: ResultStepScreen(
+                application: _application(),
+                onRefresh: () => refreshed = true)),
       ),
     );
 
@@ -87,7 +95,9 @@ void main() {
       MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
-          body: ResultStepScreen(application: _application(), errorMessage: 'Could not refresh status.'),
+          body: ResultStepScreen(
+              application: _application(),
+              errorMessage: 'Could not refresh status.'),
         ),
       ),
     );

@@ -21,7 +21,8 @@ enum ApplicationStatus {
       'APPLICATION_INITIATED' => ApplicationStatus.applicationInitiated,
       'APPLICATION_STARTED' => ApplicationStatus.applicationStarted,
       'APPLICATION_SUBMITTED' => ApplicationStatus.applicationSubmitted,
-      'APPLICATION_PENDING_INFORMATION' => ApplicationStatus.applicationPendingInformation,
+      'APPLICATION_PENDING_INFORMATION' =>
+        ApplicationStatus.applicationPendingInformation,
       'APPLICATION_SIGNED' => ApplicationStatus.applicationSigned,
       'APPLICATION_REJECTED' => ApplicationStatus.applicationRejected,
       'APPLICATION_COMPLETED' => ApplicationStatus.applicationCompleted,
@@ -35,7 +36,8 @@ enum ApplicationStatus {
         ApplicationStatus.applicationInitiated => 'APPLICATION_INITIATED',
         ApplicationStatus.applicationStarted => 'APPLICATION_STARTED',
         ApplicationStatus.applicationSubmitted => 'APPLICATION_SUBMITTED',
-        ApplicationStatus.applicationPendingInformation => 'APPLICATION_PENDING_INFORMATION',
+        ApplicationStatus.applicationPendingInformation =>
+          'APPLICATION_PENDING_INFORMATION',
         ApplicationStatus.applicationSigned => 'APPLICATION_SIGNED',
         ApplicationStatus.applicationRejected => 'APPLICATION_REJECTED',
         ApplicationStatus.applicationCompleted => 'APPLICATION_COMPLETED',
@@ -46,13 +48,17 @@ enum ApplicationStatus {
 
   /// Short, user-facing label for the result/status screen.
   String get label => switch (this) {
-        ApplicationStatus.applicationInitiated => 'Application started — complete your KYB form',
+        ApplicationStatus.applicationInitiated =>
+          'Application started — complete your KYB form',
         ApplicationStatus.applicationStarted => 'KYB form in progress',
         ApplicationStatus.applicationSubmitted => 'Submitted — under review',
-        ApplicationStatus.applicationPendingInformation => 'Additional information needed',
-        ApplicationStatus.applicationSigned => 'Signed — pending compliance review',
+        ApplicationStatus.applicationPendingInformation =>
+          'Additional information needed',
+        ApplicationStatus.applicationSigned =>
+          'Signed — pending compliance review',
         ApplicationStatus.applicationRejected => 'Application rejected',
-        ApplicationStatus.applicationCompleted => 'Approved — setting up your merchant account',
+        ApplicationStatus.applicationCompleted =>
+          'Approved — setting up your merchant account',
         ApplicationStatus.applicationExpired => 'Application expired',
         ApplicationStatus.merchantCreated => 'Your merchant account is live',
         ApplicationStatus.unknown => 'Status unavailable',
@@ -88,10 +94,12 @@ class MerchantApplication {
       applicationId: json['applicationId'] as String,
       merchantId: json['merchantId'] as String?,
       storeId: json['storeId'] as String?,
-      applicationStatus: ApplicationStatus.fromWire(json['applicationStatus'] as String?),
+      applicationStatus:
+          ApplicationStatus.fromWire(json['applicationStatus'] as String?),
       applicationUrl: json['applicationUrl'] as String?,
       shortLinkUrl: json['shortLinkUrl'] as String?,
-      submittedAt: DateTime.fromMillisecondsSinceEpoch(json['submittedAt'] as int),
+      submittedAt:
+          DateTime.fromMillisecondsSinceEpoch(json['submittedAt'] as int),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(json['updatedAt'] as int),
     );
   }

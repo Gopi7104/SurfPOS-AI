@@ -49,7 +49,8 @@ class SurfPosApp extends ConsumerWidget {
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => user == null ? const LoginPage() : const MainShellPage(),
+        builder: (_) =>
+            user == null ? const LoginPage() : const MainShellPage(),
       ),
     );
   }

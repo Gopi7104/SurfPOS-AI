@@ -18,7 +18,8 @@ class ReportsPlaceholderScreen extends StatelessWidget {
       body: EmptyState(
         icon: LucideIcons.barChart3,
         title: 'Reports',
-        message: 'Coming soon — sales and inventory reports will be available in a future update.',
+        message:
+            'Coming soon — sales and inventory reports will be available in a future update.',
       ),
     );
   }

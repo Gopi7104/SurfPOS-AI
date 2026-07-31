@@ -16,7 +16,8 @@ class MerchantOnboardingFailure {
   /// end user as if it were something they did wrong.
   factory MerchantOnboardingFailure.fromException(Object error) {
     if (error is ConflictException) {
-      return const MerchantOnboardingFailure('You already have a merchant application in progress.');
+      return const MerchantOnboardingFailure(
+          'You already have a merchant application in progress.');
     }
     if (error is SurfboardUpstreamException) {
       return const MerchantOnboardingFailure(
@@ -26,6 +27,7 @@ class MerchantOnboardingFailure {
     if (error is ApiException) {
       return MerchantOnboardingFailure(error.message);
     }
-    return const MerchantOnboardingFailure('Something went wrong. Please try again.');
+    return const MerchantOnboardingFailure(
+        'Something went wrong. Please try again.');
   }
 }

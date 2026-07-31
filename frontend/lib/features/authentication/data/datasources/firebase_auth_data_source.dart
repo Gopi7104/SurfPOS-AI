@@ -27,7 +27,8 @@ class FirebaseAuthDataSource {
   // instant it's touched. Deferring the lookup keeps that failure scoped to
   // an actual auth attempt (see class doc), not app startup.
   final FirebaseAuth? _injectedFirebaseAuth;
-  FirebaseAuth get _firebaseAuth => _injectedFirebaseAuth ?? FirebaseAuth.instance;
+  FirebaseAuth get _firebaseAuth =>
+      _injectedFirebaseAuth ?? FirebaseAuth.instance;
 
   // GoogleSignIn.instance.initialize() must be called exactly once and
   // awaited before any other GoogleSignIn method — memoized so concurrent

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../core/widgets/navigation/app_main_scaffold.dart';
 import '../features/analytics/presentation/screens/reports_placeholder_screen.dart';
-import '../features/billing/presentation/screens/billing_placeholder_screen.dart';
+import '../features/billing/pages/billing_page.dart';
 import '../features/dashboard/pages/dashboard_page.dart';
-import '../features/inventory/presentation/screens/inventory_placeholder_screen.dart';
+import '../features/inventory/pages/inventory_home_page.dart';
 import '../features/settings/presentation/screens/settings_placeholder_screen.dart';
 
 /// The application shell — the post-login/post-approval destination. Owns
@@ -31,13 +31,14 @@ class _MainShellPageState extends State<MainShellPage> {
     return AppMainScaffold(
       currentIndex: _currentIndex,
       onNavTap: _goToTab,
-      onNewSale: () => _goToTab(1), // Billing tab — "New Bill"/"Start New Sale" both land there.
+      onNewSale: () => _goToTab(
+          1), // Billing tab — "New Bill"/"Start New Sale" both land there.
       body: IndexedStack(
         index: _currentIndex,
         children: [
           DashboardPage(onNavigateToTab: _goToTab),
-          const BillingPlaceholderScreen(),
-          const InventoryPlaceholderScreen(),
+          const BillingPage(),
+          const InventoryHomePage(),
           const ReportsPlaceholderScreen(),
           const SettingsPlaceholderScreen(),
         ],

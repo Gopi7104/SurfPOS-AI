@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for Product Image capture (image_picker's ImageSource.camera) — gallery
+         selection needs no explicit permission on API 33+ (Android Photo Picker) and is handled
+         by image_picker's own manifest merge on older versions. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+
     <application
         android:label="surfpos_ai"
         android:name="${applicationName}"

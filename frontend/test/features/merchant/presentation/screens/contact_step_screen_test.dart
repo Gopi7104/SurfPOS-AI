@@ -6,7 +6,9 @@ import 'package:surfpos_ai/features/merchant/presentation/screens/contact_step_s
 void main() {
   testWidgets('renders the core form elements', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: const Scaffold(body: ContactStepScreen())),
+      MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: ContactStepScreen())),
     );
 
     expect(find.text('Business contact'), findsOneWidget);
@@ -14,12 +16,15 @@ void main() {
     expect(find.text('Back'), findsOneWidget);
   });
 
-  testWidgets('every field is optional — calls onNext with all null when left empty', (tester) async {
+  testWidgets(
+      'every field is optional — calls onNext with all null when left empty',
+      (tester) async {
     ContactStepData? captured;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: Scaffold(body: ContactStepScreen(onNext: (data) => captured = data)),
+        home: Scaffold(
+            body: ContactStepScreen(onNext: (data) => captured = data)),
       ),
     );
 
@@ -32,16 +37,20 @@ void main() {
     expect(captured!.phoneNumber, isNull);
   });
 
-  testWidgets('starting the phone number without a code shows a validation error', (tester) async {
+  testWidgets(
+      'starting the phone number without a code shows a validation error',
+      (tester) async {
     var nextCalled = false;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: Scaffold(body: ContactStepScreen(onNext: (_) => nextCalled = true)),
+        home:
+            Scaffold(body: ContactStepScreen(onNext: (_) => nextCalled = true)),
       ),
     );
 
-    await tester.enterText(find.widgetWithText(TextField, '701234567'), '701234567');
+    await tester.enterText(
+        find.widgetWithText(TextField, '701234567'), '701234567');
     await tester.tap(find.text('Next'));
     await tester.pump();
 
@@ -54,7 +63,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: Scaffold(body: ContactStepScreen(onBack: () => backTapped = true)),
+        home:
+            Scaffold(body: ContactStepScreen(onBack: () => backTapped = true)),
       ),
     );
 

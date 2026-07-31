@@ -30,14 +30,16 @@ void main() {
     final application = testMerchantApplication();
     final container = ProviderContainer(
       overrides: [
-        merchantOnboardingRepositoryProvider.overrideWith((ref, uid) => 
-          FakeMerchantOnboardingRepository(restoreCachedApplication: () async => application),
+        merchantOnboardingRepositoryProvider.overrideWith(
+          (ref, uid) => FakeMerchantOnboardingRepository(
+              restoreCachedApplication: () async => application),
         ),
       ],
     );
     addTearDown(container.dispose);
 
-    final result = await container.read(merchantOnboardingControllerProvider(_uidA).future);
+    final result = await container
+        .read(merchantOnboardingControllerProvider(_uidA).future);
 
     expect(result, application);
   });
@@ -45,22 +47,25 @@ void main() {
   test('build() resolves to null when nothing is cached', () async {
     final container = ProviderContainer(
       overrides: [
-        merchantOnboardingRepositoryProvider.overrideWith((ref, uid) => FakeMerchantOnboardingRepository()),
+        merchantOnboardingRepositoryProvider
+            .overrideWith((ref, uid) => FakeMerchantOnboardingRepository()),
       ],
     );
     addTearDown(container.dispose);
 
-    final result = await container.read(merchantOnboardingControllerProvider(_uidA).future);
+    final result = await container
+        .read(merchantOnboardingControllerProvider(_uidA).future);
 
     expect(result, isNull);
   });
 
-  test('submit() transitions through loading to a submitted application', () async {
+  test('submit() transitions through loading to a submitted application',
+      () async {
     final application = testMerchantApplication();
     final container = ProviderContainer(
       overrides: [
-        merchantOnboardingRepositoryProvider.overrideWith((ref, uid) => 
-          FakeMerchantOnboardingRepository(
+        merchantOnboardingRepositoryProvider.overrideWith(
+          (ref, uid) => FakeMerchantOnboardingRepository(
             submit: ({
               required country,
               required corporateId,
@@ -92,12 +97,16 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    addTearDown(container.listen(merchantOnboardingControllerProvider(_uidA), (_, __) {}).close);
+    addTearDown(container
+        .listen(merchantOnboardingControllerProvider(_uidA), (_, __) {})
+        .close);
 
     await container.read(merchantOnboardingControllerProvider(_uidA).future);
 
     final args = _validSubmitArgs();
-    final future = container.read(merchantOnboardingControllerProvider(_uidA).notifier).submit(
+    final future = container
+        .read(merchantOnboardingControllerProvider(_uidA).notifier)
+        .submit(
           country: args['country'],
           corporateId: args['corporateId'],
           organisationAddressLine1: args['organisationAddressLine1'],
@@ -114,18 +123,21 @@ void main() {
           storePostalCode: args['storePostalCode'],
         );
 
-    expect(container.read(merchantOnboardingControllerProvider(_uidA)).isLoading, isTrue);
+    expect(
+        container.read(merchantOnboardingControllerProvider(_uidA)).isLoading,
+        isTrue);
 
     await future;
 
-    expect(container.read(merchantOnboardingControllerProvider(_uidA)).value, application);
+    expect(container.read(merchantOnboardingControllerProvider(_uidA)).value,
+        application);
   });
 
   test('submit() surfaces a failure as AsyncError without crashing', () async {
     final container = ProviderContainer(
       overrides: [
-        merchantOnboardingRepositoryProvider.overrideWith((ref, uid) => 
-          FakeMerchantOnboardingRepository(
+        merchantOnboardingRepositoryProvider.overrideWith(
+          (ref, uid) => FakeMerchantOnboardingRepository(
             submit: ({
               required country,
               required corporateId,
@@ -157,11 +169,15 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    addTearDown(container.listen(merchantOnboardingControllerProvider(_uidA), (_, __) {}).close);
+    addTearDown(container
+        .listen(merchantOnboardingControllerProvider(_uidA), (_, __) {})
+        .close);
 
     await container.read(merchantOnboardingControllerProvider(_uidA).future);
     final args = _validSubmitArgs();
-    await container.read(merchantOnboardingControllerProvider(_uidA).notifier).submit(
+    await container
+        .read(merchantOnboardingControllerProvider(_uidA).notifier)
+        .submit(
           country: args['country'],
           corporateId: args['corporateId'],
           organisationAddressLine1: args['organisationAddressLine1'],
@@ -178,16 +194,19 @@ void main() {
           storePostalCode: args['storePostalCode'],
         );
 
-    expect(container.read(merchantOnboardingControllerProvider(_uidA)).hasError, isTrue);
+    expect(container.read(merchantOnboardingControllerProvider(_uidA)).hasError,
+        isTrue);
   });
 
-  test('submit() is a no-op while a submission is already in flight (duplicate-submission guard)', () async {
+  test(
+      'submit() is a no-op while a submission is already in flight (duplicate-submission guard)',
+      () async {
     var submitCallCount = 0;
     final application = testMerchantApplication();
     final container = ProviderContainer(
       overrides: [
-        merchantOnboardingRepositoryProvider.overrideWith((ref, uid) => 
-          FakeMerchantOnboardingRepository(
+        merchantOnboardingRepositoryProvider.overrideWith(
+          (ref, uid) => FakeMerchantOnboardingRepository(
             submit: ({
               required country,
               required corporateId,
@@ -225,12 +244,14 @@ void main() {
     // autoDispose providers are torn down once nothing is actively listening — a plain
     // container.read() between the two overlapping submit() calls below doesn't count as a
     // listener, so without this the provider can be disposed and recreated mid-test.
-    final sub = container.listen(merchantOnboardingControllerProvider(_uidA), (_, __) {});
+    final sub = container.listen(
+        merchantOnboardingControllerProvider(_uidA), (_, __) {});
     addTearDown(sub.close);
 
     await container.read(merchantOnboardingControllerProvider(_uidA).future);
     final args = _validSubmitArgs();
-    final notifier = container.read(merchantOnboardingControllerProvider(_uidA).notifier);
+    final notifier =
+        container.read(merchantOnboardingControllerProvider(_uidA).notifier);
 
     final first = notifier.submit(
       country: args['country'],
@@ -271,7 +292,9 @@ void main() {
     expect(submitCallCount, 1);
   });
 
-  test('refreshStatus() polls with the current application id and updates state', () async {
+  test(
+      'refreshStatus() polls with the current application id and updates state',
+      () async {
     final initial = testMerchantApplication(applicationId: 'app-1');
     final refreshed = testMerchantApplication(
       applicationId: 'app-1',
@@ -282,8 +305,8 @@ void main() {
     String? capturedApplicationId;
     final container = ProviderContainer(
       overrides: [
-        merchantOnboardingRepositoryProvider.overrideWith((ref, uid) => 
-          FakeMerchantOnboardingRepository(
+        merchantOnboardingRepositoryProvider.overrideWith(
+          (ref, uid) => FakeMerchantOnboardingRepository(
             restoreCachedApplication: () async => initial,
             refreshStatus: (applicationId) async {
               capturedApplicationId = applicationId;
@@ -294,21 +317,27 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    addTearDown(container.listen(merchantOnboardingControllerProvider(_uidA), (_, __) {}).close);
+    addTearDown(container
+        .listen(merchantOnboardingControllerProvider(_uidA), (_, __) {})
+        .close);
 
     await container.read(merchantOnboardingControllerProvider(_uidA).future);
-    await container.read(merchantOnboardingControllerProvider(_uidA).notifier).refreshStatus();
+    await container
+        .read(merchantOnboardingControllerProvider(_uidA).notifier)
+        .refreshStatus();
 
     expect(capturedApplicationId, 'app-1');
-    expect(container.read(merchantOnboardingControllerProvider(_uidA)).value, refreshed);
+    expect(container.read(merchantOnboardingControllerProvider(_uidA)).value,
+        refreshed);
   });
 
-  test('refreshStatus() is a no-op when there is nothing to refresh yet', () async {
+  test('refreshStatus() is a no-op when there is nothing to refresh yet',
+      () async {
     var called = false;
     final container = ProviderContainer(
       overrides: [
-        merchantOnboardingRepositoryProvider.overrideWith((ref, uid) => 
-          FakeMerchantOnboardingRepository(
+        merchantOnboardingRepositoryProvider.overrideWith(
+          (ref, uid) => FakeMerchantOnboardingRepository(
             refreshStatus: (applicationId) async {
               called = true;
               return testMerchantApplication();
@@ -320,34 +349,41 @@ void main() {
     addTearDown(container.dispose);
 
     await container.read(merchantOnboardingControllerProvider(_uidA).future);
-    await container.read(merchantOnboardingControllerProvider(_uidA).notifier).refreshStatus();
+    await container
+        .read(merchantOnboardingControllerProvider(_uidA).notifier)
+        .refreshStatus();
 
     expect(called, isFalse);
   });
 
   group('cross-user isolation (see docs/22_DEVELOPMENT_ROADMAP.md)', () {
     test('two different uids never share cached application state', () async {
-      final applicationA = testMerchantApplication(applicationId: 'app-a', merchantId: 'm-a');
+      final applicationA =
+          testMerchantApplication(applicationId: 'app-a', merchantId: 'm-a');
       final container = ProviderContainer(
         overrides: [
-          merchantOnboardingRepositoryProvider.overrideWith((ref, uid) => 
-            FakeMerchantOnboardingRepository(restoreCachedApplication: () async => applicationA),
+          merchantOnboardingRepositoryProvider.overrideWith(
+            (ref, uid) => FakeMerchantOnboardingRepository(
+                restoreCachedApplication: () async => applicationA),
           ),
         ],
       );
       addTearDown(container.dispose);
 
-      final resultA = await container.read(merchantOnboardingControllerProvider(_uidA).future);
+      final resultA = await container
+          .read(merchantOnboardingControllerProvider(_uidA).future);
 
       final containerBOverride = ProviderContainer(
         overrides: [
-          merchantOnboardingRepositoryProvider.overrideWith((ref, uid) => 
-            FakeMerchantOnboardingRepository(restoreCachedApplication: () async => null),
+          merchantOnboardingRepositoryProvider.overrideWith(
+            (ref, uid) => FakeMerchantOnboardingRepository(
+                restoreCachedApplication: () async => null),
           ),
         ],
       );
       addTearDown(containerBOverride.dispose);
-      final resultB = await containerBOverride.read(merchantOnboardingControllerProvider(_uidB).future);
+      final resultB = await containerBOverride
+          .read(merchantOnboardingControllerProvider(_uidB).future);
 
       expect(resultA?.applicationId, 'app-a');
       expect(resultB, isNull);

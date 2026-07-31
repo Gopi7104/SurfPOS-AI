@@ -38,7 +38,9 @@ class QuickActionCard extends StatelessWidget {
             child: Icon(icon, color: AppColors.primary, size: 20),
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text(label, style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w600)),
+          Text(label,
+              style:
+                  AppTypography.bodySM.copyWith(fontWeight: FontWeight.w600)),
         ],
       ),
     );

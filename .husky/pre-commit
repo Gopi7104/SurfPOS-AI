@@ -1,7 +1,29 @@
+set -e
+
 cd backend
+
+echo "[pre-commit] backend: format + lint staged files"
+npx lint-staged
+
 echo "[pre-commit] backend: lint"
 npm run lint
-echo "[pre-commit] backend: format check"
-npm run format:check
+
 echo "[pre-commit] backend: test"
 npm test
+
+cd ..
+
+STAGED_DART_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '^frontend/.*\.dart$' || true)
+
+if [ -n "$STAGED_DART_FILES" ]; then
+  echo "[pre-commit] frontend: format staged Dart files"
+  echo "$STAGED_DART_FILES" | xargs dart format
+
+  echo "$STAGED_DART_FILES" | xargs git add
+
+  echo "[pre-commit] frontend: analyze"
+  (cd frontend && flutter analyze)
+
+  echo "[pre-commit] frontend: test"
+  (cd frontend && flutter test)
+fi

@@ -54,12 +54,16 @@ class DashboardRepositoryImpl implements DashboardRepository {
   Future<MerchantProfileModel?> _fetchMerchantProfile() async {
     final data = await _apiClient.get('/merchant', requiresAuth: true);
     final merchant = data['merchant'];
-    return merchant is Map<String, dynamic> ? MerchantProfileModel.fromJson(merchant) : null;
+    return merchant is Map<String, dynamic>
+        ? MerchantProfileModel.fromJson(merchant)
+        : null;
   }
 
   Future<StoreProfileModel?> _fetchStoreProfile(String storeId) async {
     final data = await _apiClient.get('/stores/$storeId', requiresAuth: true);
     final store = data['store'];
-    return store is Map<String, dynamic> ? StoreProfileModel.fromJson(store) : null;
+    return store is Map<String, dynamic>
+        ? StoreProfileModel.fromJson(store)
+        : null;
   }
 }

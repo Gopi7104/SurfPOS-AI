@@ -9,7 +9,8 @@ import '../../../app/themes/app_typography.dart';
 /// [StatusChip] instead of plain text (Merchant Status, Store Status,
 /// Application Status).
 class MerchantInfoTile extends StatelessWidget {
-  const MerchantInfoTile({required this.label, this.value, this.trailing, super.key});
+  const MerchantInfoTile(
+      {required this.label, this.value, this.trailing, super.key});
 
   final String label;
   final String? value;
@@ -22,7 +23,8 @@ class MerchantInfoTile extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppTypography.bodySM.copyWith(color: AppColors.textGrey)),
+          Text(label,
+              style: AppTypography.bodySM.copyWith(color: AppColors.textGrey)),
           const SizedBox(width: AppSpacing.sm),
           Flexible(
             child: trailing ??
@@ -30,7 +32,8 @@ class MerchantInfoTile extends StatelessWidget {
                   value ?? '—',
                   textAlign: TextAlign.end,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w600),
+                  style: AppTypography.bodySM
+                      .copyWith(fontWeight: FontWeight.w600),
                 ),
           ),
         ],

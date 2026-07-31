@@ -27,7 +27,7 @@ final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
 /// [DashboardState] the moment [DashboardPage] stops watching it (i.e. as
 /// soon as the uid changes), so no stale data can outlive the session that
 /// produced it — not even for a single frame.
-final dashboardControllerProvider =
-    AsyncNotifierProvider.autoDispose.family<DashboardController, DashboardState, String>(
+final dashboardControllerProvider = AsyncNotifierProvider.autoDispose
+    .family<DashboardController, DashboardState, String>(
   DashboardController.new,
 );

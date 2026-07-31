@@ -18,7 +18,8 @@ String? validateRequired(String value, String fieldLabel) {
   return null;
 }
 
-String? validateCorporateId(String value) => validateRequired(value, 'Corporate ID');
+String? validateCorporateId(String value) =>
+    validateRequired(value, 'Corporate ID');
 
 String? validateCountryCode(String value) {
   final trimmed = value.trim();
@@ -51,7 +52,9 @@ String? validateEmail(String value) {
 String? validatePhoneCode(String value) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return 'Country calling code is required';
-  if (!_phoneCodePattern.hasMatch(trimmed)) return 'Digits only, no + (e.g. 46)';
+  if (!_phoneCodePattern.hasMatch(trimmed)) {
+    return 'Digits only, no + (e.g. 46)';
+  }
   return null;
 }
 
@@ -62,10 +65,13 @@ String? validatePhoneNumber(String value) {
   return null;
 }
 
-String? validateAddressLine1(String value) => validateRequired(value, 'Address');
+String? validateAddressLine1(String value) =>
+    validateRequired(value, 'Address');
 
 String? validateCity(String value) => validateRequired(value, 'City');
 
-String? validatePostalCode(String value) => validateRequired(value, 'Postal code');
+String? validatePostalCode(String value) =>
+    validateRequired(value, 'Postal code');
 
-String? validateStoreName(String value) => validateRequired(value, 'Store name');
+String? validateStoreName(String value) =>
+    validateRequired(value, 'Store name');

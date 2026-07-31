@@ -3,9 +3,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
+import 'core/config/app_environment.dart';
+import 'core/network/api_config.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Resolves the backend base URL every ApiClient uses — see
+  // docs/23_ENVIRONMENT_CONFIGURATION.md. Must happen before runApp(): any
+  // provider that constructs an ApiClient reads ApiConfig.baseUrl the first
+  // time it's touched, which can happen as early as the first frame.
+  await ApiConfig.initialize(environment: AppEnvironment.current);
+
+  // Connectivity-audit instrumentation (see docs/23_ENVIRONMENT_CONFIGURATION.md and the
+  // Connection Diagnostics screen under Settings) — prints the exact value every ApiClient
+  // will use for this run, so "which backend is this build actually pointed at?" never has
+  // to be guessed from reading source/config files.
+  debugPrint(
+      '[SurfPOS] AppEnvironment.current = ${AppEnvironment.current.name}');
+  try {
+    debugPrint('[SurfPOS] ApiConfig.baseUrl = ${ApiConfig.baseUrl}');
+  } catch (error) {
+    debugPrint('[SurfPOS] ApiConfig.baseUrl is NOT configured: $error');
+  }
 
   try {
     await Firebase.initializeApp();

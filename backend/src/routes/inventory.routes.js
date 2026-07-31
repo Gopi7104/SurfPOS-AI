@@ -7,6 +7,7 @@ const {
   createProductSchema,
   updateProductSchema,
   productIdParamsSchema,
+  getProductQuerySchema,
   listProductsQuerySchema,
   adjustStockSchema,
 } = require('../validators/inventory.validation');
@@ -27,7 +28,12 @@ router.use(authenticate);
 
 router.post('/products', validate(createProductSchema), createProduct);
 router.get('/products', validate(listProductsQuerySchema, 'query'), listProducts);
-router.get('/products/:productId', validate(productIdParamsSchema, 'params'), getProduct);
+router.get(
+  '/products/:productId',
+  validate(productIdParamsSchema, 'params'),
+  validate(getProductQuerySchema, 'query'),
+  getProduct,
+);
 router.patch(
   '/products/:productId',
   validate(productIdParamsSchema, 'params'),

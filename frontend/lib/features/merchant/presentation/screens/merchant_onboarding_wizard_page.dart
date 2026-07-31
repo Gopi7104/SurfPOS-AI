@@ -30,10 +30,12 @@ class MerchantOnboardingWizardPage extends ConsumerStatefulWidget {
   const MerchantOnboardingWizardPage({super.key});
 
   @override
-  ConsumerState<MerchantOnboardingWizardPage> createState() => _MerchantOnboardingWizardPageState();
+  ConsumerState<MerchantOnboardingWizardPage> createState() =>
+      _MerchantOnboardingWizardPageState();
 }
 
-class _MerchantOnboardingWizardPageState extends ConsumerState<MerchantOnboardingWizardPage> {
+class _MerchantOnboardingWizardPageState
+    extends ConsumerState<MerchantOnboardingWizardPage> {
   int _currentStep = 0;
 
   BusinessStepData? _business;
@@ -98,7 +100,8 @@ class _MerchantOnboardingWizardPageState extends ConsumerState<MerchantOnboardin
 
     if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the link. Try copying it instead.')),
+        const SnackBar(
+            content: Text('Could not open the link. Try copying it instead.')),
       );
     }
   }
@@ -107,7 +110,8 @@ class _MerchantOnboardingWizardPageState extends ConsumerState<MerchantOnboardin
   Widget build(BuildContext context) {
     // Keyed by uid — a different signed-in account gets a completely separate controller
     // instance, so this screen can never render another account's cached application.
-    final uid = ref.watch(authControllerProvider.select((s) => s.valueOrNull?.uid));
+    final uid =
+        ref.watch(authControllerProvider.select((s) => s.valueOrNull?.uid));
     if (uid == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -124,7 +128,8 @@ class _MerchantOnboardingWizardPageState extends ConsumerState<MerchantOnboardin
       ),
       body: SafeArea(
         child: switch (state) {
-          AsyncLoading() when !state.hasValue => const Center(child: CircularProgressIndicator()),
+          AsyncLoading() when !state.hasValue =>
+            const Center(child: CircularProgressIndicator()),
           AsyncData(value: final application?) => ResultStepScreen(
               application: application,
               isRefreshing: state.isLoading,
@@ -181,8 +186,10 @@ class _MerchantOnboardingWizardPageState extends ConsumerState<MerchantOnboardin
                 address: _address!,
                 store: _store!,
                 isLoading: state.isLoading,
-                errorMessage:
-                    state.hasError ? MerchantOnboardingFailure.fromException(state.error!).message : null,
+                errorMessage: state.hasError
+                    ? MerchantOnboardingFailure.fromException(state.error!)
+                        .message
+                    : null,
                 onSubmit: _handleSubmit,
                 onBack: () => _goToStep(3),
               ),
@@ -202,7 +209,8 @@ class _StepProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -217,7 +225,8 @@ class _StepProgress extends StatelessWidget {
               value: (currentStep + 1) / stepCount,
               minHeight: 4,
               backgroundColor: AppColors.border,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(AppColors.primary),
             ),
           ),
         ],

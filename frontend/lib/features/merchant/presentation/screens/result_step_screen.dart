@@ -36,15 +36,19 @@ class ResultStepScreen extends StatelessWidget {
 
   bool get _showKybLink =>
       application.applicationUrl != null &&
-      (application.applicationStatus == ApplicationStatus.applicationInitiated ||
-          application.applicationStatus == ApplicationStatus.applicationPendingInformation);
+      (application.applicationStatus ==
+              ApplicationStatus.applicationInitiated ||
+          application.applicationStatus ==
+              ApplicationStatus.applicationPendingInformation);
 
   @override
   Widget build(BuildContext context) {
-    final isLive = application.applicationStatus == ApplicationStatus.merchantCreated;
+    final isLive =
+        application.applicationStatus == ApplicationStatus.merchantCreated;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -83,7 +87,8 @@ class ResultStepScreen extends StatelessWidget {
               label: 'Copy link',
               icon: LucideIcons.copy,
               onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: application.applicationUrl!));
+                await Clipboard.setData(
+                    ClipboardData(text: application.applicationUrl!));
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Link copied to clipboard')),

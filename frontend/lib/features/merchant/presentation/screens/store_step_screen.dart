@@ -60,24 +60,35 @@ class StoreStepScreen extends StatefulWidget {
 }
 
 class _StoreStepScreenState extends State<StoreStepScreen> {
-  late final _nameController = TextEditingController(text: widget.initialData?.name ?? '');
-  late final _emailController = TextEditingController(text: widget.initialData?.email ?? '');
-  late final _phoneCodeController = TextEditingController(text: widget.initialData?.phoneCode ?? '');
-  late final _phoneNumberController = TextEditingController(text: widget.initialData?.phoneNumber ?? '');
+  late final _nameController =
+      TextEditingController(text: widget.initialData?.name ?? '');
+  late final _emailController =
+      TextEditingController(text: widget.initialData?.email ?? '');
+  late final _phoneCodeController =
+      TextEditingController(text: widget.initialData?.phoneCode ?? '');
+  late final _phoneNumberController =
+      TextEditingController(text: widget.initialData?.phoneNumber ?? '');
   late final _addressLine1Controller = TextEditingController(
-    text: widget.initialData?.addressLine1 ?? (_sameAsBusinessAddress ? widget.businessAddress.addressLine1 : ''),
+    text: widget.initialData?.addressLine1 ??
+        (_sameAsBusinessAddress ? widget.businessAddress.addressLine1 : ''),
   );
   late final _addressLine2Controller = TextEditingController(
-    text: widget.initialData?.addressLine2 ?? (_sameAsBusinessAddress ? widget.businessAddress.addressLine2 : null) ?? '',
+    text: widget.initialData?.addressLine2 ??
+        (_sameAsBusinessAddress ? widget.businessAddress.addressLine2 : null) ??
+        '',
   );
   late final _careOfController = TextEditingController(
-    text: widget.initialData?.careOf ?? (_sameAsBusinessAddress ? widget.businessAddress.careOf : null) ?? '',
+    text: widget.initialData?.careOf ??
+        (_sameAsBusinessAddress ? widget.businessAddress.careOf : null) ??
+        '',
   );
   late final _cityController = TextEditingController(
-    text: widget.initialData?.city ?? (_sameAsBusinessAddress ? widget.businessAddress.city : ''),
+    text: widget.initialData?.city ??
+        (_sameAsBusinessAddress ? widget.businessAddress.city : ''),
   );
   late final _postalCodeController = TextEditingController(
-    text: widget.initialData?.postalCode ?? (_sameAsBusinessAddress ? widget.businessAddress.postalCode : ''),
+    text: widget.initialData?.postalCode ??
+        (_sameAsBusinessAddress ? widget.businessAddress.postalCode : ''),
   );
 
   late bool _sameAsBusinessAddress = widget.initialData == null;
@@ -109,7 +120,8 @@ class _StoreStepScreenState extends State<StoreStepScreen> {
       _sameAsBusinessAddress = value ?? false;
       if (_sameAsBusinessAddress) {
         _addressLine1Controller.text = widget.businessAddress.addressLine1;
-        _addressLine2Controller.text = widget.businessAddress.addressLine2 ?? '';
+        _addressLine2Controller.text =
+            widget.businessAddress.addressLine2 ?? '';
         _careOfController.text = widget.businessAddress.careOf ?? '';
         _cityController.text = widget.businessAddress.city;
         _postalCodeController.text = widget.businessAddress.postalCode;
@@ -155,8 +167,12 @@ class _StoreStepScreenState extends State<StoreStepScreen> {
         phoneCode: phoneCode,
         phoneNumber: phoneNumber,
         addressLine1: addressLine1,
-        addressLine2: _addressLine2Controller.text.trim().isEmpty ? null : _addressLine2Controller.text.trim(),
-        careOf: _careOfController.text.trim().isEmpty ? null : _careOfController.text.trim(),
+        addressLine2: _addressLine2Controller.text.trim().isEmpty
+            ? null
+            : _addressLine2Controller.text.trim(),
+        careOf: _careOfController.text.trim().isEmpty
+            ? null
+            : _careOfController.text.trim(),
         city: city,
         postalCode: postalCode,
       ),
@@ -166,7 +182,8 @@ class _StoreStepScreenState extends State<StoreStepScreen> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -227,7 +244,8 @@ class _StoreStepScreenState extends State<StoreStepScreen> {
             controlAffinity: ListTileControlAffinity.leading,
             contentPadding: EdgeInsets.zero,
             activeColor: AppColors.primary,
-            title: Text('Same as business address', style: AppTypography.bodyMD),
+            title:
+                Text('Same as business address', style: AppTypography.bodyMD),
           ),
           AppTextField(
             label: 'Address line 1',

@@ -39,7 +39,8 @@ class ReviewStepScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -68,7 +69,8 @@ class ReviewStepScreen extends StatelessWidget {
               title: 'Contact',
               rows: {
                 if (contact.email != null) 'Email': contact.email!,
-                if (contact.phoneNumber != null) 'Phone': '+${contact.phoneCode} ${contact.phoneNumber}',
+                if (contact.phoneNumber != null)
+                  'Phone': '+${contact.phoneCode} ${contact.phoneNumber}',
               },
             ),
           _Section(
@@ -99,7 +101,8 @@ class ReviewStepScreen extends StatelessWidget {
             isLoading: isLoading,
           ),
           const SizedBox(height: AppSpacing.sm),
-          AppSecondaryButton(label: 'Back', onPressed: isLoading ? null : onBack),
+          AppSecondaryButton(
+              label: 'Back', onPressed: isLoading ? null : onBack),
         ],
       ),
     );
@@ -131,7 +134,9 @@ class _Section extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: Text(
-                entry.key.isEmpty ? entry.value : '${entry.key}: ${entry.value}',
+                entry.key.isEmpty
+                    ? entry.value
+                    : '${entry.key}: ${entry.value}',
                 style: AppTypography.bodySM.copyWith(color: AppColors.textGrey),
               ),
             ),

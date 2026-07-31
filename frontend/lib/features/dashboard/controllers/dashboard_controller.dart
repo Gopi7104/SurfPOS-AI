@@ -9,7 +9,8 @@ import '../providers/dashboard_providers.dart';
 /// `MerchantOnboardingController`'s shape otherwise: `build()` does the
 /// initial load, `refresh()` guards against overlapping calls and re-runs
 /// it for this same uid.
-class DashboardController extends AutoDisposeFamilyAsyncNotifier<DashboardState, String> {
+class DashboardController
+    extends AutoDisposeFamilyAsyncNotifier<DashboardState, String> {
   @override
   Future<DashboardState> build(String uid) {
     return ref.read(dashboardRepositoryProvider).loadDashboard();
@@ -19,6 +20,7 @@ class DashboardController extends AutoDisposeFamilyAsyncNotifier<DashboardState,
     if (state.isLoading) return;
 
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => ref.read(dashboardRepositoryProvider).loadDashboard());
+    state = await AsyncValue.guard(
+        () => ref.read(dashboardRepositoryProvider).loadDashboard());
   }
 }

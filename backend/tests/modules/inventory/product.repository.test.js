@@ -109,13 +109,64 @@ describe('product.repository', () => {
     it('filters by search term (case-insensitive substring of name)', async () => {
       const fakeDb = createFakeDb();
       const repository = createProductRepository({ getDb: () => fakeDb });
-      await repository.create('sb_merchant_1', baseProduct({ name: 'Wax — Tropical' }));
-      await repository.create('sb_merchant_1', baseProduct({ name: 'Leash — Coil' }));
+      await repository.create(
+        'sb_merchant_1',
+        baseProduct({ name: 'Wax — Tropical', sku: 'WAX-TRP-01', barcode: '111' }),
+      );
+      await repository.create(
+        'sb_merchant_1',
+        baseProduct({ name: 'Leash — Coil', sku: 'LSH-COIL-01', barcode: '222' }),
+      );
 
       const { items } = await repository.list('sb_merchant_1', { search: 'wax' });
 
       expect(items).toHaveLength(1);
       expect(items[0].name).toBe('Wax — Tropical');
+    });
+
+    it('search also matches SKU and barcode substrings, not just name', async () => {
+      const fakeDb = createFakeDb();
+      const repository = createProductRepository({ getDb: () => fakeDb });
+      await repository.create(
+        'sb_merchant_1',
+        baseProduct({ name: 'Wax — Tropical', sku: 'WAX-TRP-01', barcode: '111' }),
+      );
+      await repository.create(
+        'sb_merchant_1',
+        baseProduct({ name: 'Leash — Coil', sku: 'LSH-COIL-01', barcode: '222' }),
+      );
+
+      await expect(
+        repository.list('sb_merchant_1', { search: 'lsh-coil' }).then((r) => r.items),
+      ).resolves.toHaveLength(1);
+      await expect(repository.list('sb_merchant_1', { search: '222' }).then((r) => r.items)).resolves.toEqual(
+        [expect.objectContaining({ name: 'Leash — Coil' })],
+      );
+    });
+
+    it('sorts by name, price, and updatedAt', async () => {
+      const fakeDb = createFakeDb();
+      const repository = createProductRepository({ getDb: () => fakeDb });
+      await repository.create(
+        'sb_merchant_1',
+        baseProduct({ name: 'Zinc Block', sku: 'A', sellingPrice: 50, updatedAt: 3 }),
+      );
+      await repository.create(
+        'sb_merchant_1',
+        baseProduct({ name: 'Ankle Leash', sku: 'B', sellingPrice: 150, updatedAt: 1 }),
+      );
+
+      const byName = await repository.list('sb_merchant_1', { sortBy: 'name' });
+      expect(byName.items.map((p) => p.name)).toEqual(['Ankle Leash', 'Zinc Block']);
+
+      const byPriceDesc = await repository.list('sb_merchant_1', { sortBy: 'price', sortOrder: 'desc' });
+      expect(byPriceDesc.items.map((p) => p.name)).toEqual(['Ankle Leash', 'Zinc Block']);
+
+      const byUpdatedAtDesc = await repository.list('sb_merchant_1', {
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      });
+      expect(byUpdatedAtDesc.items.map((p) => p.name)).toEqual(['Zinc Block', 'Ankle Leash']);
     });
 
     it('filters by category and barcode', async () => {
@@ -150,6 +201,49 @@ describe('product.repository', () => {
       const lastPage = await repository.list('sb_merchant_1', { limit: 2, cursor: secondPage.nextCursor });
       expect(lastPage.items).toHaveLength(1);
       expect(lastPage.nextCursor).toBeNull();
+    });
+  });
+
+  describe('findBySku()', () => {
+    it('finds an active product with a matching SKU for the merchant', async () => {
+      const fakeDb = createFakeDb();
+      const repository = createProductRepository({ getDb: () => fakeDb });
+      const product = await repository.create('sb_merchant_1', baseProduct({ sku: 'UNIQUE-1' }));
+
+      await expect(repository.findBySku('sb_merchant_1', 'UNIQUE-1')).resolves.toMatchObject({
+        id: product.id,
+      });
+      await expect(repository.findBySku('sb_merchant_1', 'NOPE')).resolves.toBeNull();
+    });
+
+    it('ignores soft-deleted products, so their SKU can be reused', async () => {
+      const fakeDb = createFakeDb();
+      const repository = createProductRepository({ getDb: () => fakeDb });
+      await repository.create('sb_merchant_1', baseProduct({ sku: 'REUSABLE', isActive: false }));
+
+      await expect(repository.findBySku('sb_merchant_1', 'REUSABLE')).resolves.toBeNull();
+    });
+
+    it('excludes the given productId — a product keeping its own SKU on update is not a conflict', async () => {
+      const fakeDb = createFakeDb();
+      const repository = createProductRepository({ getDb: () => fakeDb });
+      const product = await repository.create('sb_merchant_1', baseProduct({ sku: 'SELF-1' }));
+
+      await expect(repository.findBySku('sb_merchant_1', 'SELF-1', product.id)).resolves.toBeNull();
+    });
+  });
+
+  describe('listAll()', () => {
+    it('returns every filtered+sorted product, unpaginated', async () => {
+      const fakeDb = createFakeDb();
+      const repository = createProductRepository({ getDb: () => fakeDb });
+      for (let i = 0; i < 30; i += 1) {
+        await repository.create('sb_merchant_1', baseProduct({ name: `Product ${i}`, sku: `SKU-${i}` }));
+      }
+
+      const all = await repository.listAll('sb_merchant_1');
+
+      expect(all).toHaveLength(30);
     });
   });
 });

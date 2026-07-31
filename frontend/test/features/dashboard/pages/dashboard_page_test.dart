@@ -27,7 +27,8 @@ Widget _wrap(Widget child, {required Override dashboardOverride}) {
 }
 
 void main() {
-  testWidgets('shows a loading skeleton while the initial load is in flight', (tester) async {
+  testWidgets('shows a loading skeleton while the initial load is in flight',
+      (tester) async {
     useTallTestSurface(tester);
     final completer = Completer<void>();
     await tester.pumpWidget(
@@ -54,13 +55,17 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('shows the onboarding empty state when no merchant application exists', (tester) async {
+  testWidgets(
+      'shows the onboarding empty state when no merchant application exists',
+      (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(
       _wrap(
         const DashboardPage(),
         dashboardOverride: dashboardRepositoryProvider.overrideWithValue(
-          FakeDashboardRepository(loadDashboard: () async => testDashboardState(hasMerchant: false)),
+          FakeDashboardRepository(
+              loadDashboard: () async =>
+                  testDashboardState(hasMerchant: false)),
         ),
       ),
     );
@@ -70,7 +75,8 @@ void main() {
     expect(find.text('Start Onboarding'), findsOneWidget);
   });
 
-  testWidgets('shows an error state with retry when loading fails', (tester) async {
+  testWidgets('shows an error state with retry when loading fails',
+      (tester) async {
     useTallTestSurface(tester);
     var attempts = 0;
     await tester.pumpWidget(
@@ -98,13 +104,16 @@ void main() {
     expect(attempts, 2);
   });
 
-  testWidgets('renders merchant/store info, quick actions, and system status once loaded', (tester) async {
+  testWidgets(
+      'renders merchant/store info, quick actions, and system status once loaded',
+      (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(
       _wrap(
         const DashboardPage(),
         dashboardOverride: dashboardRepositoryProvider.overrideWithValue(
-          FakeDashboardRepository(loadDashboard: () async => testDashboardState()),
+          FakeDashboardRepository(
+              loadDashboard: () async => testDashboardState()),
         ),
       ),
     );
@@ -130,7 +139,8 @@ void main() {
       _wrap(
         DashboardPage(onNavigateToTab: (index) => navigatedIndex = index),
         dashboardOverride: dashboardRepositoryProvider.overrideWithValue(
-          FakeDashboardRepository(loadDashboard: () async => testDashboardState()),
+          FakeDashboardRepository(
+              loadDashboard: () async => testDashboardState()),
         ),
       ),
     );

@@ -11,10 +11,13 @@ import '../providers/merchant_onboarding_providers.dart';
 /// fix). `build()` restores the last locally-cached snapshot (no network
 /// call) so the wizard's result screen survives an app restart; callers
 /// should still `refreshStatus()` to get the live value.
-class MerchantOnboardingController extends AutoDisposeFamilyAsyncNotifier<MerchantApplication?, String> {
+class MerchantOnboardingController
+    extends AutoDisposeFamilyAsyncNotifier<MerchantApplication?, String> {
   @override
   Future<MerchantApplication?> build(String uid) {
-    return ref.read(merchantOnboardingRepositoryProvider(uid)).restoreCachedApplication();
+    return ref
+        .read(merchantOnboardingRepositoryProvider(uid))
+        .restoreCachedApplication();
   }
 
   /// Submits the merchant application. A no-op while a previous call is
@@ -87,7 +90,9 @@ class MerchantOnboardingController extends AutoDisposeFamilyAsyncNotifier<Mercha
 
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
-      () => ref.read(merchantOnboardingRepositoryProvider(arg)).refreshStatus(current.applicationId),
+      () => ref
+          .read(merchantOnboardingRepositoryProvider(arg))
+          .refreshStatus(current.applicationId),
     );
   }
 }

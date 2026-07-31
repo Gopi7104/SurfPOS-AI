@@ -11,7 +11,9 @@ const createProduct = asyncHandler(async (req, res) => {
 });
 
 const getProduct = asyncHandler(async (req, res) => {
-  const product = await inventoryService.getProduct(req.user.uid, req.params.productId);
+  const product = await inventoryService.getProduct(req.user.uid, req.params.productId, {
+    storeId: req.query.storeId,
+  });
   sendSuccess(res, { product });
 });
 

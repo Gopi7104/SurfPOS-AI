@@ -45,10 +45,14 @@ class BusinessStepScreen extends StatefulWidget {
 }
 
 class _BusinessStepScreenState extends State<BusinessStepScreen> {
-  late final _countryController = TextEditingController(text: widget.initialData?.country ?? '');
-  late final _corporateIdController = TextEditingController(text: widget.initialData?.corporateId ?? '');
-  late final _legalNameController = TextEditingController(text: widget.initialData?.legalName ?? '');
-  late final _mccCodeController = TextEditingController(text: widget.initialData?.mccCode ?? '');
+  late final _countryController =
+      TextEditingController(text: widget.initialData?.country ?? '');
+  late final _corporateIdController =
+      TextEditingController(text: widget.initialData?.corporateId ?? '');
+  late final _legalNameController =
+      TextEditingController(text: widget.initialData?.legalName ?? '');
+  late final _mccCodeController =
+      TextEditingController(text: widget.initialData?.mccCode ?? '');
 
   String? _countryError;
   String? _corporateIdError;
@@ -74,7 +78,9 @@ class _BusinessStepScreenState extends State<BusinessStepScreen> {
       _mccCodeError = validateMccCode(mccCode);
     });
 
-    if (_countryError != null || _corporateIdError != null || _mccCodeError != null) {
+    if (_countryError != null ||
+        _corporateIdError != null ||
+        _mccCodeError != null) {
       return;
     }
 
@@ -82,7 +88,9 @@ class _BusinessStepScreenState extends State<BusinessStepScreen> {
       BusinessStepData(
         country: country,
         corporateId: corporateId,
-        legalName: _legalNameController.text.trim().isEmpty ? null : _legalNameController.text.trim(),
+        legalName: _legalNameController.text.trim().isEmpty
+            ? null
+            : _legalNameController.text.trim(),
         mccCode: mccCode.isEmpty ? null : mccCode,
       ),
     );
@@ -91,7 +99,8 @@ class _BusinessStepScreenState extends State<BusinessStepScreen> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

@@ -15,18 +15,22 @@ const _businessAddress = AddressStepData(
 );
 
 TextField _findAddressLine1Field(WidgetTester tester) {
-  return tester.widget<TextField>(find.widgetWithText(TextField, 'Main Street 123'));
+  return tester
+      .widget<TextField>(find.widgetWithText(TextField, 'Main Street 123'));
 }
 
 void main() {
-  testWidgets('renders the core form elements, address pre-filled from business address by default', (
+  testWidgets(
+      'renders the core form elements, address pre-filled from business address by default',
+      (
     tester,
   ) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: const Scaffold(body: StoreStepScreen(businessAddress: _businessAddress)),
+        home: const Scaffold(
+            body: StoreStepScreen(businessAddress: _businessAddress)),
       ),
     );
 
@@ -39,7 +43,9 @@ void main() {
     expect(addressField.enabled, isFalse);
   });
 
-  testWidgets('submitting empty required fields shows validation errors and does not call onNext', (
+  testWidgets(
+      'submitting empty required fields shows validation errors and does not call onNext',
+      (
     tester,
   ) async {
     useTallTestSurface(tester);
@@ -48,7 +54,9 @@ void main() {
       MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
-          body: StoreStepScreen(businessAddress: _businessAddress, onNext: (_) => nextCalled = true),
+          body: StoreStepScreen(
+              businessAddress: _businessAddress,
+              onNext: (_) => nextCalled = true),
         ),
       ),
     );
@@ -60,14 +68,17 @@ void main() {
     expect(nextCalled, isFalse);
   });
 
-  testWidgets('unchecking "same as business address" clears and enables the address fields', (
+  testWidgets(
+      'unchecking "same as business address" clears and enables the address fields',
+      (
     tester,
   ) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: const Scaffold(body: StoreStepScreen(businessAddress: _businessAddress)),
+        home: const Scaffold(
+            body: StoreStepScreen(businessAddress: _businessAddress)),
       ),
     );
 
@@ -78,7 +89,9 @@ void main() {
     expect(addressField.enabled, isTrue);
   });
 
-  testWidgets('valid input with "same as business address" checked reuses the business address', (
+  testWidgets(
+      'valid input with "same as business address" checked reuses the business address',
+      (
     tester,
   ) async {
     useTallTestSurface(tester);
@@ -87,15 +100,21 @@ void main() {
       MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
-          body: StoreStepScreen(businessAddress: _businessAddress, onNext: (data) => captured = data),
+          body: StoreStepScreen(
+              businessAddress: _businessAddress,
+              onNext: (data) => captured = data),
         ),
       ),
     );
 
-    await tester.enterText(find.widgetWithText(TextField, 'Main Street Store'), 'My Store');
-    await tester.enterText(find.widgetWithText(TextField, 'store@yourbusiness.com'), 'store@example.com');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Main Street Store'), 'My Store');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'store@yourbusiness.com'),
+        'store@example.com');
     await tester.enterText(find.widgetWithText(TextField, '46'), '46');
-    await tester.enterText(find.widgetWithText(TextField, '701234567'), '701234567');
+    await tester.enterText(
+        find.widgetWithText(TextField, '701234567'), '701234567');
     await tester.tap(find.text('Next'));
     await tester.pump();
 

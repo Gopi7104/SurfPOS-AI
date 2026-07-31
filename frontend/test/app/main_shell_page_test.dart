@@ -6,17 +6,21 @@ import 'package:surfpos_ai/app/themes/app_theme.dart';
 import 'package:surfpos_ai/core/widgets/navigation/app_main_scaffold.dart';
 import 'package:surfpos_ai/features/authentication/providers/auth_providers.dart';
 import 'package:surfpos_ai/features/dashboard/providers/dashboard_providers.dart';
+import 'package:surfpos_ai/features/inventory/providers/inventory_providers.dart';
 
 import '../features/authentication/fakes/fake_auth_repository.dart';
 import '../features/dashboard/fakes/fake_dashboard_repository.dart';
+import '../features/inventory/fakes/fake_inventory_repository.dart';
 import '../features/merchant/presentation/screens/test_surface.dart';
 
 Widget _wrap() {
   return ProviderScope(
     overrides: [
       dashboardRepositoryProvider.overrideWithValue(
-        FakeDashboardRepository(loadDashboard: () async => testDashboardState()),
+        FakeDashboardRepository(
+            loadDashboard: () async => testDashboardState()),
       ),
+      inventoryRepositoryProvider.overrideWithValue(FakeInventoryRepository()),
       authRepositoryProvider.overrideWithValue(
         FakeAuthRepository(restoreSession: () async => testAuthUser()),
       ),
@@ -37,14 +41,15 @@ void main() {
     expect(find.text('Merchant Information'), findsOneWidget);
   });
 
-  testWidgets('switching tabs via the bottom nav shows the right screen', (tester) async {
+  testWidgets('switching tabs via the bottom nav shows the right screen',
+      (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(_wrap());
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Billing').last);
     await tester.pumpAndSettle();
-    expect(find.text('Coming soon — billing will be available in a future update.'), findsOneWidget);
+    expect(find.text('Cart is Empty'), findsOneWidget);
 
     await tester.tap(find.text('Settings').last);
     await tester.pumpAndSettle();
@@ -55,7 +60,9 @@ void main() {
     expect(find.text('Merchant Information'), findsOneWidget);
   });
 
-  testWidgets('preserves scroll/tab state across switches (IndexedStack, not rebuilt)', (tester) async {
+  testWidgets(
+      'preserves scroll/tab state across switches (IndexedStack, not rebuilt)',
+      (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(_wrap());
     await tester.pumpAndSettle();
@@ -66,17 +73,18 @@ void main() {
 
     await tester.tap(find.text('Inventory').last);
     await tester.pumpAndSettle();
-    expect(find.text('Coming soon — inventory management will be available in a future update.'),
-        findsOneWidget);
+    expect(find.text('Quick Actions'), findsOneWidget);
 
     // The Dashboard's content is still in the tree underneath (IndexedStack),
     // not disposed — proven by returning to it without a reload flash.
     await tester.tap(find.text('Dashboard').last);
-    await tester.pump(); // a single frame, no settle — an AsyncNotifier reload would still be loading
+    await tester
+        .pump(); // a single frame, no settle — an AsyncNotifier reload would still be loading
     expect(find.text('Merchant Information'), findsOneWidget);
   });
 
-  testWidgets('Quick Actions on the Dashboard switch the shell tab', (tester) async {
+  testWidgets('Quick Actions on the Dashboard switch the shell tab',
+      (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(_wrap());
     await tester.pumpAndSettle();
@@ -84,6 +92,6 @@ void main() {
     await tester.tap(find.text('New Bill'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Coming soon — billing will be available in a future update.'), findsOneWidget);
+    expect(find.text('Cart is Empty'), findsOneWidget);
   });
 }

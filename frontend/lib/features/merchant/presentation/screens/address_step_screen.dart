@@ -47,11 +47,16 @@ class AddressStepScreen extends StatefulWidget {
 }
 
 class _AddressStepScreenState extends State<AddressStepScreen> {
-  late final _addressLine1Controller = TextEditingController(text: widget.initialData?.addressLine1 ?? '');
-  late final _addressLine2Controller = TextEditingController(text: widget.initialData?.addressLine2 ?? '');
-  late final _careOfController = TextEditingController(text: widget.initialData?.careOf ?? '');
-  late final _cityController = TextEditingController(text: widget.initialData?.city ?? '');
-  late final _postalCodeController = TextEditingController(text: widget.initialData?.postalCode ?? '');
+  late final _addressLine1Controller =
+      TextEditingController(text: widget.initialData?.addressLine1 ?? '');
+  late final _addressLine2Controller =
+      TextEditingController(text: widget.initialData?.addressLine2 ?? '');
+  late final _careOfController =
+      TextEditingController(text: widget.initialData?.careOf ?? '');
+  late final _cityController =
+      TextEditingController(text: widget.initialData?.city ?? '');
+  late final _postalCodeController =
+      TextEditingController(text: widget.initialData?.postalCode ?? '');
 
   String? _addressLine1Error;
   String? _cityError;
@@ -78,15 +83,21 @@ class _AddressStepScreenState extends State<AddressStepScreen> {
       _postalCodeError = validatePostalCode(postalCode);
     });
 
-    if (_addressLine1Error != null || _cityError != null || _postalCodeError != null) {
+    if (_addressLine1Error != null ||
+        _cityError != null ||
+        _postalCodeError != null) {
       return;
     }
 
     widget.onNext?.call(
       AddressStepData(
         addressLine1: addressLine1,
-        addressLine2: _addressLine2Controller.text.trim().isEmpty ? null : _addressLine2Controller.text.trim(),
-        careOf: _careOfController.text.trim().isEmpty ? null : _careOfController.text.trim(),
+        addressLine2: _addressLine2Controller.text.trim().isEmpty
+            ? null
+            : _addressLine2Controller.text.trim(),
+        careOf: _careOfController.text.trim().isEmpty
+            ? null
+            : _careOfController.text.trim(),
         city: city,
         postalCode: postalCode,
       ),
@@ -96,7 +107,8 @@ class _AddressStepScreenState extends State<AddressStepScreen> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

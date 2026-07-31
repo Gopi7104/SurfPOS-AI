@@ -8,6 +8,7 @@ import '../../../../core/widgets/app_bars/app_top_bar.dart';
 import '../../../../core/widgets/buttons/app_secondary_button.dart';
 import '../../../authentication/presentation/screens/login_page.dart';
 import '../../../authentication/providers/auth_providers.dart';
+import '../../../diagnostics/pages/connection_diagnostics_page.dart';
 import '../../../merchant/presentation/screens/merchant_onboarding_wizard_page.dart';
 
 /// Placeholder for the Settings tab — Phase 1 builds only the Dashboard and
@@ -37,21 +38,39 @@ class SettingsPlaceholderScreen extends ConsumerWidget {
         // Bottom padding clears the shell's floating "New Sale" FAB (AppMainScaffold docks it
         // centered above the bottom nav on every tab) so Log Out is never obscured behind it.
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 120),
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md, AppSpacing.md, AppSpacing.md, 120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (user != null) ...[
-                Text(user.displayName?.isNotEmpty == true ? user.displayName! : 'Account',
+                Text(
+                    user.displayName?.isNotEmpty == true
+                        ? user.displayName!
+                        : 'Account',
                     style: Theme.of(context).textTheme.titleMedium),
-                Text(user.email, style: const TextStyle(color: AppColors.textGrey)),
+                Text(user.email,
+                    style: const TextStyle(color: AppColors.textGrey)),
                 const SizedBox(height: AppSpacing.lg),
               ],
               AppSecondaryButton(
                 label: 'Merchant Onboarding',
                 icon: LucideIcons.building2,
                 onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const MerchantOnboardingWizardPage()),
+                  MaterialPageRoute(
+                      builder: (_) => const MerchantOnboardingWizardPage()),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              // TEMPORARY — connectivity-audit tooling, see
+              // docs/23_ENVIRONMENT_CONFIGURATION.md. Safe to remove once the
+              // Wi-Fi-switching connectivity issue is confirmed resolved.
+              AppSecondaryButton(
+                label: 'Connection Diagnostics',
+                icon: LucideIcons.wifi,
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (_) => const ConnectionDiagnosticsPage()),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),

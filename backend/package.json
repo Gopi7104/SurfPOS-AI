@@ -20,6 +20,15 @@
     "format:check": "prettier --check .",
     "verify:firebase": "node scripts/verifyFirebaseConnection.js"
   },
+  "lint-staged": {
+    "*.{js,cjs,mjs}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
   "dependencies": {
     "compression": "^1.8.1",
     "cors": "^2.8.5",
@@ -37,6 +46,7 @@
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.8.0",
+    "lint-staged": "^16.4.0",
     "nodemon": "^3.1.7",
     "pino-pretty": "^11.3.0",
     "prettier": "^3.9.6",

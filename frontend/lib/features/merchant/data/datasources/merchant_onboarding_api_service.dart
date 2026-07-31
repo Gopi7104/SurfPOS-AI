@@ -53,26 +53,34 @@ class MerchantOnboardingApiService {
           if (legalName != null && legalName.isNotEmpty) 'legalName': legalName,
           if (mccCode != null && mccCode.isNotEmpty) 'mccCode': mccCode,
           'address': {
-            if (organisationCareOf != null && organisationCareOf.isNotEmpty) 'careOf': organisationCareOf,
+            if (organisationCareOf != null && organisationCareOf.isNotEmpty)
+              'careOf': organisationCareOf,
             'addressLine1': organisationAddressLine1,
-            if (organisationAddressLine2 != null && organisationAddressLine2.isNotEmpty)
+            if (organisationAddressLine2 != null &&
+                organisationAddressLine2.isNotEmpty)
               'addressLine2': organisationAddressLine2,
             'city': organisationCity,
             'countryCode': organisationCountryCode,
             'postalCode': organisationPostalCode,
           },
           if (organisationPhoneCode != null && organisationPhoneNumber != null)
-            'phoneNumber': {'code': organisationPhoneCode, 'number': organisationPhoneNumber},
-          if (organisationEmail != null && organisationEmail.isNotEmpty) 'email': organisationEmail,
+            'phoneNumber': {
+              'code': organisationPhoneCode,
+              'number': organisationPhoneNumber
+            },
+          if (organisationEmail != null && organisationEmail.isNotEmpty)
+            'email': organisationEmail,
         },
         'store': {
           'name': storeName,
           'email': storeEmail,
           'phoneNumber': {'code': storePhoneCode, 'number': storePhoneNumber},
           'address': {
-            if (storeCareOf != null && storeCareOf.isNotEmpty) 'careOf': storeCareOf,
+            if (storeCareOf != null && storeCareOf.isNotEmpty)
+              'careOf': storeCareOf,
             'addressLine1': storeAddressLine1,
-            if (storeAddressLine2 != null && storeAddressLine2.isNotEmpty) 'addressLine2': storeAddressLine2,
+            if (storeAddressLine2 != null && storeAddressLine2.isNotEmpty)
+              'addressLine2': storeAddressLine2,
             'city': storeCity,
             'countryCode': storeCountryCode,
             'postalCode': storePostalCode,
@@ -80,27 +88,35 @@ class MerchantOnboardingApiService {
         },
       },
     );
-    return MerchantApplication.fromJson(data['application'] as Map<String, dynamic>);
+    return MerchantApplication.fromJson(
+        data['application'] as Map<String, dynamic>);
   }
 
   /// `GET /merchant/applications/:id` — the last cached snapshot.
   Future<MerchantApplication> getById(String applicationId) async {
-    final data = await _client.get('/merchant/applications/$applicationId', requiresAuth: true);
-    return MerchantApplication.fromJson(data['application'] as Map<String, dynamic>);
+    final data = await _client.get('/merchant/applications/$applicationId',
+        requiresAuth: true);
+    return MerchantApplication.fromJson(
+        data['application'] as Map<String, dynamic>);
   }
 
   /// `GET /merchant/applications/:id/status` — polls Surfboard live and
   /// returns the refreshed record.
   Future<MerchantApplication> getStatus(String applicationId) async {
-    final data = await _client.get('/merchant/applications/$applicationId/status', requiresAuth: true);
-    return MerchantApplication.fromJson(data['application'] as Map<String, dynamic>);
+    final data = await _client.get(
+        '/merchant/applications/$applicationId/status',
+        requiresAuth: true);
+    return MerchantApplication.fromJson(
+        data['application'] as Map<String, dynamic>);
   }
 
   /// `GET /merchant/applications` — the caller's own application(s), 0 or 1.
   Future<List<MerchantApplication>> list() async {
-    final data = await _client.get('/merchant/applications', requiresAuth: true);
+    final data =
+        await _client.get('/merchant/applications', requiresAuth: true);
     return (data['applications'] as List<dynamic>)
-        .map((json) => MerchantApplication.fromJson(json as Map<String, dynamic>))
+        .map((json) =>
+            MerchantApplication.fromJson(json as Map<String, dynamic>))
         .toList();
   }
 }

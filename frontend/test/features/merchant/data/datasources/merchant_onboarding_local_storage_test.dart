@@ -25,13 +25,16 @@ class _FakeSecureStorageService implements SecureStorageService {
 
 void main() {
   group('cross-user isolation (see docs/22_DEVELOPMENT_ROADMAP.md)', () {
-    test('two different uids sharing the same underlying storage never see '
+    test(
+        'two different uids sharing the same underlying storage never see '
         "each other's cached application", () async {
       final storage = _FakeSecureStorageService();
       final applicationA = testMerchantApplication(applicationId: 'app-a');
 
-      final storageForA = MerchantOnboardingLocalStorage(storage, 'uid-merchant-a');
-      final storageForB = MerchantOnboardingLocalStorage(storage, 'uid-merchant-b');
+      final storageForA =
+          MerchantOnboardingLocalStorage(storage, 'uid-merchant-a');
+      final storageForB =
+          MerchantOnboardingLocalStorage(storage, 'uid-merchant-b');
 
       await storageForA.cacheApplication(applicationA);
 
@@ -45,13 +48,16 @@ void main() {
       expect(resultA?.applicationId, 'app-a');
     });
 
-    test("clearing one uid's cache does not affect another uid's cache", () async {
+    test("clearing one uid's cache does not affect another uid's cache",
+        () async {
       final storage = _FakeSecureStorageService();
       final applicationA = testMerchantApplication(applicationId: 'app-a');
       final applicationB = testMerchantApplication(applicationId: 'app-b');
 
-      final storageForA = MerchantOnboardingLocalStorage(storage, 'uid-merchant-a');
-      final storageForB = MerchantOnboardingLocalStorage(storage, 'uid-merchant-b');
+      final storageForA =
+          MerchantOnboardingLocalStorage(storage, 'uid-merchant-a');
+      final storageForB =
+          MerchantOnboardingLocalStorage(storage, 'uid-merchant-b');
 
       await storageForA.cacheApplication(applicationA);
       await storageForB.cacheApplication(applicationB);
@@ -59,7 +65,8 @@ void main() {
       await storageForA.clear();
 
       expect(await storageForA.readCachedApplication(), isNull);
-      expect((await storageForB.readCachedApplication())?.applicationId, 'app-b');
+      expect(
+          (await storageForB.readCachedApplication())?.applicationId, 'app-b');
     });
   });
 }

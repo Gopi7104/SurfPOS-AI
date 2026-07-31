@@ -32,7 +32,8 @@ class MerchantOnboardingLocalStorage {
   Future<MerchantApplication?> readCachedApplication() async {
     final raw = await _storage.read(_applicationKey);
     if (raw == null) return null;
-    return MerchantApplication.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    return MerchantApplication.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>);
   }
 
   Future<void> clear() => _storage.delete(_applicationKey);

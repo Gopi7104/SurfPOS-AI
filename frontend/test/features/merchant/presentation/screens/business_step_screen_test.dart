@@ -6,7 +6,9 @@ import 'package:surfpos_ai/features/merchant/presentation/screens/business_step_
 void main() {
   testWidgets('renders the core form elements', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: const Scaffold(body: BusinessStepScreen())),
+      MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: BusinessStepScreen())),
     );
 
     expect(find.text('Business details'), findsOneWidget);
@@ -15,14 +17,17 @@ void main() {
     expect(find.text('Next'), findsOneWidget);
   });
 
-  testWidgets('submitting empty required fields shows validation errors and does not call onNext', (
+  testWidgets(
+      'submitting empty required fields shows validation errors and does not call onNext',
+      (
     tester,
   ) async {
     var nextCalled = false;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: Scaffold(body: BusinessStepScreen(onNext: (_) => nextCalled = true)),
+        home: Scaffold(
+            body: BusinessStepScreen(onNext: (_) => nextCalled = true)),
       ),
     );
 
@@ -36,7 +41,9 @@ void main() {
 
   testWidgets('an invalid MCC code shows a validation error', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: const Scaffold(body: BusinessStepScreen())),
+      MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: BusinessStepScreen())),
     );
 
     await tester.enterText(find.widgetWithText(TextField, 'SE'), 'SE');
@@ -51,12 +58,14 @@ void main() {
     expect(find.text('Enter a 4-digit Merchant Category Code'), findsOneWidget);
   });
 
-  testWidgets('valid input calls onNext with trimmed, uppercased country', (tester) async {
+  testWidgets('valid input calls onNext with trimmed, uppercased country',
+      (tester) async {
     BusinessStepData? captured;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: Scaffold(body: BusinessStepScreen(onNext: (data) => captured = data)),
+        home: Scaffold(
+            body: BusinessStepScreen(onNext: (data) => captured = data)),
       ),
     );
 

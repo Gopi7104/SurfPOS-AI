@@ -9,7 +9,9 @@ void main() {
   testWidgets('renders the core form elements', (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: const Scaffold(body: AddressStepScreen())),
+      MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: AddressStepScreen())),
     );
 
     expect(find.text('Business address'), findsOneWidget);
@@ -18,7 +20,9 @@ void main() {
     expect(find.text('Postal code'), findsOneWidget);
   });
 
-  testWidgets('submitting empty required fields shows validation errors and does not call onNext', (
+  testWidgets(
+      'submitting empty required fields shows validation errors and does not call onNext',
+      (
     tester,
   ) async {
     useTallTestSurface(tester);
@@ -26,7 +30,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: Scaffold(body: AddressStepScreen(onNext: (_) => nextCalled = true)),
+        home:
+            Scaffold(body: AddressStepScreen(onNext: (_) => nextCalled = true)),
       ),
     );
 
@@ -39,7 +44,9 @@ void main() {
     expect(nextCalled, isFalse);
   });
 
-  testWidgets('valid input calls onNext with trimmed values, optional fields null when blank', (
+  testWidgets(
+      'valid input calls onNext with trimmed values, optional fields null when blank',
+      (
     tester,
   ) async {
     useTallTestSurface(tester);
@@ -47,12 +54,15 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: Scaffold(body: AddressStepScreen(onNext: (data) => captured = data)),
+        home: Scaffold(
+            body: AddressStepScreen(onNext: (data) => captured = data)),
       ),
     );
 
-    await tester.enterText(find.widgetWithText(TextField, 'Main Street 123'), '  Main St 1  ');
-    await tester.enterText(find.widgetWithText(TextField, 'Stockholm'), 'Stockholm');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Main Street 123'), '  Main St 1  ');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Stockholm'), 'Stockholm');
     await tester.enterText(find.widgetWithText(TextField, '123 45'), '123 45');
     await tester.tap(find.text('Next'));
     await tester.pump();
