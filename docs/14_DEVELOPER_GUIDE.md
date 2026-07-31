@@ -30,13 +30,19 @@ Full annotated tree: [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md).
 ## 3. Flutter Setup
 
 ```bash
-cd mobile
+cd frontend
 flutter pub get
 flutter doctor         # confirm no blocking issues
+cp .env.example .env   # one-time — see docs/23_ENVIRONMENT_CONFIGURATION.md
 ```
 
 - Configure Firebase for Flutter using `flutterfire configure` (generates `firebase_options.dart` — this file is safe to commit; it contains client-side config identifiers, not secrets).
-- Run on a connected device/emulator:
+- Run on a physical Android device over USB (recommended default — see [docs/23_ENVIRONMENT_CONFIGURATION.md § 4a](23_ENVIRONMENT_CONFIGURATION.md#4a-usb-development-recommended-default)):
+  ```bash
+  ./scripts/run_usb.sh
+  ```
+  This runs `adb reverse tcp:4000 tcp:4000` for you before `flutter run`, so the app reaches the backend at `127.0.0.1:4000` regardless of Wi-Fi/LAN IP.
+- Run on an emulator/simulator, or a device over Wi-Fi instead (see [docs/23_ENVIRONMENT_CONFIGURATION.md § 4](23_ENVIRONMENT_CONFIGURATION.md#4-development-workflow) for which `API_BASE_URL` to set):
   ```bash
   flutter run
   ```

@@ -22,6 +22,16 @@ Mobile-first Flutter client (Android/iOS, Flutter Web/desktop runners scaffolded
 
 See [docs/14_DEVELOPER_GUIDE.md § 3](../docs/14_DEVELOPER_GUIDE.md#3-flutter-setup).
 
-Before your first `flutter run`, copy `.env.example` to `.env` and set `API_BASE_URL` to your
-backend's address — see [docs/23_ENVIRONMENT_CONFIGURATION.md](../docs/23_ENVIRONMENT_CONFIGURATION.md)
-for the full picture, including what to do every time you switch Wi-Fi networks.
+Before your first run, copy `.env.example` to `.env` — the default value already assumes USB
+development (see below). See [docs/23_ENVIRONMENT_CONFIGURATION.md](../docs/23_ENVIRONMENT_CONFIGURATION.md)
+for the full picture: USB (default), Wi-Fi, emulator, and production.
+
+**Recommended: run over USB.** Connect a physical Android device via USB and run:
+
+```bash
+./scripts/run_usb.sh
+```
+
+This sets up `adb reverse tcp:4000 tcp:4000` automatically, then runs `flutter run` — the app talks
+to the backend at `127.0.0.1:4000` regardless of Wi-Fi network or LAN IP. For Wi-Fi devices,
+emulators, or one-off overrides, see [docs/23_ENVIRONMENT_CONFIGURATION.md](../docs/23_ENVIRONMENT_CONFIGURATION.md).
