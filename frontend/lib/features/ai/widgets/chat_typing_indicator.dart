@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/themes/app_colors.dart';
 import '../../../app/themes/app_spacing.dart';
+import '../../../app/themes/app_typography.dart';
 
 /// Three dots pulsing in sequence — shown in place of the assistant bubble
 /// while [AiChatState.isSending] is true.
@@ -60,8 +61,13 @@ class _ChatTypingIndicatorState extends State<ChatTypingIndicator>
 
 /// A left-aligned bubble wrapping [ChatTypingIndicator], matching the shape
 /// of an assistant [ChatMessageBubble] so it slots into the same list.
+/// [label] shows "SurfAI is checking your business…" while a backend tool
+/// looks likely, or "SurfAI is thinking…" otherwise (see
+/// `AiChatState.isLikelyToolQuery`) — omit for just the dots.
 class ChatTypingBubble extends StatelessWidget {
-  const ChatTypingBubble({super.key});
+  const ChatTypingBubble({this.label, super.key});
+
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +83,19 @@ class ChatTypingBubble extends StatelessWidget {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: const ChatTypingIndicator(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ChatTypingIndicator(),
+            if (label != null) ...[
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                label!,
+                style: AppTypography.bodySM.copyWith(color: AppColors.textGrey),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

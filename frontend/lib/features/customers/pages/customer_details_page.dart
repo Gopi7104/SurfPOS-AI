@@ -17,13 +17,16 @@ import '../../authentication/providers/auth_providers.dart';
 import '../models/customer_model.dart';
 import '../models/customer_note.dart';
 import '../models/customer_purchase.dart';
+import '../models/customer_segment.dart';
 import '../models/customer_status.dart';
 import '../providers/customer_providers.dart';
 import '../widgets/customer_avatar.dart';
 import '../widgets/customer_communication_card.dart';
+import '../widgets/customer_favorite_products_card.dart';
 import '../widgets/customer_info_section.dart';
 import '../widgets/customer_insights_section.dart';
 import '../widgets/customer_loyalty_card.dart';
+import '../widgets/customer_loyalty_progress_card.dart';
 import '../widgets/customer_summary_card.dart';
 import '../widgets/purchase_timeline_card.dart';
 import 'edit_customer_page.dart';
@@ -31,12 +34,13 @@ import 'purchase_history_page.dart';
 
 /// Customer Details — redesigned (Phase UI/UX 7) into a CRM-style profile:
 /// header, quick stats, Communication actions, Customer Insights, Profile/
-/// Address/Business info, Loyalty, Tags, Notes, and a Purchase Timeline.
-/// "Favourite Products" and "Payment Methods" (always-empty before this
-/// redesign — no purchase-linked product/payment data exists anywhere,
-/// see `CustomerRepositoryImpl`'s header comment) are gracefully omitted
-/// entirely per the redesign brief ("gracefully hide unavailable
-/// sections") rather than shown as a permanent dead-end empty card.
+/// Address/Business info, Loyalty (+ Reward Progress/Points History),
+/// Favourite Products, Tags (+ automatic segment badges), Notes, and a
+/// Purchase Timeline. "Payment Methods" (no persisted payment-method data
+/// exists anywhere) remains gracefully omitted per the original redesign
+/// brief. Favourite Products (Phase CRM-1) is real now that purchase
+/// history exists — see `CustomerFavoriteProductsCard`'s own header
+/// comment for why it still hides itself when a customer has none.
 ///
 /// Every action (edit, delete, add note, view all purchases) is unchanged
 /// from before — only the layout/visual composition changed.
@@ -125,6 +129,8 @@ class CustomerDetailsPage extends ConsumerWidget {
     final key = (uid: uid, customerId: customerId);
     final customerAsync = ref.watch(customerDetailsProvider(key));
     final purchasesAsync = ref.watch(customerPurchaseHistoryProvider(key));
+    final favoriteProductsAsync =
+        ref.watch(customerFavoriteProductsProvider(key));
 
     return Scaffold(
       appBar: AppTopBar(
@@ -139,6 +145,7 @@ class CustomerDetailsPage extends ConsumerWidget {
         _ => _CustomerDetailsBody(
             customer: customerAsync.value!,
             recentPurchases: purchasesAsync.valueOrNull ?? const [],
+            favoriteProducts: favoriteProductsAsync.valueOrNull ?? const [],
             onEdit: () async {
               final updated = await Navigator.of(context).push<CustomerModel>(
                 MaterialPageRoute(
@@ -163,6 +170,7 @@ class _CustomerDetailsBody extends StatelessWidget {
   const _CustomerDetailsBody({
     required this.customer,
     required this.recentPurchases,
+    required this.favoriteProducts,
     required this.onEdit,
     required this.onDelete,
     required this.onAddNote,
@@ -171,6 +179,7 @@ class _CustomerDetailsBody extends StatelessWidget {
 
   final CustomerModel customer;
   final List<CustomerPurchase> recentPurchases;
+  final List<({String name, int timesPurchased})> favoriteProducts;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onAddNote;
@@ -232,6 +241,10 @@ class _CustomerDetailsBody extends StatelessWidget {
                           StatusChip(
                               label: customer.membershipTier.label,
                               tone: StatusTone.warning),
+                          for (final segment
+                              in computeCustomerSegments(customer))
+                            StatusChip(
+                                label: segment.label, tone: StatusTone.neutral),
                         ],
                       ),
                     ],
@@ -320,6 +333,19 @@ class _CustomerDetailsBody extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
         FadeSlideIn(
             delay: next(), child: CustomerLoyaltyCard(customer: customer)),
+        const SizedBox(height: AppSpacing.md),
+        FadeSlideIn(
+          delay: next(),
+          child: CustomerLoyaltyProgressCard(
+              customer: customer, recentPurchases: recentPurchases),
+        ),
+        if (favoriteProducts.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          FadeSlideIn(
+            delay: next(),
+            child: CustomerFavoriteProductsCard(products: favoriteProducts),
+          ),
+        ],
         const SizedBox(height: AppSpacing.md),
         FadeSlideIn(
           delay: next(),

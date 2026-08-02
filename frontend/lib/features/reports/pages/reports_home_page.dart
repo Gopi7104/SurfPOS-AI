@@ -43,6 +43,13 @@ import '../widgets/transaction_tile.dart';
 /// one illustrated empty state when it doesn't. No business logic lives
 /// here: this widget only renders state and delegates actions (retry,
 /// refresh, filter change) to the existing controllers.
+///
+/// Phase CRM-2: every sales-shaped figure above is real once at least one
+/// sale has been recorded (`ReportsController`'s own `ReportsSnapshot`,
+/// now backed by `SalesLedgerRepository` — see
+/// `ReportsRepositoryImpl`'s header comment). Demo data still wins when
+/// present, unchanged from before, purely so a merchant exploring the app
+/// pre-launch keeps seeing a fully populated UI.
 class ReportsHomePage extends ConsumerWidget {
   const ReportsHomePage({super.key});
 
@@ -134,7 +141,10 @@ class _ReportsBody extends ConsumerWidget {
             for (final s in demo.paymentBreakdown)
               (label: s.method, amount: s.amount, percentage: s.percentage)
           ]
-        : <({String label, double amount, double percentage})>[];
+        : [
+            for (final s in snapshot.paymentBreakdown)
+              (label: s.method, amount: s.amount, percentage: s.percentage)
+          ];
 
     final bestSellerRows = demo != null
         ? _demoBestSellerRows(demo)
@@ -142,7 +152,7 @@ class _ReportsBody extends ConsumerWidget {
             for (final p in snapshot.topProducts)
               (
                 name: p.name,
-                category: null,
+                category: p.category,
                 unitsSold: p.unitsSold,
                 revenue: p.revenue,
                 progress: p.progress,

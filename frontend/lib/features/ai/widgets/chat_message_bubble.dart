@@ -8,11 +8,24 @@ import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
 import '../models/chat_message.dart';
 
+/// Icon + label shown on a tool-result bubble — see [ChatToolCategory].
+const Map<ChatToolCategory, (IconData, String)> _toolCategoryDisplay = {
+  ChatToolCategory.inventory: (LucideIcons.package, 'Inventory'),
+  ChatToolCategory.billing: (LucideIcons.receipt, 'Billing'),
+  ChatToolCategory.reports: (LucideIcons.barChart3, 'Reports'),
+  ChatToolCategory.dashboard: (LucideIcons.layoutDashboard, 'Dashboard'),
+  ChatToolCategory.customer: (LucideIcons.users, 'Customers'),
+  ChatToolCategory.settings: (LucideIcons.settings, 'Settings'),
+};
+
 /// One turn in the SurfAI conversation — user messages are a solid
-/// Blueberry bubble, right-aligned; assistant messages are a plain surface
-/// bubble, left-aligned, with Markdown rendering (lists, tables, code
-/// blocks) and a Copy action. [showRegenerate] is only ever true for the
-/// most recent assistant message (see [SurfAiChatPage]).
+/// Blueberry bubble, right-aligned. Assistant messages are left-aligned:
+/// a plain surface bubble for a normal OpenRouter answer, or — when
+/// [ChatMessage.toolCategory] is set — a Blueberry-tinted "tool result" card
+/// with a category icon, since that reply came from SurfPOS's own backend
+/// data rather than the LLM. Both variants keep the same Markdown
+/// rendering, shape, and Copy/Regenerate actions. [showRegenerate] is only
+/// ever true for the most recent assistant message (see [SurfAiChatPage]).
 class ChatMessageBubble extends StatelessWidget {
   const ChatMessageBubble({
     required this.message,
@@ -26,6 +39,10 @@ class ChatMessageBubble extends StatelessWidget {
   final VoidCallback? onRegenerate;
 
   bool get _isUser => message.role == ChatRole.user;
+  // toolCategory is only ever set on an assistant reply in practice (see
+  // AiRepositoryImpl.sendMessage) — `!_isUser` here is a defensive guard,
+  // not something callers need to think about.
+  bool get _isToolResult => !_isUser && message.toolCategory != null;
 
   Future<void> _copy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: message.content));
@@ -53,7 +70,11 @@ class ChatMessageBubble extends StatelessWidget {
               vertical: AppSpacing.sm + 2,
             ),
             decoration: BoxDecoration(
-              color: _isUser ? AppColors.primary : AppColors.surface,
+              color: _isUser
+                  ? AppColors.primary
+                  : (_isToolResult
+                      ? AppColors.primarySubtle
+                      : AppColors.surface),
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(18),
                 topRight: const Radius.circular(18),
@@ -61,17 +82,27 @@ class ChatMessageBubble extends StatelessWidget {
                 bottomRight: Radius.circular(_isUser ? 4 : 18),
               ),
             ),
-            child: _isUser
-                ? Text(
-                    message.content,
-                    style:
-                        AppTypography.bodyMD.copyWith(color: AppColors.white),
-                  )
-                : MarkdownBody(
-                    data: message.content,
-                    selectable: true,
-                    styleSheet: _markdownStyle,
-                  ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_isToolResult) ...[
+                  _ToolCategoryLabel(category: message.toolCategory!),
+                  const SizedBox(height: AppSpacing.xs),
+                ],
+                _isUser
+                    ? Text(
+                        message.content,
+                        style: AppTypography.bodyMD
+                            .copyWith(color: AppColors.white),
+                      )
+                    : MarkdownBody(
+                        data: message.content,
+                        selectable: true,
+                        styleSheet: _markdownStyle,
+                      ),
+              ],
+            ),
           ),
           if (!_isUser)
             Padding(
@@ -117,6 +148,31 @@ class ChatMessageBubble extends StatelessWidget {
         tableBody: AppTypography.bodySM,
         tableCellsPadding: const EdgeInsets.all(AppSpacing.xs),
       );
+}
+
+class _ToolCategoryLabel extends StatelessWidget {
+  const _ToolCategoryLabel({required this.category});
+
+  final ChatToolCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, label) = _toolCategoryDisplay[category]!;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: AppColors.primary),
+        const SizedBox(width: AppSpacing.xs),
+        Text(
+          label,
+          style: AppTypography.bodySM.copyWith(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _ActionIcon extends StatelessWidget {

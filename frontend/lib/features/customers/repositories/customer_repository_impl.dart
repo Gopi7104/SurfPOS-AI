@@ -6,39 +6,46 @@ import '../models/customer_note.dart';
 import '../models/customer_page.dart';
 import '../models/customer_purchase.dart';
 import '../models/customer_query.dart';
+import '../models/customer_segment.dart';
 import '../models/customer_stats.dart';
 import '../models/customer_status.dart';
+import '../models/loyalty.dart';
 import 'customer_local_storage.dart';
+import 'customer_purchase_local_storage.dart';
 import 'customer_repository.dart';
 
-/// Reads/writes the whole customer list via [CustomerLocalStorage] — no
-/// `/customers` backend endpoint exists yet (Phase 6 scope: "use local
-/// storage for now"). Every write is read-modify-write-the-whole-list,
-/// same simplification `ProductImageLocalStorage`/product filtering
-/// already use for this app's target small-retailer scale.
+/// Reads/writes the whole customer list via [CustomerLocalStorage], and the
+/// whole purchase-history list via [CustomerPurchaseLocalStorage] (Phase
+/// CRM-1) — no `/customers` backend endpoint exists yet (Phase 6 scope:
+/// "use local storage for now"). Every write is read-modify-write-the-
+/// whole-list, same simplification `ProductImageLocalStorage`/product
+/// filtering already use for this app's target small-retailer scale.
 ///
-/// [getPurchaseHistory] always returns empty: this app has no persisted
-/// Sale/order history anywhere yet (confirmed while building Reports —
-/// `ReceiptModel` is built client-side and discarded once shown, and
-/// `webhook.controller.js` documents the same gap), and this module must
-/// not touch Billing/Payments/Receipt to add one. [CustomerModel]'s
-/// lifetime stats (spend/orders/points) stay at their create-time zero for
-/// the same reason — genuinely empty, not a bug, until a purchase-history
-/// persistence layer exists somewhere in this app for this module to read.
+/// [recordPurchase] is the *only* write path for a customer's lifetime
+/// stats (`lifetimeSpend`/`totalOrders`/`lastPurchaseAt`) and loyalty
+/// points — called once per completed sale from Billing's payment-success
+/// hook (`PaymentStatusPage`), never from within this module. Before Phase
+/// CRM-1 those fields stayed at their create-time zero forever because
+/// nothing in the app ever called back into this module after a sale; this
+/// is that missing call, not a redesign of anything else.
 class CustomerRepositoryImpl implements CustomerRepository {
-  CustomerRepositoryImpl({required CustomerLocalStorage localStorage})
-      : _localStorage = localStorage;
+  CustomerRepositoryImpl({
+    required CustomerLocalStorage localStorage,
+    required CustomerPurchaseLocalStorage purchaseLocalStorage,
+  })  : _localStorage = localStorage,
+        _purchaseLocalStorage = purchaseLocalStorage;
 
   final CustomerLocalStorage _localStorage;
+  final CustomerPurchaseLocalStorage _purchaseLocalStorage;
 
   static const _idAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
-  String _generateId() {
+  String _generateId([String prefix = 'CUST']) {
     final random = Random();
     final suffix =
         List.generate(8, (_) => _idAlphabet[random.nextInt(_idAlphabet.length)])
             .join();
-    return 'CUST-$suffix';
+    return '$prefix-$suffix';
   }
 
   Future<List<CustomerModel>> _activeCustomers() async {
@@ -46,21 +53,30 @@ class CustomerRepositoryImpl implements CustomerRepository {
     return all.where((customer) => !customer.isDeleted).toList();
   }
 
-  bool _matchesSearch(CustomerModel customer, String search) {
+  bool _matchesSearch(
+      CustomerModel customer, String search, List<String> purchasedProducts) {
     final needle = search.toLowerCase();
     return customer.fullName.toLowerCase().contains(needle) ||
         customer.phone.toLowerCase().contains(needle) ||
         (customer.email?.toLowerCase().contains(needle) ?? false) ||
-        customer.id.toLowerCase().contains(needle);
+        customer.id.toLowerCase().contains(needle) ||
+        customer.tags.any((tag) => tag.toLowerCase().contains(needle)) ||
+        purchasedProducts.any((name) => name.toLowerCase().contains(needle));
   }
 
   List<CustomerModel> _applyQuery(
-      List<CustomerModel> customers, CustomerQuery query) {
+    List<CustomerModel> customers,
+    CustomerQuery query,
+    Map<String, List<String>> productsByCustomer,
+  ) {
     var result = customers;
 
     final search = query.search;
     if (search != null && search.isNotEmpty) {
-      result = result.where((c) => _matchesSearch(c, search)).toList();
+      result = result
+          .where((c) =>
+              _matchesSearch(c, search, productsByCustomer[c.id] ?? const []))
+          .toList();
     }
 
     result = switch (query.filter) {
@@ -89,10 +105,26 @@ class CustomerRepositoryImpl implements CustomerRepository {
     return result;
   }
 
+  /// Only read when a search term is present — every other filter/browse
+  /// path never touches purchase history at all.
+  Future<Map<String, List<String>>> _productsByCustomer(String? search) async {
+    if (search == null || search.isEmpty) return const {};
+    final purchases = await _purchaseLocalStorage.readAll();
+    final byCustomer = <String, List<String>>{};
+    for (final purchase in purchases) {
+      byCustomer
+          .putIfAbsent(purchase.customerId, () => [])
+          .addAll(purchase.items);
+    }
+    return byCustomer;
+  }
+
   @override
   Future<CustomerPage> listCustomers(CustomerQuery query,
       {String? cursor, int limit = 20}) async {
-    final filtered = _applyQuery(await _activeCustomers(), query);
+    final productsByCustomer = await _productsByCustomer(query.search);
+    final filtered =
+        _applyQuery(await _activeCustomers(), query, productsByCustomer);
     final start = cursor == null ? 0 : int.parse(cursor);
     final end = (start + limit).clamp(0, filtered.length);
     final items = start >= filtered.length
@@ -131,7 +163,7 @@ class CustomerRepositoryImpl implements CustomerRepository {
       vatNumber: draft.vatNumber,
       notes: note == null || note.isEmpty
           ? const []
-          : [CustomerNote(id: _generateId(), text: note, createdAt: now)],
+          : [CustomerNote(id: _generateId('NOTE'), text: note, createdAt: now)],
       tags: draft.tags,
       memberSince: now,
     );
@@ -195,8 +227,8 @@ class CustomerRepositoryImpl implements CustomerRepository {
     final index = all.indexWhere((c) => c.id == customerId);
     if (index == -1) throw StateError('Customer not found.');
 
-    final note =
-        CustomerNote(id: _generateId(), text: text, createdAt: DateTime.now());
+    final note = CustomerNote(
+        id: _generateId('NOTE'), text: text, createdAt: DateTime.now());
     final updated = all[index].copyWith(notes: [...all[index].notes, note]);
 
     final next = [...all];
@@ -222,6 +254,14 @@ class CustomerRepositoryImpl implements CustomerRepository {
         customers.fold<double>(0, (sum, c) => sum + c.lifetimeSpend);
     final totalOrders = customers.fold<int>(0, (sum, c) => sum + c.totalOrders);
 
+    var returningCustomers = 0;
+    var inactiveCustomers = 0;
+    for (final customer in customers) {
+      final segments = computeCustomerSegments(customer, now: now);
+      if (segments.contains(CustomerSegment.returning)) returningCustomers++;
+      if (segments.contains(CustomerSegment.inactive)) inactiveCustomers++;
+    }
+
     return (
       totalCustomers: customers.length,
       newThisMonth: newThisMonth,
@@ -229,12 +269,85 @@ class CustomerRepositoryImpl implements CustomerRepository {
       vipCustomers: vipCustomers,
       averageSpend: totalSpend / customers.length,
       averageOrders: totalOrders / customers.length,
+      returningCustomers: returningCustomers,
+      inactiveCustomers: inactiveCustomers,
+      lifetimeRevenue: totalSpend,
     );
   }
 
   @override
   Future<List<CustomerPurchase>> getPurchaseHistory(String customerId,
       {String? cursor, int limit = 20}) async {
-    return const [];
+    final all = await _purchaseLocalStorage.readAll();
+    final forCustomer = all.where((p) => p.customerId == customerId).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    final start = cursor == null ? 0 : int.parse(cursor);
+    final end = (start + limit).clamp(0, forCustomer.length);
+    return start >= forCustomer.length
+        ? const []
+        : forCustomer.sublist(start, end);
+  }
+
+  @override
+  Future<CustomerModel> recordPurchase(
+    String customerId, {
+    required double amount,
+    required List<String> itemNames,
+    required String paymentMethod,
+    required DateTime purchasedAt,
+    String? receiptNumber,
+  }) async {
+    final all = await _localStorage.readAll();
+    final index = all.indexWhere((c) => c.id == customerId);
+    if (index == -1) throw StateError('Customer not found.');
+
+    final pointsEarned = pointsEarnedForAmount(amount);
+    final updated = all[index].copyWith(
+      lifetimeSpend: all[index].lifetimeSpend + amount,
+      totalOrders: all[index].totalOrders + 1,
+      lastPurchaseAt: purchasedAt,
+      loyaltyPoints: all[index].loyaltyPoints + pointsEarned,
+      lifetimePoints: all[index].lifetimePoints + pointsEarned,
+    );
+
+    final next = [...all];
+    next[index] = updated;
+    await _localStorage.writeAll(next);
+
+    final purchases = await _purchaseLocalStorage.readAll();
+    await _purchaseLocalStorage.writeAll([
+      ...purchases,
+      CustomerPurchase(
+        customerId: customerId,
+        receiptNumber: receiptNumber ?? _generateId('RCPT'),
+        date: purchasedAt,
+        items: itemNames,
+        total: amount,
+        paymentMethod: paymentMethod,
+        status: PurchaseStatus.completed,
+      ),
+    ]);
+
+    return updated;
+  }
+
+  @override
+  Future<List<({String name, int timesPurchased})>> getFavoriteProducts(
+      String customerId,
+      {int limit = 5}) async {
+    final purchases = await getPurchaseHistory(customerId, limit: 1 << 30);
+    final counts = <String, int>{};
+    for (final purchase in purchases) {
+      for (final item in purchase.items) {
+        counts[item] = (counts[item] ?? 0) + 1;
+      }
+    }
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sorted
+        .take(limit)
+        .map((entry) => (name: entry.key, timesPurchased: entry.value))
+        .toList();
   }
 }

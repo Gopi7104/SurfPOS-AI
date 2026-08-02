@@ -30,9 +30,31 @@ abstract class CustomerRepository {
 
   Future<CustomerStats> getStats();
 
-  /// Always empty today — see [CustomerRepositoryImpl]'s header comment
-  /// for why. [cursor]/[limit] are still accepted so [PurchaseHistoryPage]
-  /// never needs to change once a real source exists.
+  /// Real since Phase CRM-1 (see [CustomerRepositoryImpl.recordPurchase]) —
+  /// every sale Billing records against this customer, newest first.
   Future<List<CustomerPurchase>> getPurchaseHistory(String customerId,
       {String? cursor, int limit = 20});
+
+  /// Called once per completed sale (Phase CRM-1) — the one and only write
+  /// path for a customer's lifetime stats/loyalty points/purchase history.
+  /// `itemNames` is a flat product-name summary (see [CustomerPurchase]'s
+  /// own header comment for why); `receiptNumber` defaults to a generated
+  /// one if the caller doesn't have a real one to hand (e.g. a test
+  /// payment). Never called from this module itself — the caller (Billing's
+  /// payment-success hook) owns deciding *whether* a sale counts.
+  Future<CustomerModel> recordPurchase(
+    String customerId, {
+    required double amount,
+    required List<String> itemNames,
+    required String paymentMethod,
+    required DateTime purchasedAt,
+    String? receiptNumber,
+  });
+
+  /// A customer's most-frequently-purchased product names, most-bought
+  /// first — derived from [getPurchaseHistory], never a second source of
+  /// truth. Empty until at least one purchase has been recorded for them.
+  Future<List<({String name, int timesPurchased})>> getFavoriteProducts(
+      String customerId,
+      {int limit = 5});
 }

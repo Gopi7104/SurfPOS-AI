@@ -9,8 +9,15 @@ import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
 import '../../../core/widgets/app_bars/app_top_bar.dart';
 import '../../../core/widgets/buttons/app_primary_button.dart';
+import '../../../features/customers/models/customer_draft.dart';
+import '../../../features/customers/models/customer_query.dart';
+import '../../../features/customers/providers/customer_providers.dart';
+import '../../../features/customers/repositories/customer_repository.dart';
 import '../../../features/receipt/models/receipt_line_item.dart';
 import '../../../features/receipt/models/receipt_model.dart';
+import '../../../features/reports/models/sales_record.dart';
+import '../../../features/reports/providers/reports_providers.dart';
+import '../../../features/reports/providers/sales_ledger_providers.dart';
 import '../controllers/payment_controller.dart';
 import '../models/checkout_item.dart';
 import '../models/payment_phase.dart';
@@ -39,6 +46,7 @@ class PaymentStatusPage extends ConsumerStatefulWidget {
     required this.onDone,
     this.customerName,
     this.customerPhone,
+    this.customerId,
     super.key,
   });
 
@@ -60,6 +68,13 @@ class PaymentStatusPage extends ConsumerStatefulWidget {
   /// `CustomerDetails`'s own header comment).
   final String? customerName;
   final String? customerPhone;
+
+  /// Set only when the Customer Details step matched/created a real
+  /// `features/customers` record (Phase CRM-1) — when non-null, the
+  /// payment-success hook below records this sale against that customer
+  /// (lifetime stats + loyalty points + purchase history). `null` means
+  /// exactly what it always meant: a walk-in sale with no linked customer.
+  final String? customerId;
 
   /// Called when the merchant dismisses a terminal (non-success) result or
   /// taps "New Sale" from the Receipt screen — the caller (BillingPage)
@@ -137,6 +152,112 @@ class _PaymentStatusPageState extends ConsumerState<PaymentStatusPage>
     super.dispose();
   }
 
+  /// Phase CRM-1's one hook into Billing/Payments: called once, right when
+  /// a sale succeeds (see the `justSucceeded` guard below). Never blocks
+  /// the success navigation — a failure here (e.g. the customer was
+  /// deleted mid-sale) is swallowed, since the sale itself already
+  /// succeeded regardless.
+  ///
+  /// Phase CRM-2: a customer is no longer required to have been matched/
+  /// created during the Customer Details step to end up recorded here —
+  /// if the cashier just typed a name/phone and went straight to payment
+  /// without tapping a search match or "Create New Customer"
+  /// (`customerId` still `null`), this resolves one now by phone (or
+  /// creates one), the same lookup `CustomerDetailsSheet` itself does, so
+  /// a walk-in sale never silently fails to appear in the Customers list.
+  Future<void> _recordCustomerPurchase(
+      PaymentState state, DateTime completedAt) async {
+    final amount = state.amount;
+    if (amount == null) return;
+
+    try {
+      final repository = ref.read(customerRepositoryProvider(widget.uid));
+      final customerId = await _resolveCustomerId(repository);
+      if (customerId == null) return;
+
+      await repository.recordPurchase(
+        customerId,
+        amount: amount,
+        itemNames: widget.receiptItems.map((item) => item.productName).toList(),
+        paymentMethod: state.paymentMethod ?? 'CARD',
+        purchasedAt: completedAt,
+        receiptNumber: state.paymentId ?? state.orderId,
+      );
+      ref.invalidate(customerStatsProvider(widget.uid));
+      ref.invalidate(customerListControllerProvider(widget.uid));
+    } catch (_) {
+      // Best-effort — see this method's header comment.
+    }
+  }
+
+  /// Returns the customer to record this sale against, resolving one from
+  /// [widget.customerPhone]/[widget.customerName] when the Customer
+  /// Details step didn't already link one — `null` only when there's no
+  /// phone at all to key a customer off of (a true walk-in with no
+  /// contact info entered).
+  Future<String?> _resolveCustomerId(CustomerRepository repository) async {
+    if (widget.customerId != null) return widget.customerId;
+
+    final phone = widget.customerPhone?.trim();
+    if (phone == null || phone.isEmpty) return null;
+
+    final matches =
+        await repository.listCustomers(CustomerQuery(search: phone), limit: 1);
+    if (matches.items.isNotEmpty) return matches.items.first.id;
+
+    final typedName = widget.customerName?.trim() ?? '';
+    final nameParts =
+        typedName.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+    final firstName = nameParts.isNotEmpty ? nameParts.first : 'Walk-in';
+    final lastName =
+        nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Customer';
+
+    final created = await repository.createCustomer(
+        CustomerDraft(firstName: firstName, lastName: lastName, phone: phone));
+    return created.id;
+  }
+
+  /// Phase CRM-2's real sales ledger hook — records every completed sale
+  /// (walk-in or linked to a customer, doesn't matter) so Dashboard/
+  /// Reports have real revenue/order/product data to show instead of
+  /// staying empty until demo data is generated. Same best-effort,
+  /// never-blocks-navigation contract as [_recordCustomerPurchase].
+  Future<void> _recordSale(PaymentState state, DateTime completedAt) async {
+    final amount = state.amount;
+    if (amount == null) return;
+
+    try {
+      final record = SalesRecord(
+        id: state.paymentId ?? state.orderId ?? completedAt.toIso8601String(),
+        receiptNumber: state.paymentId ?? state.orderId ?? '—',
+        occurredAt: completedAt,
+        total: amount,
+        paymentMethod: state.paymentMethod ?? 'CARD',
+        customerId: widget.customerId,
+        customerName: widget.customerName,
+        items: [
+          for (final item in widget.receiptItems)
+            SalesRecordItem(
+              productId: item.productId,
+              name: item.productName,
+              category: item.category,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              lineTotal: item.lineTotal,
+            ),
+        ],
+      );
+      await ref
+          .read(salesLedgerRepositoryProvider(widget.uid))
+          .recordSale(record);
+      ref.invalidate(salesLedgerRecordsProvider(widget.uid));
+      ref.invalidate(salesLedgerSnapshotProvider(widget.uid));
+      ref.invalidate(reportsControllerProvider(widget.uid));
+    } catch (_) {
+      // Best-effort — see this method's header comment.
+    }
+  }
+
   void _navigateToSuccessPage(PaymentState state) {
     final completedAt = _succeededAt ?? DateTime.now();
     final receipt = ReceiptModel.fromPayment(
@@ -178,6 +299,8 @@ class _PaymentStatusPageState extends ConsumerState<PaymentStatusPage>
         _succeededAt ??= DateTime.now();
         debugPrint(
             '[PAYMENT_TRACE] step=13 event=navigate_to_success_page orderId=${next.orderId} ts=${DateTime.now().toIso8601String()}');
+        _recordSale(next, _succeededAt!);
+        _recordCustomerPurchase(next, _succeededAt!);
         _navigateToSuccessPage(next);
       }
     });

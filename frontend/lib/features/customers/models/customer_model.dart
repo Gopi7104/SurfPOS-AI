@@ -55,11 +55,9 @@ class CustomerModel {
 
   /// Lifetime totals below are owned entirely by this module — never
   /// derived from Billing/Payments/Receipt, which it must not touch or
-  /// integrate with. Every customer starts, and currently stays, at zero
-  /// on all of these: there is no purchase-history persistence anywhere
-  /// in this app yet for them to be computed from (see
-  /// [CustomerRepositoryImpl]'s header comment). Kept on the model now so
-  /// wiring a real update path later needs no shape change here.
+  /// integrate with. Real since Phase CRM-1: every customer starts at zero
+  /// and is updated exclusively by [CustomerRepositoryImpl.recordPurchase],
+  /// called once per completed sale from Billing's payment-success hook.
   final double lifetimeSpend;
   final int totalOrders;
   final DateTime? lastPurchaseAt;

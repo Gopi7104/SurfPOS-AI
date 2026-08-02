@@ -6,7 +6,7 @@ const aiService = require('../modules/ai/ai.service');
 
 const sendChatMessage = asyncHandler(async (req, res) => {
   const { messages, model } = req.body;
-  const reply = await aiService.sendChatMessage(messages, { model });
+  const reply = await aiService.sendChatMessage(messages, { model, uid: req.user.uid });
   sendSuccess(res, { reply });
 });
 

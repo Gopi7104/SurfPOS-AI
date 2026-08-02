@@ -6,6 +6,7 @@ class TopProduct {
     required this.sku,
     this.imageUrl,
     this.imagePath,
+    this.category,
     required this.unitsSold,
     required this.revenue,
     required this.progress,
@@ -16,6 +17,7 @@ class TopProduct {
   final String sku;
   final String? imageUrl;
   final String? imagePath;
+  final String? category;
   final int unitsSold;
   final double revenue;
 

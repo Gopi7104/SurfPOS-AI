@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:surfpos_ai/core/storage/secure_storage_service.dart';
+import 'package:surfpos_ai/features/authentication/providers/auth_providers.dart';
+import 'package:surfpos_ai/features/customers/models/customer_query.dart';
+import 'package:surfpos_ai/features/customers/providers/customer_providers.dart';
 import 'package:surfpos_ai/features/payments/models/checkout_item.dart';
 import 'package:surfpos_ai/features/payments/models/checkout_result_model.dart';
 import 'package:surfpos_ai/features/payments/models/order_status_model.dart';
@@ -9,10 +13,27 @@ import 'package:surfpos_ai/features/payments/providers/payment_providers.dart';
 import 'package:surfpos_ai/features/payments/repositories/payment_repository.dart';
 import 'package:surfpos_ai/features/receipt/models/receipt_line_item.dart';
 import 'package:surfpos_ai/features/receipt/providers/receipt_providers.dart';
+import 'package:surfpos_ai/features/reports/providers/sales_ledger_providers.dart';
 
 import '../../merchant/presentation/screens/test_surface.dart';
 import '../../receipt/fakes/fake_receipt_repository.dart';
 import '../fakes/fake_payment_repository.dart';
+
+class _FakeSecureStorageService implements SecureStorageService {
+  final Map<String, String> _values = {};
+
+  @override
+  Future<void> write(String key, String value) async => _values[key] = value;
+
+  @override
+  Future<String?> read(String key) async => _values[key];
+
+  @override
+  Future<void> delete(String key) async => _values.remove(key);
+
+  @override
+  Future<void> deleteAll() async => _values.clear();
+}
 
 const _items = [CheckoutItem(productId: 'p1', quantity: 1)];
 const _receiptItems = [
@@ -20,7 +41,31 @@ const _receiptItems = [
       productName: 'Widget', quantity: 1, unitPrice: 199.5, lineTotal: 199.5),
 ];
 
-Widget _wrap(PaymentRepository repository, {required VoidCallback onDone}) {
+Widget _wrap(PaymentRepository repository,
+    {required VoidCallback onDone,
+    ProviderContainer? container,
+    String? customerName,
+    String? customerPhone,
+    String? customerId}) {
+  final child = MaterialApp(
+    home: PaymentStatusPage(
+      uid: 'uid-1',
+      storeId: 'store-1',
+      items: _items,
+      merchantName: 'Acme Surf Co',
+      storeName: 'Downtown',
+      receiptItems: _receiptItems,
+      customerName: customerName,
+      customerPhone: customerPhone,
+      customerId: customerId,
+      onDone: onDone,
+    ),
+  );
+
+  if (container != null) {
+    return UncontrolledProviderScope(container: container, child: child);
+  }
+
   return ProviderScope(
     overrides: [
       paymentRepositoryProvider.overrideWithValue(repository),
@@ -29,17 +74,7 @@ Widget _wrap(PaymentRepository repository, {required VoidCallback onDone}) {
       // this file tests, not Receipt's printer detection.
       receiptRepositoryProvider.overrideWithValue(FakeReceiptRepository()),
     ],
-    child: MaterialApp(
-      home: PaymentStatusPage(
-        uid: 'uid-1',
-        storeId: 'store-1',
-        items: _items,
-        merchantName: 'Acme Surf Co',
-        storeName: 'Downtown',
-        receiptItems: _receiptItems,
-        onDone: onDone,
-      ),
-    ),
+    child: child,
   );
 }
 
@@ -154,5 +189,61 @@ void main() {
 
     expect(cancelledPaymentId, 'pay-1');
     expect(find.text('Payment Cancelled'), findsOneWidget);
+  });
+
+  group('Phase CRM-2 — success hook records real data', () {
+    testWidgets(
+        'a typed name/phone with no linked customerId still gets created and recorded against, and the sale is recorded to the ledger',
+        (tester) async {
+      useTallTestSurface(tester);
+      final container = ProviderContainer(overrides: [
+        paymentRepositoryProvider.overrideWithValue(FakePaymentRepository(
+          createCheckout: ({storeId, required items}) async =>
+              const CheckoutResultModel(
+                  orderId: 'order-1', paymentId: 'pay-1', amount: 199.5),
+          getCheckoutStatus: (orderId) async => const OrderStatusModel(
+            paymentStatus: 'PAYMENT_COMPLETED',
+            paymentMethod: 'CARD',
+            transactionId: 'txn-1',
+          ),
+          openPaymentUrl: (url) async {},
+        )),
+        receiptRepositoryProvider.overrideWithValue(FakeReceiptRepository()),
+        secureStorageServiceProvider
+            .overrideWithValue(_FakeSecureStorageService()),
+      ]);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(_wrap(
+        FakePaymentRepository(),
+        container: container,
+        customerName: 'Alex Rivera',
+        customerPhone: '555-0100',
+        onDone: () {},
+      ));
+
+      await tester.pump(); // post-frame callback fires startCheckout
+      await tester.pump(); // resolve createCheckout's Future
+      await tester.pump(const Duration(seconds: 2)); // first poll tick
+      await tester.pump(); // resolve getCheckoutStatus's Future
+      await tester.pumpAndSettle(); // navigates to PaymentSuccessPage
+      // Let the fire-and-forget success-hook futures resolve.
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final customers = await container
+          .read(customerRepositoryProvider('uid-1'))
+          .listCustomers(const CustomerQuery(search: '555-0100'));
+      expect(customers.items, hasLength(1));
+      expect(customers.items.single.fullName, 'Alex Rivera');
+      expect(customers.items.single.lifetimeSpend, 199.5);
+      expect(customers.items.single.totalOrders, 1);
+
+      final sales =
+          await container.read(salesLedgerRepositoryProvider('uid-1')).getAll();
+      expect(sales, hasLength(1));
+      expect(sales.single.total, 199.5);
+      expect(sales.single.customerName, 'Alex Rivera');
+      expect(sales.single.items.single.name, 'Widget');
+    });
   });
 }

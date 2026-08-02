@@ -278,7 +278,7 @@ class _BillingPageState extends ConsumerState<BillingPage> {
     final merchantName = dashboard?.merchant?.name ?? '—';
     final storeName = dashboard?.store?.name ?? '—';
 
-    final customer = await showCustomerDetailsSheet(context);
+    final customer = await showCustomerDetailsSheet(context, uid: uid);
     if (!mounted) return;
 
     showDialog<void>(
@@ -326,6 +326,8 @@ class _BillingPageState extends ConsumerState<BillingPage> {
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           lineTotal: item.lineTotal,
+          productId: item.product.id,
+          category: item.product.category,
         ),
     ];
 
@@ -342,6 +344,7 @@ class _BillingPageState extends ConsumerState<BillingPage> {
           grandTotal: cart.grandTotal,
           customerName: customer?.name,
           customerPhone: customer?.phone,
+          customerId: customer?.customerId,
           onDone: () {
             ref.read(billingControllerProvider(uid).notifier).clearCart();
             Navigator.of(context).pop();
@@ -364,6 +367,8 @@ class _BillingPageState extends ConsumerState<BillingPage> {
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           lineTotal: item.lineTotal,
+          productId: item.product.id,
+          category: item.product.category,
         ),
     ];
 
@@ -378,6 +383,7 @@ class _BillingPageState extends ConsumerState<BillingPage> {
           receiptItems: receiptItems,
           customerName: customer?.name,
           customerPhone: customer?.phone,
+          customerId: customer?.customerId,
           onDone: () {
             ref.read(billingControllerProvider(uid).notifier).clearCart();
             Navigator.of(context).pop();

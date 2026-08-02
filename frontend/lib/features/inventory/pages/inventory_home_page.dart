@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../app/shell_navigation_providers.dart';
 import '../../../app/themes/app_colors.dart';
 import '../../../app/themes/app_spacing.dart';
 import '../../../core/exceptions/api_exception.dart';
@@ -149,6 +150,18 @@ class _InventoryHomePageState extends ConsumerState<InventoryHomePage> {
     if (uid == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
+    // SurfAI's chat page sets this to prefill a search (e.g. "search Coca
+    // Cola") even though this page is already mounted (kept alive by the
+    // shell's IndexedStack) — see shell_navigation_providers.dart's header
+    // comment. Syncs both the visible field and the shared query state.
+    ref.listen(pendingInventorySearchProvider, (previous, next) {
+      if (next != null) {
+        _searchController.text = next;
+        _onSearchChanged(next, uid);
+        ref.read(pendingInventorySearchProvider.notifier).state = null;
+      }
+    });
 
     final provider = inventoryListControllerProvider(uid);
     final state = ref.watch(provider);

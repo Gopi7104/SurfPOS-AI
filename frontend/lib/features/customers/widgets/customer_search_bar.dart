@@ -20,7 +20,7 @@ class CustomerSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppSearchField(
-      hint: 'Search by name, phone, email, or customer ID',
+      hint: 'Search by name, phone, email, tag, or product',
       controller: controller,
       focusNode: focusNode,
       onChanged: onChanged,

@@ -41,6 +41,19 @@ class _FakeSecureStorageService implements SecureStorageService {
   Future<void> deleteAll() async => _values.clear();
 }
 
+/// Replaces `pumpAndSettle()` for any test rendering `DashboardPage`:
+/// `SurfAiFloatingButton`'s breathing/pulse animations repeat forever by
+/// design, so `pumpAndSettle` would never see "no more frames scheduled"
+/// and time out. A bounded, but repeated, set of pumps gives the page's own
+/// one-shot transitions (FadeSlideIn, async provider loads chained across
+/// more than one frame) enough chances to actually resolve, without ever
+/// waiting on the perpetual animation.
+Future<void> _settle(WidgetTester tester) async {
+  for (var i = 0; i < 15; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 Widget _wrap(Widget child, {required Override dashboardOverride}) {
   return ProviderScope(
     overrides: [
@@ -81,7 +94,7 @@ void main() {
     expect(find.text('Merchant Information'), findsNothing);
 
     completer.complete();
-    await tester.pumpAndSettle();
+    await _settle(tester);
   });
 
   testWidgets(
@@ -98,7 +111,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.text('Complete Merchant Onboarding'), findsOneWidget);
     expect(find.text('Start Onboarding'), findsOneWidget);
@@ -122,12 +135,12 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.text('Retry'), findsOneWidget);
 
     await tester.tap(find.text('Retry'));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.text('Blue Wave Surf Shop'), findsOneWidget);
     expect(attempts, 2);
@@ -146,7 +159,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.text('Blue Wave Surf Shop'), findsOneWidget);
     expect(find.textContaining('Main Street Store'), findsOneWidget);
@@ -168,7 +181,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     await tester.tap(find.text('Inventory'));
     await tester.pump();
@@ -256,7 +269,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     // The demo dataset is present, so the real chart (not the "no activity
     // yet" empty state) is on screen.
@@ -271,11 +284,11 @@ void main() {
     // gesture that used to be swallowed by fl_chart's internal pan
     // recognizer instead of reaching the ListView.
     await tester.dragFrom(tester.getCenter(chartFinder), const Offset(0, -300));
-    await tester.pumpAndSettle();
+    await _settle(tester);
     // Scrolling this far mounts a further-down section for the first time,
     // arming its `FadeSlideIn` entrance animation's `Future.delayed` timer
     // (up to 220ms, see `dashboard_page.dart`). That timer isn't tied to any
-    // ticking `AnimationController`, so `pumpAndSettle` above can return
+    // ticking `AnimationController`, so the bounded pump above can return
     // before it fires (nothing else is scheduling frames in the interim) —
     // a pre-existing, unrelated quirk of `FadeSlideIn`, out of scope to fix
     // here. Flush it explicitly so it can't leak past this test as a

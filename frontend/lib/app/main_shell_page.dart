@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/widgets/navigation/app_main_scaffold.dart';
 import '../features/billing/pages/billing_page.dart';
@@ -7,6 +8,7 @@ import '../features/dashboard/pages/dashboard_page.dart';
 import '../features/inventory/pages/inventory_home_page.dart';
 import '../features/reports/pages/reports_home_page.dart';
 import '../features/settings/pages/settings_home_page.dart';
+import 'shell_navigation_providers.dart';
 
 /// The application shell — the post-login/post-approval destination. Owns
 /// which of the 6 tabs (Dashboard/Billing/Inventory/Reports/Customers/
@@ -16,14 +18,14 @@ import '../features/settings/pages/settings_home_page.dart';
 /// data survive a trip to another tab and back). See
 /// docs/22_DEVELOPMENT_ROADMAP.md Phase 1 (BOTTOM NAVIGATION); "Customers"
 /// was added in Phase 6.
-class MainShellPage extends StatefulWidget {
+class MainShellPage extends ConsumerStatefulWidget {
   const MainShellPage({super.key});
 
   @override
-  State<MainShellPage> createState() => _MainShellPageState();
+  ConsumerState<MainShellPage> createState() => _MainShellPageState();
 }
 
-class _MainShellPageState extends State<MainShellPage> {
+class _MainShellPageState extends ConsumerState<MainShellPage> {
   int _currentIndex = 0;
 
   // Owned here (not inside DashboardPage) so the floating "New Sale" FAB —
@@ -53,6 +55,16 @@ class _MainShellPageState extends State<MainShellPage> {
 
   @override
   Widget build(BuildContext context) {
+    // SurfAI's chat page (pushed on top of this shell, not one of the
+    // IndexedStack children below) sets this to request a tab switch — see
+    // shell_navigation_providers.dart's header comment.
+    ref.listen(shellTabIndexProvider, (previous, next) {
+      if (next != null) {
+        _goToTab(next);
+        ref.read(shellTabIndexProvider.notifier).state = null;
+      }
+    });
+
     return AppMainScaffold(
       currentIndex: _currentIndex,
       onNavTap: _goToTab,

@@ -1,6 +1,7 @@
 import 'category_breakdown_slice.dart';
 import 'inventory_overview.dart';
 import 'order_summary.dart';
+import 'payment_breakdown_slice.dart';
 import 'recent_transaction.dart';
 import 'sales_summary.dart';
 import 'sales_trend_point.dart';
@@ -19,6 +20,7 @@ class ReportsSnapshot {
     required this.salesTrend,
     required this.categoryBreakdown,
     required this.recentTransactions,
+    required this.paymentBreakdown,
     required this.generatedAt,
   });
 
@@ -29,5 +31,6 @@ class ReportsSnapshot {
   final List<SalesTrendPoint> salesTrend;
   final List<CategoryBreakdownSlice> categoryBreakdown;
   final List<RecentTransaction> recentTransactions;
+  final List<PaymentBreakdownSlice> paymentBreakdown;
   final DateTime generatedAt;
 }

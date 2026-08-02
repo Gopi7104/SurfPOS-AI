@@ -6,6 +6,7 @@ import 'package:surfpos_ai/app/themes/app_theme.dart';
 import 'package:surfpos_ai/core/storage/secure_storage_service.dart';
 import 'package:surfpos_ai/core/widgets/cards/app_card.dart';
 import 'package:surfpos_ai/core/widgets/navigation/app_main_scaffold.dart';
+import 'package:surfpos_ai/features/ai/widgets/surf_ai_floating_button.dart';
 import 'package:surfpos_ai/features/authentication/providers/auth_providers.dart';
 import 'package:surfpos_ai/features/dashboard/providers/dashboard_providers.dart';
 import 'package:surfpos_ai/features/inventory/providers/inventory_providers.dart';
@@ -37,6 +38,19 @@ class _FakeSecureStorageService implements SecureStorageService {
   Future<void> deleteAll() async => _values.clear();
 }
 
+/// Replaces `pumpAndSettle()`: every tab is mounted at once (`IndexedStack`),
+/// so the Dashboard tab's `SurfAiFloatingButton` — whose breathing/pulse
+/// animations repeat forever by design — is always in the tree here,
+/// regardless of which tab is selected. `pumpAndSettle` would never see "no
+/// more frames scheduled" and time out; a bounded, repeated set of pumps
+/// still gives every tab's own one-shot transitions/async loads enough
+/// chances to resolve.
+Future<void> _settle(WidgetTester tester) async {
+  for (var i = 0; i < 15; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 Widget _wrap() {
   return ProviderScope(
     overrides: [
@@ -59,7 +73,7 @@ void main() {
   testWidgets('shows all 5 tabs, defaulting to Dashboard', (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(_wrap());
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     for (final item in AppMainScaffold.items) {
       expect(find.text(item.label), findsWidgets);
@@ -71,18 +85,18 @@ void main() {
       (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(_wrap());
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     await tester.tap(find.text('Billing').last);
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(find.text('Cart is Empty'), findsOneWidget);
 
     await tester.tap(find.text('Settings').last);
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(find.text('Logout'), findsOneWidget);
 
     await tester.tap(find.text('Dashboard').last);
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(find.text('Blue Wave Surf Shop'), findsOneWidget);
   });
 
@@ -91,14 +105,14 @@ void main() {
       (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(_wrap());
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     // All 5 tab bodies exist simultaneously in the widget tree (IndexedStack
     // keeps every child mounted) rather than being created/destroyed per tab.
     expect(find.text('Blue Wave Surf Shop'), findsOneWidget);
 
     await tester.tap(find.text('Inventory').last);
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(find.text('No Products'), findsOneWidget);
 
     // The Dashboard's content is still in the tree underneath (IndexedStack),
@@ -113,14 +127,53 @@ void main() {
       (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(_wrap());
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     // 'New Sale' also labels the shell's own floating action button, so
     // disambiguate by tapping the Dashboard's Quick Action tile
     // specifically (an AppCard) rather than plain text.
     await tester.tap(find.widgetWithText(AppCard, 'New Sale'));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(find.text('Cart is Empty'), findsOneWidget);
+  });
+
+  testWidgets(
+      'the floating SurfAI button is hit-testable only on the Dashboard tab',
+      (tester) async {
+    useTallTestSurface(tester);
+    await tester.pumpWidget(_wrap());
+    await _settle(tester);
+
+    // IndexedStack keeps every tab mounted (see this file's own header
+    // comment), so a plain `find.byType` would still find the button's
+    // Widget instance underneath other tabs too — `.hitTestable()` is the
+    // correct check here: it only matches what a real tap could actually
+    // reach, i.e. what IndexedStack is currently painting on top.
+    expect(find.byType(SurfAiFloatingButton).hitTestable(), findsOneWidget);
+
+    await tester.tap(find.text('Billing').last);
+    await _settle(tester);
+    expect(find.byType(SurfAiFloatingButton).hitTestable(), findsNothing);
+
+    await tester.tap(find.text('Inventory').last);
+    await _settle(tester);
+    expect(find.byType(SurfAiFloatingButton).hitTestable(), findsNothing);
+
+    await tester.tap(find.text('Reports').last);
+    await _settle(tester);
+    expect(find.byType(SurfAiFloatingButton).hitTestable(), findsNothing);
+
+    await tester.tap(find.text('Customers').last);
+    await _settle(tester);
+    expect(find.byType(SurfAiFloatingButton).hitTestable(), findsNothing);
+
+    await tester.tap(find.text('Settings').last);
+    await _settle(tester);
+    expect(find.byType(SurfAiFloatingButton).hitTestable(), findsNothing);
+
+    await tester.tap(find.text('Dashboard').last);
+    await _settle(tester);
+    expect(find.byType(SurfAiFloatingButton).hitTestable(), findsOneWidget);
   });
 }

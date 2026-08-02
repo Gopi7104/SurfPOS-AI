@@ -7,6 +7,7 @@ import '../models/customer_model.dart';
 import '../models/customer_purchase.dart';
 import '../models/customer_stats.dart';
 import '../repositories/customer_local_storage.dart';
+import '../repositories/customer_purchase_local_storage.dart';
 import '../repositories/customer_repository.dart';
 import '../repositories/customer_repository_impl.dart';
 
@@ -26,10 +27,20 @@ final customerLocalStorageProvider =
   return CustomerLocalStorage(ref.watch(secureStorageServiceProvider), uid);
 });
 
+/// Phase CRM-1 — the purchase-history store `CustomerRepositoryImpl.
+/// recordPurchase`/`getPurchaseHistory`/`getFavoriteProducts` read/write.
+final customerPurchaseLocalStorageProvider =
+    Provider.family<CustomerPurchaseLocalStorage, String>((ref, uid) {
+  return CustomerPurchaseLocalStorage(
+      ref.watch(secureStorageServiceProvider), uid);
+});
+
 final customerRepositoryProvider =
     Provider.family<CustomerRepository, String>((ref, uid) {
   return CustomerRepositoryImpl(
-      localStorage: ref.watch(customerLocalStorageProvider(uid)));
+    localStorage: ref.watch(customerLocalStorageProvider(uid)),
+    purchaseLocalStorage: ref.watch(customerPurchaseLocalStorageProvider(uid)),
+  );
 });
 
 /// Keyed by Firebase uid — never a global singleton (cross-user isolation,
@@ -63,11 +74,21 @@ final customerStatsProvider =
   return ref.watch(customerRepositoryProvider(uid)).getStats();
 });
 
-/// A single customer's Purchase History — always empty today, see
-/// `CustomerRepositoryImpl`'s header comment.
+/// A single customer's Purchase History — real since Phase CRM-1, backed by
+/// whatever Billing has recorded via `CustomerRepository.recordPurchase`.
 final customerPurchaseHistoryProvider = FutureProvider.autoDispose
     .family<List<CustomerPurchase>, CustomerDetailsKey>((ref, key) {
   return ref
       .watch(customerRepositoryProvider(key.uid))
       .getPurchaseHistory(key.customerId);
+});
+
+/// A single customer's most-purchased products — Phase CRM-1, derived from
+/// [customerPurchaseHistoryProvider]'s same underlying data.
+final customerFavoriteProductsProvider = FutureProvider.autoDispose
+    .family<List<({String name, int timesPurchased})>, CustomerDetailsKey>(
+        (ref, key) {
+  return ref
+      .watch(customerRepositoryProvider(key.uid))
+      .getFavoriteProducts(key.customerId);
 });

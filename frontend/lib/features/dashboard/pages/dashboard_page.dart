@@ -8,10 +8,17 @@ import '../../../core/widgets/animations/fade_slide_in.dart';
 import '../../../core/widgets/empty_states/empty_state.dart';
 import '../../../core/widgets/empty_states/error_state.dart';
 import '../../../core/widgets/loading/app_loading_indicator.dart';
+import '../../ai/widgets/surf_ai_floating_button.dart';
 import '../../authentication/providers/auth_providers.dart';
 import '../../customers/providers/customer_providers.dart';
+import '../../demo_data/models/demo_business_snapshot.dart';
+import '../../demo_data/models/payment_breakdown_slice.dart';
+import '../../demo_data/models/revenue_period.dart';
 import '../../demo_data/providers/demo_data_providers.dart';
 import '../../merchant/presentation/screens/merchant_onboarding_wizard_page.dart';
+import '../../reports/models/recent_transaction.dart';
+import '../../reports/models/sales_ledger_snapshot.dart';
+import '../../reports/providers/sales_ledger_providers.dart';
 import '../models/dashboard_state.dart';
 import '../providers/dashboard_low_stock_provider.dart';
 import '../providers/dashboard_providers.dart';
@@ -47,11 +54,14 @@ class DashboardTabTargets {
 /// four identical stat cards. Real, live figures still come from
 /// [DashboardController] (merchant/store), Inventory, and Customers, all
 /// read-only exactly as before; every sales/revenue/transaction-shaped
-/// section is sourced from [DemoDataController]'s generated snapshot when
-/// one exists, or collapses into one illustrated empty state when it
-/// doesn't. No business logic lives here — this widget only renders state
-/// and delegates actions (retry, refresh, tab navigation, demo generation)
-/// to the relevant controller.
+/// section prefers real data from [SalesLedgerSnapshot] (Phase CRM-2 —
+/// populated the instant Payments' success hook records a completed sale)
+/// once at least one real sale exists, falls back to
+/// [DemoDataController]'s generated snapshot when it doesn't, or collapses
+/// into one illustrated empty state when neither does. No business logic
+/// lives here — this widget only renders state and delegates actions
+/// (retry, refresh, tab navigation, demo generation) to the relevant
+/// controller.
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({this.onNavigateToTab, this.scrollController, super.key});
 
@@ -83,26 +93,43 @@ class DashboardPage extends ConsumerWidget {
     final state = ref.watch(provider);
     final notifier = ref.read(provider.notifier);
 
-    return RefreshIndicator(
-      onRefresh: notifier.refresh,
-      child: switch (state) {
-        // DashboardLoadingSkeleton is itself a scrollable ListView — passed directly, never
-        // wrapped in _scrollable()'s SingleChildScrollView (nesting two scrollables without a
-        // bounded height between them throws "Vertical viewport was given unbounded height").
-        AsyncLoading() when !state.hasValue => const DashboardLoadingSkeleton(),
-        AsyncError() when !state.hasValue => _scrollable(
-            ErrorState(
-              message:
-                  'Could not load your Merchant Dashboard. Please check your connection and try again.',
-              onRetry: notifier.refresh,
-            ),
-          ),
-        _ => _DashboardBody(
-            uid: uid,
-            data: state.value!,
-            onNavigateToTab: onNavigateToTab,
-            scrollController: scrollController),
-      },
+    return Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: notifier.refresh,
+          child: switch (state) {
+            // DashboardLoadingSkeleton is itself a scrollable ListView — passed directly, never
+            // wrapped in _scrollable()'s SingleChildScrollView (nesting two scrollables without a
+            // bounded height between them throws "Vertical viewport was given unbounded height").
+            AsyncLoading() when !state.hasValue =>
+              const DashboardLoadingSkeleton(),
+            AsyncError() when !state.hasValue => _scrollable(
+                ErrorState(
+                  message:
+                      'Could not load your Merchant Dashboard. Please check your connection and try again.',
+                  onRetry: notifier.refresh,
+                ),
+              ),
+            _ => _DashboardBody(
+                uid: uid,
+                data: state.value!,
+                onNavigateToTab: onNavigateToTab,
+                scrollController: scrollController),
+          },
+        ),
+        // Dashboard-only, deliberately: SurfAI's floating entry point is never shown on
+        // Billing/Inventory/Reports/Customers/Settings (each has its own primary FAB/action, or
+        // none at all) — see docs/22_DEVELOPMENT_ROADMAP.md Phase AI-3. Positioned here (inside
+        // this page) rather than in the shared `AppMainScaffold` FAB slot, since that slot is
+        // already the centered "New Sale" FAB (`FloatingActionButtonLocation.centerFloat`) and
+        // can only ever hold one widget; sitting above it, offset right, keeps both visible
+        // without overlapping, and a small corner overlay never blocks cards or scrolling.
+        const Positioned(
+          bottom: 100,
+          right: AppSpacing.md,
+          child: SurfAiFloatingButton(),
+        ),
+      ],
     );
   }
 
@@ -196,6 +223,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
     final displayName =
         ref.watch(authControllerProvider).valueOrNull?.displayName;
     final demo = ref.watch(demoDataControllerProvider(uid)).valueOrNull;
+    final ledger = ref.watch(salesLedgerSnapshotProvider(uid)).valueOrNull;
     final customerStats = ref.watch(customerStatsProvider(uid)).valueOrNull;
     final realLowStock =
         ref.watch(dashboardLowStockProvider(uid)).valueOrNull ?? const [];
@@ -216,6 +244,62 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
               (name: product.name, remaining: product.stockQuantity)
           ];
 
+    // Real sales (Phase CRM-2) win over demo data the instant at least one
+    // payment has ever been recorded — demo data only fills the UI in for
+    // exploration before that. See this class's header comment.
+    final hasRealSales = ledger != null;
+    final hasActivity = hasRealSales || demo != null;
+    final todayRevenue =
+        hasRealSales ? ledger.todaySales : (demo?.todaySales ?? 0);
+    final revenueGrowth =
+        hasRealSales ? ledger.todaySalesGrowth : demo?.todaySalesGrowth;
+    final todayOrders =
+        hasRealSales ? ledger.todayOrders : (demo?.todayOrders ?? 0);
+    final averageOrderValue = hasRealSales
+        ? ledger.todayAverageOrderValue
+        : (demo?.todayAverageOrderValue ?? 0);
+
+    List<DemoTrendPoint> revenueTrendFor(RevenuePeriod period) {
+      if (!hasRealSales) return demo?.revenueTrend(period) ?? const [];
+      final points = switch (period) {
+        RevenuePeriod.today => ledger.revenueTrendToday(),
+        RevenuePeriod.week => ledger.revenueTrendThisWeek(),
+        RevenuePeriod.month => ledger.revenueTrendThisMonth(),
+      };
+      return [
+        for (final p in points) DemoTrendPoint(label: p.label, amount: p.amount)
+      ];
+    }
+
+    final salesTrendPoints = hasRealSales
+        ? [
+            for (final p in ledger.salesTrend14Days)
+              DemoTrendPoint(label: p.label, amount: p.amount)
+          ]
+        : (demo?.salesTrend ?? const <DemoTrendPoint>[]);
+
+    final paymentBreakdownSlices = hasRealSales
+        ? [
+            for (final s in ledger.paymentBreakdown)
+              PaymentBreakdownSlice(
+                  method: s.method, amount: s.amount, percentage: s.percentage)
+          ]
+        : (demo?.paymentBreakdown ?? const <PaymentBreakdownSlice>[]);
+
+    final recentTransactions = hasRealSales
+        ? [
+            for (final r in ledger.mostRecent.take(20))
+              RecentTransaction(
+                receiptNumber: r.receiptNumber,
+                customerName: r.customerName,
+                amount: r.total,
+                status: TransactionStatus.successful,
+                paymentMethod: r.paymentMethod,
+                time: r.occurredAt,
+              )
+          ]
+        : (demo?.recentTransactions ?? const <RecentTransaction>[]);
+
     return ListView(
       controller: _scrollController,
       primary: false,
@@ -227,10 +311,10 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
             merchantName: data.merchant?.name,
             storeName: data.store?.name,
             avatarLabel: avatarLabel,
-            todayRevenue: demo?.todaySales ?? 0,
-            revenueGrowth: demo?.todaySalesGrowth,
-            todayOrders: demo?.todayOrders ?? 0,
-            averageOrderValue: demo?.todayAverageOrderValue ?? 0,
+            todayRevenue: todayRevenue,
+            revenueGrowth: revenueGrowth,
+            todayOrders: todayOrders,
+            averageOrderValue: averageOrderValue,
             customersCount:
                 demo?.customersCount ?? (customerStats?.totalCustomers ?? 0),
           ),
@@ -282,15 +366,15 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
         FadeSlideIn(
           delay: const Duration(milliseconds: 100),
           child: BusinessMetricsBento(
-            todaySales: demo?.todaySales ?? 0,
-            todayOrders: demo?.todayOrders ?? 0,
-            averageOrderValue: demo?.todayAverageOrderValue ?? 0,
+            todaySales: todayRevenue,
+            todayOrders: todayOrders,
+            averageOrderValue: averageOrderValue,
             customersCount:
                 demo?.customersCount ?? (customerStats?.totalCustomers ?? 0),
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        if (demo == null) ...[
+        if (!hasActivity) ...[
           FadeSlideIn(
             delay: const Duration(milliseconds: 120),
             child: DashboardActivityEmptyState(
@@ -302,24 +386,31 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
         ] else ...[
           FadeSlideIn(
             delay: const Duration(milliseconds: 120),
-            child: RevenueChartSection(trendFor: demo.revenueTrend),
+            child: RevenueChartSection(trendFor: revenueTrendFor),
           ),
           const SizedBox(height: AppSpacing.md),
           FadeSlideIn(
             delay: const Duration(milliseconds: 140),
-            child: SalesTrendSection(points: demo.salesTrend),
+            child: SalesTrendSection(points: salesTrendPoints),
           ),
           const SizedBox(height: AppSpacing.md),
           FadeSlideIn(
             delay: const Duration(milliseconds: 160),
-            child: PaymentBreakdownSection(slices: demo.paymentBreakdown),
+            child: PaymentBreakdownSection(slices: paymentBreakdownSlices),
           ),
-          const SizedBox(height: AppSpacing.md),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 180),
-            child: TopSellingProductsSection(
-                products: demo.bestSellers.take(5).toList()),
-          ),
+          // Top Selling Products stays demo-only: it renders `DemoProduct`
+          // rows (stock/color-swatch fields the real sales ledger has no
+          // equivalent for), so a real product's row would need fabricated
+          // filler for those fields — the ledger's own real top sellers
+          // are shown for real on Reports instead (see `TopProduct`).
+          if (demo != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 180),
+              child: TopSellingProductsSection(
+                  products: demo.bestSellers.take(5).toList()),
+            ),
+          ],
         ],
         if (lowStockRows.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.md),
@@ -332,12 +423,11 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
             ),
           ),
         ],
-        if (demo != null) ...[
+        if (recentTransactions.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.md),
           FadeSlideIn(
             delay: const Duration(milliseconds: 220),
-            child: RecentTransactionsSection(
-                transactions: demo.recentTransactions),
+            child: RecentTransactionsSection(transactions: recentTransactions),
           ),
         ],
       ],

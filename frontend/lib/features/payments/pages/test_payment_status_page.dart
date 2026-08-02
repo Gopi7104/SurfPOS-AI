@@ -6,9 +6,16 @@ import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
 import '../../../core/widgets/app_bars/app_top_bar.dart';
 import '../../../core/widgets/chips/status_chip.dart';
+import '../../customers/models/customer_draft.dart';
+import '../../customers/models/customer_query.dart';
+import '../../customers/providers/customer_providers.dart';
+import '../../customers/repositories/customer_repository.dart';
 import '../../receipt/models/receipt_line_item.dart';
 import '../../receipt/models/receipt_model.dart';
 import '../../receipt/pages/receipt_page.dart';
+import '../../reports/models/sales_record.dart';
+import '../../reports/providers/reports_providers.dart';
+import '../../reports/providers/sales_ledger_providers.dart';
 import '../models/payment_phase.dart';
 import '../models/payment_state.dart';
 import '../models/test_payment_result.dart';
@@ -38,6 +45,7 @@ class TestPaymentStatusPage extends ConsumerStatefulWidget {
     required this.onDone,
     this.customerName,
     this.customerPhone,
+    this.customerId,
     super.key,
   });
 
@@ -59,6 +67,12 @@ class TestPaymentStatusPage extends ConsumerStatefulWidget {
   final String? customerName;
   final String? customerPhone;
 
+  /// See `PaymentStatusPage.customerId`'s header comment — same Phase
+  /// CRM-1 hook, so a test payment against a linked customer also counts
+  /// toward their stats/points (useful for trying the CRM flow without a
+  /// real Surfboard transaction).
+  final String? customerId;
+
   final VoidCallback onDone;
 
   @override
@@ -76,6 +90,93 @@ class _TestPaymentStatusPageState extends ConsumerState<TestPaymentStatusPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(testPaymentControllerProvider(widget.uid).notifier).run();
     });
+  }
+
+  /// Phase CRM-2: mirrors `PaymentStatusPage._recordCustomerPurchase`'s
+  /// auto-resolve behavior — a typed name/phone still gets linked/created
+  /// even when the Customer Details step never matched/created one.
+  Future<void> _recordCustomerPurchase(DateTime completedAt) async {
+    try {
+      final repository = ref.read(customerRepositoryProvider(widget.uid));
+      final customerId = await _resolveCustomerId(repository);
+      if (customerId == null) return;
+
+      await repository.recordPurchase(
+        customerId,
+        amount: widget.grandTotal,
+        itemNames: widget.receiptItems.map((item) => item.productName).toList(),
+        paymentMethod: TestPaymentResult.method,
+        purchasedAt: completedAt,
+      );
+      ref.invalidate(customerStatsProvider(widget.uid));
+      ref.invalidate(customerListControllerProvider(widget.uid));
+    } catch (_) {
+      // Best-effort — see `PaymentStatusPage._recordCustomerPurchase`.
+    }
+  }
+
+  /// See `PaymentStatusPage._resolveCustomerId`'s own header comment —
+  /// identical resolution logic, duplicated rather than shared since
+  /// these two pages already independently duplicate their whole
+  /// success-hook shape (see this class's header comment).
+  Future<String?> _resolveCustomerId(CustomerRepository repository) async {
+    if (widget.customerId != null) return widget.customerId;
+
+    final phone = widget.customerPhone?.trim();
+    if (phone == null || phone.isEmpty) return null;
+
+    final matches =
+        await repository.listCustomers(CustomerQuery(search: phone), limit: 1);
+    if (matches.items.isNotEmpty) return matches.items.first.id;
+
+    final typedName = widget.customerName?.trim() ?? '';
+    final nameParts =
+        typedName.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+    final firstName = nameParts.isNotEmpty ? nameParts.first : 'Walk-in';
+    final lastName =
+        nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Customer';
+
+    final created = await repository.createCustomer(
+        CustomerDraft(firstName: firstName, lastName: lastName, phone: phone));
+    return created.id;
+  }
+
+  /// See `PaymentStatusPage._recordSale`'s own header comment.
+  Future<void> _recordSale(DateTime completedAt) async {
+    try {
+      final record = SalesRecord(
+        id: completedAt.toIso8601String(),
+        receiptNumber: ref
+                .read(testPaymentControllerProvider(widget.uid).notifier)
+                .result
+                ?.reference ??
+            '—',
+        occurredAt: completedAt,
+        total: widget.grandTotal,
+        paymentMethod: TestPaymentResult.method,
+        customerId: widget.customerId,
+        customerName: widget.customerName,
+        items: [
+          for (final item in widget.receiptItems)
+            SalesRecordItem(
+              productId: item.productId,
+              name: item.productName,
+              category: item.category,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              lineTotal: item.lineTotal,
+            ),
+        ],
+      );
+      await ref
+          .read(salesLedgerRepositoryProvider(widget.uid))
+          .recordSale(record);
+      ref.invalidate(salesLedgerRecordsProvider(widget.uid));
+      ref.invalidate(salesLedgerSnapshotProvider(widget.uid));
+      ref.invalidate(reportsControllerProvider(widget.uid));
+    } catch (_) {
+      // Best-effort — see `PaymentStatusPage._recordSale`.
+    }
   }
 
   void _navigateToReceipt(PaymentState state) {
@@ -118,6 +219,8 @@ class _TestPaymentStatusPageState extends ConsumerState<TestPaymentStatusPage> {
           previous?.phase != PaymentPhase.paymentSuccessful;
       if (justSucceeded) {
         _succeededAt ??= DateTime.now();
+        _recordSale(_succeededAt!);
+        _recordCustomerPurchase(_succeededAt!);
         Future.delayed(_successScreenDuration, () {
           if (mounted) _navigateToReceipt(next);
         });

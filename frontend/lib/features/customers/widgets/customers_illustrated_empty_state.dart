@@ -5,16 +5,26 @@ import '../../../app/themes/app_colors.dart';
 import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
 import '../../../core/widgets/buttons/app_primary_button.dart';
+import '../../../core/widgets/buttons/app_secondary_button.dart';
 import '../../../core/widgets/cards/app_card.dart';
-import '../../billing/pages/billing_page.dart';
+import '../pages/add_customer_page.dart';
 
 /// The true "zero customers" empty state — a layered-circle illustration
 /// (existing design tokens only), matching Reports'/Dashboard's identical
-/// visual language. "Go to Billing" reuses plain `Navigator.push` — the
-/// same pattern `ReportsEmptyState`/`DashboardPage`'s onboarding CTA
-/// already use — never a change to the app's tab/routing structure.
+/// visual language. "Add Customer" reuses plain `Navigator.push` to the
+/// same [AddCustomerPage] the Hero header's own button already opens —
+/// never a new routing path. "Import Customers" is honest about not
+/// existing yet (no CSV/contacts package in `pubspec.yaml`) — same
+/// "Coming Soon" convention `CustomerLoyaltyCard` already uses for
+/// Coupons/Rewards/Referral, rather than silently adding a dependency.
 class CustomersIllustratedEmptyState extends StatelessWidget {
   const CustomersIllustratedEmptyState({super.key});
+
+  void _importCustomers(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Importing customers is coming soon.')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,17 +40,31 @@ class CustomersIllustratedEmptyState extends StatelessWidget {
               textAlign: TextAlign.center, style: AppTypography.headingMD),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Customer information is automatically captured during billing.',
+            'Add your first customer, or they\'ll be captured automatically during billing.',
             textAlign: TextAlign.center,
             style: AppTypography.bodyMD.copyWith(color: AppColors.textGrey),
           ),
           const SizedBox(height: AppSpacing.lg),
-          AppPrimaryButton(
-            label: 'Go to Billing',
-            expand: false,
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const BillingPage()),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: AppSecondaryButton(
+                  label: 'Import Customers',
+                  icon: LucideIcons.upload,
+                  onPressed: () => _importCustomers(context),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: AppPrimaryButton(
+                  label: 'Add Customer',
+                  icon: LucideIcons.userPlus,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AddCustomerPage()),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

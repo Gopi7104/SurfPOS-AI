@@ -1,27 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/themes/app_colors.dart';
 import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
+import '../../demo_data/providers/demo_data_providers.dart';
 
-/// The "Hey Surf, ..." example-prompt list shown before the first message
-/// of a conversation — see docs/16_AI_MODULE.md / the SurfAI chat brief.
-const kSurfAiSuggestions = [
-  'What sold the most today?',
-  'Which products are low stock?',
-  'Add a new product',
-  "Explain today's revenue",
-  'Help me onboard a merchant',
+/// The always-available suggestions — every phrase here matches a real
+/// `intent/intentDetector.js` pattern (backend tool or navigation command),
+/// so tapping one always resolves to a real answer/action, never a guess
+/// sent to OpenRouter. Covers Inventory (real data), navigation, and
+/// business-intelligence categories (Reports/Dashboard/Customer — demo-
+/// backed where no real ledger exists yet, see `ClientAiToolExecutor`).
+const _kAlwaysSuggestions = [
+  "Today's Sales",
+  'Low Stock',
+  'Best Seller',
+  'Search Product',
+  'Inventory Value',
+  'Top Customer',
+  'Business Insights',
+  'Open Billing',
+  'Open Inventory',
+  'Open Reports',
+  'Open Customers',
 ];
 
-class ChatSuggestions extends StatelessWidget {
-  const ChatSuggestions({required this.onSelect, super.key});
+/// The one suggestion that changes: "Generate Demo Data" is only worth
+/// showing when there's no demo dataset yet — see
+/// `demoDataControllerProvider`'s header comment. Once one exists, showing
+/// it again is more likely to be tapped by accident than intentionally
+/// (regenerating replaces the current sample data), so it drops off the
+/// list instead.
+class ChatSuggestions extends ConsumerWidget {
+  const ChatSuggestions({required this.uid, required this.onSelect, super.key});
 
+  final String uid;
   final ValueChanged<String> onSelect;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasDemoData =
+        ref.watch(demoDataControllerProvider(uid)).valueOrNull != null;
+    final suggestions = [
+      ..._kAlwaysSuggestions,
+      if (!hasDemoData) 'Generate Demo Data',
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -36,7 +62,7 @@ class ChatSuggestions extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
-        for (final suggestion in kSurfAiSuggestions)
+        for (final suggestion in suggestions)
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.xs),
             child: _SuggestionChip(

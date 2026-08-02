@@ -17,8 +17,9 @@ class ReportsController
   @override
   Future<ReportsState> build(String uid) async {
     const period = ReportPeriod.today;
-    final snapshot =
-        await ref.read(reportsRepositoryProvider).loadReports(period: period);
+    final snapshot = await ref
+        .read(reportsRepositoryProvider(uid))
+        .loadReports(period: period);
     return ReportsState(period: period, snapshot: snapshot);
   }
 
@@ -31,7 +32,7 @@ class ReportsController
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final snapshot = await ref
-          .read(reportsRepositoryProvider)
+          .read(reportsRepositoryProvider(arg))
           .loadReports(period: period, customRange: customRange);
       return ReportsState(
           period: period, customRange: customRange, snapshot: snapshot);
@@ -43,7 +44,7 @@ class ReportsController
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final snapshot = await ref
-          .read(reportsRepositoryProvider)
+          .read(reportsRepositoryProvider(arg))
           .loadReports(period: period, customRange: customRange);
       return ReportsState(
           period: period, customRange: customRange, snapshot: snapshot);

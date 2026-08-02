@@ -7,10 +7,19 @@ class ReceiptLineItem {
     required this.quantity,
     required this.unitPrice,
     required this.lineTotal,
+    this.productId,
+    this.category,
   });
 
   final String productName;
   final int quantity;
   final double unitPrice;
   final double lineTotal;
+
+  /// Carried through from `CartItemModel.product` so a completed sale can
+  /// be attributed to a real product/category in Reports' sales ledger
+  /// (see `SalesLedgerRepository`) — never displayed on the printed/shared
+  /// receipt itself, which only ever showed [productName].
+  final String? productId;
+  final String? category;
 }

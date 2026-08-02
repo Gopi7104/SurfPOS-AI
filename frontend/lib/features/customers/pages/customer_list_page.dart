@@ -176,10 +176,11 @@ class _CustomerListPageState extends ConsumerState<CustomerListPage> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Expanded(
+                            Expanded(
                               child: CustomerKpiCompactCard(
                                 label: 'Returning Customers',
                                 icon: LucideIcons.repeat,
+                                value: stats.returningCustomers.toDouble(),
                               ),
                             ),
                             const SizedBox(width: AppSpacing.sm),
@@ -209,15 +210,20 @@ class _CustomerListPageState extends ConsumerState<CustomerListPage> {
                         iconBackground: AppColors.warningContainer,
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      const Row(
+                      Row(
                         children: [
                           CustomerKpiStatPill(
-                              label: 'Lifetime Revenue',
-                              icon: LucideIcons.wallet),
-                          SizedBox(width: AppSpacing.sm),
+                            label: 'Lifetime Revenue',
+                            icon: LucideIcons.wallet,
+                            value: stats.lifetimeRevenue,
+                            formatter: (v) => '\$${v.toStringAsFixed(0)}',
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
                           CustomerKpiStatPill(
-                              label: 'Inactive Customers',
-                              icon: LucideIcons.userX),
+                            label: 'Inactive Customers',
+                            icon: LucideIcons.userX,
+                            value: stats.inactiveCustomers.toDouble(),
+                          ),
                         ],
                       ),
                     ],
