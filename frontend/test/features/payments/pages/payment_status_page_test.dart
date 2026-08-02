@@ -73,10 +73,18 @@ void main() {
     await tester.pump(); // resolve createCheckout's Future
     await tester.pump(const Duration(seconds: 2)); // first poll tick
     await tester.pump(); // resolve getCheckoutStatus's Future
-    // The Success Screen (checkmark + confetti) holds briefly before this
-    // page hands off to Receipt — see `_successScreenDuration`.
-    await tester.pump(const Duration(milliseconds: 1500));
-    await tester.pumpAndSettle(); // ref.listen navigates + route transition
+    await tester.pumpAndSettle(); // ref.listen navigates to PaymentSuccessPage
+
+    // Lands on the standalone Payment Successful page first, not Receipt
+    // directly — the cashier taps through to Receipt explicitly.
+    expect(find.text('Payment Approved'), findsOneWidget);
+    expect(find.text('pay-1'), findsOneWidget); // Reference
+    expect(find.text('txn-1'), findsOneWidget);
+    expect(find.text('Acme Surf Co'), findsOneWidget);
+    expect(find.text('Receipt'), findsNothing);
+
+    await tester.tap(find.text('View Receipt'));
+    await tester.pumpAndSettle();
 
     expect(find.text('Receipt'), findsOneWidget);
     expect(find.text('pay-1'), findsOneWidget); // Approval Code

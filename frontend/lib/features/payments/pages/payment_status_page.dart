@@ -11,7 +11,6 @@ import '../../../core/widgets/app_bars/app_top_bar.dart';
 import '../../../core/widgets/buttons/app_primary_button.dart';
 import '../../../features/receipt/models/receipt_line_item.dart';
 import '../../../features/receipt/models/receipt_model.dart';
-import '../../../features/receipt/pages/receipt_page.dart';
 import '../controllers/payment_controller.dart';
 import '../models/checkout_item.dart';
 import '../models/payment_phase.dart';
@@ -21,18 +20,14 @@ import '../widgets/payment_processing_timeline.dart';
 import '../widgets/payment_progress_steps.dart';
 import '../widgets/payment_status_indicator.dart';
 import '../widgets/payment_success_view.dart';
-
-/// How long the animated Success Screen (checkmark pop + confetti) stays on
-/// screen before this page hands off to [ReceiptPage] — purely a UI/UX
-/// pacing choice; the payment itself has already succeeded by the time this
-/// delay starts; `PaymentController`/`PaymentPhase` are never touched by it.
-const _successScreenDuration = Duration(milliseconds: 1400);
+import 'payment_success_page.dart';
 
 /// Checkout's payment-status screen — pushed after the merchant confirms the
 /// Payment Summary dialog. Owns starting the checkout attempt on first
 /// build; every subsequent frame just reflects [PaymentController]'s state.
 /// Once the payment reaches `paymentSuccessful`, this replaces itself with
-/// [ReceiptPage] — see docs/22_DEVELOPMENT_ROADMAP.md, Phase 5.
+/// [PaymentSuccessPage], which then hands off to the Receipt once the
+/// cashier taps through — see docs/22_DEVELOPMENT_ROADMAP.md, Phase 5.
 class PaymentStatusPage extends ConsumerStatefulWidget {
   const PaymentStatusPage({
     required this.uid,
@@ -142,19 +137,25 @@ class _PaymentStatusPageState extends ConsumerState<PaymentStatusPage>
     super.dispose();
   }
 
-  void _navigateToReceipt(PaymentState state) {
+  void _navigateToSuccessPage(PaymentState state) {
+    final completedAt = _succeededAt ?? DateTime.now();
     final receipt = ReceiptModel.fromPayment(
       state: state,
       merchantName: widget.merchantName,
       storeName: widget.storeName,
       items: widget.receiptItems,
-      completedAt: _succeededAt ?? DateTime.now(),
+      completedAt: completedAt,
       customerName: widget.customerName,
       customerPhone: widget.customerPhone,
     );
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => ReceiptPage(
+        builder: (_) => PaymentSuccessPage(
+          amount: state.amount,
+          reference: state.paymentId ?? state.orderId,
+          transactionId: state.transactionId,
+          merchantName: widget.merchantName,
+          completedAt: completedAt,
           uid: widget.uid,
           receipt: receipt,
           onNewSale: widget.onDone,
@@ -176,10 +177,8 @@ class _PaymentStatusPageState extends ConsumerState<PaymentStatusPage>
       if (justSucceeded) {
         _succeededAt ??= DateTime.now();
         debugPrint(
-            '[PAYMENT_TRACE] step=13 event=navigate_to_receipt orderId=${next.orderId} ts=${DateTime.now().toIso8601String()}');
-        Future.delayed(_successScreenDuration, () {
-          if (mounted) _navigateToReceipt(next);
-        });
+            '[PAYMENT_TRACE] step=13 event=navigate_to_success_page orderId=${next.orderId} ts=${DateTime.now().toIso8601String()}');
+        _navigateToSuccessPage(next);
       }
     });
     final state = ref.watch(paymentControllerProvider(widget.uid));
