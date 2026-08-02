@@ -4,19 +4,19 @@ import 'package:surfpos_ai/features/payments/models/payment_phase.dart';
 void main() {
   group('PaymentPhase', () {
     test(
-        'isTerminal is true only for approved/declined/cancelled/timedOut/error',
+        'isTerminal is true only for paymentSuccessful/paymentFailed/paymentCancelled/paymentExpired/error',
         () {
       const terminal = {
-        PaymentPhase.approved,
-        PaymentPhase.declined,
-        PaymentPhase.cancelled,
-        PaymentPhase.timedOut,
+        PaymentPhase.paymentSuccessful,
+        PaymentPhase.paymentFailed,
+        PaymentPhase.paymentCancelled,
+        PaymentPhase.paymentExpired,
         PaymentPhase.error,
       };
       const nonTerminal = {
         PaymentPhase.creatingPayment,
-        PaymentPhase.waitingForPayment,
-        PaymentPhase.processing,
+        PaymentPhase.waitingForCustomer,
+        PaymentPhase.paymentProcessing,
       };
 
       for (final phase in terminal) {
@@ -28,18 +28,20 @@ void main() {
       }
     });
 
-    test('canRetry is true only for declined/cancelled/timedOut/error', () {
+    test(
+        'canRetry is true only for paymentFailed/paymentCancelled/paymentExpired/error',
+        () {
       const retryable = {
-        PaymentPhase.declined,
-        PaymentPhase.cancelled,
-        PaymentPhase.timedOut,
+        PaymentPhase.paymentFailed,
+        PaymentPhase.paymentCancelled,
+        PaymentPhase.paymentExpired,
         PaymentPhase.error,
       };
       const notRetryable = {
         PaymentPhase.creatingPayment,
-        PaymentPhase.waitingForPayment,
-        PaymentPhase.processing,
-        PaymentPhase.approved,
+        PaymentPhase.waitingForCustomer,
+        PaymentPhase.paymentProcessing,
+        PaymentPhase.paymentSuccessful,
       };
 
       for (final phase in retryable) {

@@ -161,7 +161,9 @@ describe('store.service', () => {
       const store = await service.updateStore('uid_1', 'sb_store_1', { name: 'New Name' });
 
       expect(mapper.toUpdateWire).toHaveBeenCalledWith({ name: 'New Name' });
-      expect(storeClient.updateStore).toHaveBeenCalledWith('sb_store_1', { name: 'New Name' });
+      expect(storeClient.updateStore).toHaveBeenCalledWith('sb_merchant_1', 'sb_store_1', {
+        name: 'New Name',
+      });
       expect(store.name).toBe('New Name');
     });
 

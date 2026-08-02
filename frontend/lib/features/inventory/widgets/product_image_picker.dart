@@ -21,6 +21,7 @@ class ProductImagePicker extends ConsumerStatefulWidget {
   const ProductImagePicker({
     required this.uid,
     this.initialImagePath,
+    this.initialImageUrl,
     required this.onChanged,
     super.key,
   });
@@ -31,6 +32,12 @@ class ProductImagePicker extends ConsumerStatefulWidget {
   final String uid;
 
   final String? initialImagePath;
+
+  /// A network image to preview until the merchant picks a local photo —
+  /// e.g. the product photo a barcode scan resolved via Open Food Facts.
+  /// Only shown while [initialImagePath] (and any locally-picked path) is
+  /// null; once a local photo is picked, it always wins.
+  final String? initialImageUrl;
 
   /// Called whenever the selected image changes (picked or removed) so the
   /// parent `ProductForm` can include the latest path in its
@@ -150,6 +157,25 @@ class _ProductImagePickerState extends ConsumerState<ProductImagePicker> {
 
     final path = _imagePath;
     if (path == null) {
+      final networkUrl = widget.initialImageUrl;
+      if (networkUrl != null) {
+        return _PreviewBox(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            child: Image.network(
+              networkUrl,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              loadingBuilder: (context, child, progress) =>
+                  progress == null ? child : const AppLoadingIndicator(),
+              errorBuilder: (context, error, stackTrace) =>
+                  const _PlaceholderContent(
+                      message: 'Could not load this image'),
+            ),
+          ),
+        );
+      }
       return const _PreviewBox(
         child: _PlaceholderContent(message: 'No image selected'),
       );

@@ -10,6 +10,9 @@ class PaymentState {
     this.paymentId,
     this.transactionId,
     this.amount,
+    this.subtotal,
+    this.discountTotal,
+    this.taxTotal,
     this.paymentMethod,
     this.paymentUrl,
     this.errorMessage,
@@ -22,6 +25,14 @@ class PaymentState {
   final String? paymentId;
   final String? transactionId;
   final double? amount;
+
+  /// Order-level breakdown from `CheckoutResultModel` (create-checkout
+  /// response only — see its header comment) — carried here purely so the
+  /// Receipt screen can show a full Products/Tax/Discount/Total breakdown
+  /// without re-deriving it from the cart after Checkout has moved on.
+  final double? subtotal;
+  final double? discountTotal;
+  final double? taxTotal;
   final String? paymentMethod;
   final String? paymentUrl;
 
@@ -42,6 +53,9 @@ class PaymentState {
     String? paymentId,
     String? transactionId,
     double? amount,
+    double? subtotal,
+    double? discountTotal,
+    double? taxTotal,
     String? paymentMethod,
     String? paymentUrl,
     String? errorMessage,
@@ -56,6 +70,9 @@ class PaymentState {
       paymentId: paymentId ?? this.paymentId,
       transactionId: transactionId ?? this.transactionId,
       amount: amount ?? this.amount,
+      subtotal: subtotal ?? this.subtotal,
+      discountTotal: discountTotal ?? this.discountTotal,
+      taxTotal: taxTotal ?? this.taxTotal,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       paymentUrl: paymentUrl ?? this.paymentUrl,
       errorMessage:

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:surfpos_ai/app/themes/app_theme.dart';
 import 'package:surfpos_ai/core/exceptions/api_exception.dart';
+import 'package:surfpos_ai/core/widgets/buttons/app_fab.dart';
 import 'package:surfpos_ai/features/authentication/providers/auth_providers.dart';
 import 'package:surfpos_ai/features/dashboard/providers/dashboard_providers.dart';
 import 'package:surfpos_ai/features/inventory/models/inventory_page.dart';
@@ -30,7 +31,7 @@ Widget _wrap({required FakeInventoryRepository inventory}) {
 }
 
 void main() {
-  testWidgets('shows summary stats derived from the catalog sample',
+  testWidgets('shows hero stats derived from the loaded catalog page',
       (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(
@@ -49,13 +50,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('3'), findsOneWidget); // Total Products
+    expect(find.text('3'), findsWidgets); // Total Products pill
     expect(
         find.text('1'), findsNWidgets(2)); // Low Stock and Out of Stock, both 1
+    expect(find.text('0'),
+        findsOneWidget); // Added Today (fixture dates are fixed, never "today")
+    // Total Inventory Value: 0*19.99 + 2*19.99 + 50*19.99 = 1039.48 -> "$1039"
+    expect(find.text('\$1039'), findsOneWidget);
   });
 
   testWidgets(
-      'Quick Actions navigate to Product List, Categories, and Add Product',
+      'shows the No Products empty state directly on Home when the catalog is empty',
       (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(
@@ -68,22 +73,35 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('View All Products'));
-    await tester.pumpAndSettle();
-    expect(find.text('Products'), findsOneWidget);
     expect(find.text('No Products'), findsOneWidget);
+  });
 
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
+  testWidgets('Categories icon and the Add Product FAB navigate correctly',
+      (tester) async {
+    useTallTestSurface(tester);
+    await tester.pumpWidget(
+      _wrap(
+        inventory: FakeInventoryRepository(
+          listProducts: (query, {cursor, limit = 20}) async =>
+              const InventoryPage(items: [], nextCursor: null),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Categories'));
+    await tester.tap(find.byTooltip('Categories'));
     await tester.pumpAndSettle();
     expect(find.text('No Categories Yet'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Add Product'));
+    await tester.tap(find.byType(AppFab));
+    await tester.pumpAndSettle();
+    expect(find.text('Scan Barcode'), findsOneWidget);
+    expect(find.text('Enter Manually'), findsOneWidget);
+
+    await tester.tap(find.text('Enter Manually'));
     await tester.pumpAndSettle();
     expect(find.text('Save'), findsOneWidget);
   });
@@ -105,7 +123,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Complete Merchant Onboarding'), findsOneWidget);
-    expect(find.text('Quick Actions'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 }

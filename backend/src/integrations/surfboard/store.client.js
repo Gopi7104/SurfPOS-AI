@@ -3,11 +3,17 @@
 // Surfboard store-capabilities API — see docs/15_SURFBOARD_INTEGRATION.md,
 // docs/19_SURFBOARD_WORKFLOWS.md § 2.
 //
-// getStore() is confirmed against the real Surfboard docs bundled in
-// `node_modules/@surfboardpayments/surf-mcp/data/api-md/stores-fetch-store-details.md` (the same
-// source used to confirm the Merchant family — see docs/08_ARCHITECTURE_DECISIONS.md § ADR-025):
-// `GET /partners/:partnerId/merchants/:merchantId/stores/:storeId` with a required `MERCHANT-ID`
-// header, sharing the `{status, data, message}` envelope. createStore()'s wire format is still
+// getStore()/updateStore() are confirmed against the real Surfboard docs bundled in
+// `node_modules/@surfboardpayments/surf-mcp/data/api-md/stores-{fetch,update}-store-details.md`
+// (the same source used to confirm the Merchant family — see
+// docs/08_ARCHITECTURE_DECISIONS.md § ADR-025): both are
+// `.../partners/:partnerId/merchants/:merchantId/stores/:storeId` with a required `MERCHANT-ID`
+// header, sharing the `{status, data, message}` envelope — GET to fetch, PUT to update.
+// updateStore() was previously an unconfirmed guess (`PATCH /stores/:storeId`, no MERCHANT-ID
+// header) that had never been exercised by any live flow — corrected as part of diagnosing the
+// "TM_0029: Onboarding is not completed for the store" Checkout failure (see
+// payment.service.js#ensureStoreOnlineInfo), which requires a *working* updateStore() to set a
+// store's `onlineInfo` before it can accept online payments. createStore()'s wire format is still
 // unconfirmed (docs/08_ARCHITECTURE_DECISIONS.md § ADR-009) — it isn't called from any live flow
 // today (Surfboard creates a Store as a side effect of Create Merchant's `controlFields.store`
 // instead, see merchantApplication.service.js) — left as-is pending its own confirmation pass.
@@ -21,12 +27,9 @@
 const SurfboardBaseClient = require('./client/surfboardClient.base');
 
 const CREATE_STORE_PATH = '/stores';
-// Confirmed Fetch Store Details path (see class doc comment above).
-const fetchStorePath = (partnerId, merchantId, storeId) =>
+// Confirmed Fetch/Update Store Details path (see class doc comment above) — identical for both.
+const storePath = (partnerId, merchantId, storeId) =>
   `/partners/${partnerId}/merchants/${merchantId}/stores/${storeId}`;
-// updateStore()'s path is still unconfirmed — kept separate from fetchStorePath() so fixing the
-// confirmed getStore() path didn't silently change this one too.
-const unconfirmedStorePath = (storeId) => `/stores/${storeId}`;
 
 class SurfboardStoreClient extends SurfboardBaseClient {
   /**
@@ -46,7 +49,7 @@ class SurfboardStoreClient extends SurfboardBaseClient {
   async getStore(merchantId, storeId) {
     const { data } = await this.request({
       method: 'GET',
-      path: fetchStorePath(this.config.partnerId, merchantId, storeId),
+      path: storePath(this.config.partnerId, merchantId, storeId),
       headers: { 'MERCHANT-ID': merchantId },
       expectsEnvelope: true,
     });
@@ -54,15 +57,18 @@ class SurfboardStoreClient extends SurfboardBaseClient {
   }
 
   /**
+   * @param {string} merchantId
    * @param {string} storeId
    * @param {object} wirePayload — already in Surfboard's wire format (see store.mapper.js#toUpdateWire)
    * @returns {Promise<object>} raw Surfboard response body
    */
-  async updateStore(storeId, wirePayload) {
+  async updateStore(merchantId, storeId, wirePayload) {
     const { data } = await this.request({
-      method: 'PATCH',
-      path: unconfirmedStorePath(storeId),
+      method: 'PUT',
+      path: storePath(this.config.partnerId, merchantId, storeId),
+      headers: { 'MERCHANT-ID': merchantId },
       body: wirePayload,
+      expectsEnvelope: true,
     });
     return data;
   }

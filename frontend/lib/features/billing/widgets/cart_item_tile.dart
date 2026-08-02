@@ -6,11 +6,14 @@ import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
 import '../../../core/widgets/cards/app_card.dart';
 import '../models/cart_item_model.dart';
+import 'product_thumbnail.dart';
 
-/// One cart row — product name, quantity controls, unit price, line total,
-/// and a delete action. All mutation is delegated to the caller (which
-/// calls into [BillingController]) — this widget only renders [item] and
-/// reports taps, no business logic.
+/// One cart row — product image, name, quantity controls, unit price, line
+/// total, and a delete action. All mutation is delegated to the caller
+/// (which calls into [BillingController]) — this widget only renders
+/// [item] and reports taps, no business logic. Swipe-to-remove is the
+/// enclosing list's job (see `CartBottomSheet`'s `Dismissible` wrapper);
+/// [onDelete] stays as the always-reachable non-gesture fallback.
 class CartItemTile extends StatelessWidget {
   const CartItemTile({
     required this.item,
@@ -31,6 +34,8 @@ class CartItemTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          ProductThumbnail(product: item.product, size: 48),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,10 +105,18 @@ class _QuantityStepper extends StatelessWidget {
         _StepperButton(icon: LucideIcons.minus, onTap: onDecrease),
         SizedBox(
           width: 32,
-          child: Text(
-            '$quantity',
-            textAlign: TextAlign.center,
-            style: AppTypography.bodyMD.copyWith(fontWeight: FontWeight.w700),
+          child: TweenAnimationBuilder<double>(
+            key: ValueKey(quantity),
+            tween: Tween(begin: 1.3, end: 1.0),
+            duration: AppMotion.medium,
+            curve: AppMotion.curve.emphasized,
+            builder: (context, scale, child) =>
+                Transform.scale(scale: scale, child: child),
+            child: Text(
+              '$quantity',
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyMD.copyWith(fontWeight: FontWeight.w700),
+            ),
           ),
         ),
         _StepperButton(icon: LucideIcons.plus, onTap: onIncrease),

@@ -6,8 +6,10 @@ import 'package:surfpos_ai/features/authentication/providers/auth_providers.dart
 import 'package:surfpos_ai/features/billing/pages/billing_page.dart';
 import 'package:surfpos_ai/features/billing/providers/billing_providers.dart';
 import 'package:surfpos_ai/features/billing/repositories/billing_repository.dart';
+import 'package:surfpos_ai/features/inventory/providers/inventory_providers.dart';
 
 import '../../authentication/fakes/fake_auth_repository.dart';
+import '../../inventory/fakes/fake_inventory_repository.dart';
 import '../../merchant/presentation/screens/test_surface.dart';
 import '../fakes/fake_billing_repository.dart';
 
@@ -15,6 +17,10 @@ Widget _wrap(BillingRepository repository) {
   return ProviderScope(
     overrides: [
       billingRepositoryProvider.overrideWithValue(repository),
+      // The product grid reads Inventory's own catalog list directly (see
+      // `billing_page.dart`'s header comment) — faked here so the grid never
+      // hits the real network in these tests.
+      inventoryRepositoryProvider.overrideWithValue(FakeInventoryRepository()),
       authRepositoryProvider.overrideWithValue(
         FakeAuthRepository(restoreSession: () async => testAuthUser()),
       ),
@@ -43,7 +49,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'surf');
+    await tester.enterText(find.byType(TextField).first, 'surf');
     await tester
         .pump(const Duration(milliseconds: 400)); // clear the search debounce
     await tester.pumpAndSettle();
@@ -54,8 +60,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cart is Empty'), findsNothing);
-    expect(find.text('Blue Wave Surf Wax'), findsOneWidget);
     expect(find.text('✓ Product Added: Blue Wave Surf Wax'), findsOneWidget);
+    expect(find.text('1 item'), findsOneWidget);
   });
 
   testWidgets(
@@ -69,18 +75,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'surf');
+    await tester.enterText(find.byType(TextField).first, 'surf');
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Blue Wave Surf Wax'));
     await tester.pumpAndSettle();
 
     // Let the "✓ Product Added" SnackBar finish its auto-dismiss timer — it
-    // otherwise overlaps the Clear Cart button at the bottom of the screen.
+    // otherwise overlaps the cart bar at the bottom of the screen.
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Clear Cart').first);
+    // Open the full cart sheet, then Clear Cart from inside it.
+    await tester.tap(find.text('View Cart'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Clear Cart'));
     await tester.pumpAndSettle();
 
     expect(find.text('Clear cart?'), findsOneWidget);

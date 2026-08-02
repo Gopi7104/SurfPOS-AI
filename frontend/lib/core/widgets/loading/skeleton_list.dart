@@ -7,14 +7,23 @@ import 'skeleton_box.dart';
 /// A skeleton stand-in for a list of rows (e.g. products, sales history)
 /// while real data loads. See docs/06_UI_UX_GUIDE.md § 7.
 class SkeletonList extends StatelessWidget {
-  const SkeletonList({this.itemCount = 6, super.key});
+  const SkeletonList({this.itemCount = 6, this.shrinkWrap = false, super.key});
 
   final int itemCount;
+
+  /// Set to `true` when embedding this inside another scrollable (e.g.
+  /// [ReportsLoadingSkeleton]'s outer `ListView`) — sizes to content and
+  /// disables its own scrolling instead of demanding unbounded height.
+  /// Leave `false` (default) when this is the sole scrollable body, where
+  /// it should fill and scroll the available space itself.
+  final bool shrinkWrap;
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      shrinkWrap: shrinkWrap,
+      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
       itemCount: itemCount,
       separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
       itemBuilder: (_, __) => const _SkeletonRow(),

@@ -41,4 +41,29 @@ describe('payment.repository', () => {
 
     await expect(repository.getTerminalId('sb_store_2')).resolves.toBeNull();
   });
+
+  it('getCheckoutItems() returns null when nothing has been cached for this order', async () => {
+    const repository = createPaymentRepository({ getDb: () => createFakeDb() });
+
+    await expect(repository.getCheckoutItems('order_1')).resolves.toBeNull();
+  });
+
+  it('setCheckoutItems() persists the client-submitted lines and getCheckoutItems() reads them back', async () => {
+    const fakeDb = createFakeDb();
+    const repository = createPaymentRepository({ getDb: () => fakeDb });
+    const items = [{ productId: 'p1', quantity: 2 }];
+
+    await repository.setCheckoutItems('order_1', items);
+
+    await expect(repository.getCheckoutItems('order_1')).resolves.toEqual(items);
+  });
+
+  it('scopes cached checkout items to the given orderId', async () => {
+    const fakeDb = createFakeDb();
+    const repository = createPaymentRepository({ getDb: () => fakeDb });
+
+    await repository.setCheckoutItems('order_1', [{ productId: 'p1', quantity: 1 }]);
+
+    await expect(repository.getCheckoutItems('order_2')).resolves.toBeNull();
+  });
 });

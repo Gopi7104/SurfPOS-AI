@@ -5,6 +5,9 @@ import '../../../core/widgets/app_bars/app_top_bar.dart';
 import '../../authentication/providers/auth_providers.dart';
 import '../../dashboard/providers/dashboard_providers.dart';
 import '../models/inventory_failure.dart';
+import '../models/product_lookup_result.dart';
+import '../models/product_model.dart';
+import '../models/product_status.dart';
 import '../providers/inventory_providers.dart';
 import '../widgets/product_form.dart';
 
@@ -12,7 +15,46 @@ import '../widgets/product_form.dart';
 /// via [InventoryFormController.create] and pops back to the Product List
 /// on success, mirroring `MerchantOnboardingWizardPage`'s screen/page split.
 class AddProductPage extends ConsumerWidget {
-  const AddProductPage({super.key});
+  const AddProductPage({this.prefill, this.duplicateFrom, super.key});
+
+  /// A successful barcode scan's resolved product info — threaded straight
+  /// through to [ProductForm]; `null` for the plain "Enter Manually" path.
+  final ProductLookupResult? prefill;
+
+  /// Quick Actions' "Duplicate" — pre-fills every field from an existing
+  /// catalog product *except* SKU/barcode (cleared, since those must stay
+  /// unique per product) and stock (reset to 0, since a duplicate is a new
+  /// physical batch the merchant hasn't counted yet). Still submits via the
+  /// same [InventoryFormController.create] as a brand-new product — see
+  /// `product_quick_actions_sheet.dart`'s header comment.
+  final ProductModel? duplicateFrom;
+
+  ProductModel? get _initial {
+    final source = duplicateFrom;
+    if (source == null) return null;
+    return ProductModel(
+      id: '',
+      merchantId: source.merchantId,
+      name: source.name,
+      description: source.description,
+      sku: '',
+      barcode: null,
+      category: source.category,
+      unit: source.unit,
+      price: source.price,
+      costPrice: source.costPrice,
+      taxPercentage: source.taxPercentage,
+      discountPercentage: source.discountPercentage,
+      lowStockThreshold: source.lowStockThreshold,
+      stockQuantity: 0,
+      imageUrl: source.imageUrl,
+      imagePath: source.imagePath,
+      status: ProductStatus.active,
+      isActive: true,
+      createdAt: source.createdAt,
+      updatedAt: source.updatedAt,
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -42,6 +84,8 @@ class AddProductPage extends ConsumerWidget {
           title: 'Add Product', onBack: () => Navigator.of(context).pop()),
       body: ProductForm(
         uid: uid,
+        initial: _initial,
+        prefill: prefill,
         submitLabel: 'Save',
         isSubmitting: state.isLoading,
         errorMessage: state.hasError

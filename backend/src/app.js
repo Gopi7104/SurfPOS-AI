@@ -23,6 +23,8 @@ const merchantRoutes = require('./routes/merchant.routes');
 const storeRoutes = require('./routes/store.routes');
 const inventoryRoutes = require('./routes/inventory.routes');
 const paymentRoutes = require('./routes/payment.routes');
+const paymentRedirectRoutes = require('./routes/paymentRedirect.routes');
+const webhookRoutes = require('./routes/webhook.routes');
 
 const app = express();
 
@@ -30,7 +32,18 @@ app.disable('x-powered-by');
 app.use(helmet());
 app.use(cors({ origin: config.corsAllowedOrigins === '*' ? true : config.corsAllowedOrigins }));
 app.use(compression());
-app.use(express.json());
+// `verify` stashes the exact raw bytes Express received on `req.rawBody` — needed only by
+// webhook.controller.js, which must HMAC the *original* bytes (see
+// docs/15_SURFBOARD_INTEGRATION.md § 7): re-serializing the already-parsed `req.body` could
+// reorder keys/whitespace and silently break Surfboard's signature. Every other route ignores
+// `req.rawBody` and keeps using `req.body` exactly as before.
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
 
 app.use(
   pinoHttp({
@@ -65,6 +78,12 @@ app.use(
 
 // Liveness probe stays outside the rate limiter — see docs/04_API_DOCUMENTATION.md § 13.
 app.use(API_ROUTES.HEALTH, healthRoutes);
+
+// Both public (no Firebase auth — see docs/04_API_DOCUMENTATION.md § 1/§ 10), hit directly by
+// Surfboard's own servers/hosted page rather than the Flutter app, so they stay outside the
+// per-user rate limiter too, same as health.
+app.use(API_ROUTES.PAYMENT_REDIRECT, paymentRedirectRoutes);
+app.use(API_ROUTES.WEBHOOKS, webhookRoutes);
 
 app.use(createRateLimiter());
 

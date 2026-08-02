@@ -100,12 +100,12 @@ void main() {
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Merchant Information'), findsOneWidget);
+    expect(find.text('Blue Wave Surf Shop'), findsOneWidget);
     expect(attempts, 2);
   });
 
   testWidgets(
-      'renders merchant/store info, quick actions, and system status once loaded',
+      'renders merchant/store info, KPIs, and quick actions once loaded',
       (tester) async {
     useTallTestSurface(tester);
     await tester.pumpWidget(
@@ -119,17 +119,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Merchant Information'), findsOneWidget);
     expect(find.text('Blue Wave Surf Shop'), findsOneWidget);
-    expect(find.text('m-1'), findsOneWidget);
-    expect(find.text('Main Street Store'), findsOneWidget);
-    expect(find.text('s-1'), findsOneWidget);
-    expect(find.text("Today's Business Summary"), findsOneWidget);
-    expect(find.text('Quick Actions'), findsOneWidget);
-    expect(find.text('New Bill'), findsOneWidget);
-    expect(find.text('No transactions yet.'), findsOneWidget);
-    expect(find.text('System Status'), findsOneWidget);
-    expect(find.text('Connected'), findsNWidgets(3));
+    expect(find.textContaining('Main Street Store'), findsOneWidget);
+    expect(find.text("Today's Revenue"), findsOneWidget);
+    expect(find.text('New Sale'), findsOneWidget);
+    expect(find.text('Inventory'), findsOneWidget);
+    expect(find.text('No business activity yet'), findsOneWidget);
   });
 
   testWidgets('tapping a Quick Action navigates to its tab', (tester) async {

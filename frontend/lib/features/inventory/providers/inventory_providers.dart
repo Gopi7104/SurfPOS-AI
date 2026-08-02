@@ -3,11 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../authentication/providers/auth_providers.dart';
 import '../controllers/inventory_form_controller.dart';
 import '../controllers/inventory_list_controller.dart';
+import '../controllers/product_lookup_controller.dart';
+import '../datasources/open_food_facts_datasource.dart';
 import '../models/inventory_query.dart';
+import '../models/product_lookup_state.dart';
 import '../models/product_model.dart';
 import '../repositories/inventory_repository.dart';
 import '../repositories/inventory_repository_impl.dart';
 import '../repositories/product_image_local_storage.dart';
+import '../repositories/product_lookup_repository.dart';
+import '../repositories/product_lookup_repository_impl.dart';
 
 /// One product's live details — keyed by (uid, productId) rather than just
 /// productId, staying consistent with "every provider tied to the
@@ -41,6 +46,24 @@ final inventoryRepositoryProvider = Provider<InventoryRepository>((ref) {
 final inventoryListControllerProvider = AsyncNotifierProvider.autoDispose
     .family<InventoryListController, InventoryListState, String>(
   InventoryListController.new,
+);
+
+/// DI wiring for barcode-onboarding lookups — Open Food Facts is first (and
+/// today, the only) provider in the chain; appending another
+/// `ProductLookupDatasource` here is the only change needed to plug one in.
+final productLookupRepositoryProvider =
+    Provider<ProductLookupRepository>((ref) {
+  return ProductLookupRepositoryImpl(
+    inventoryRepository: ref.watch(inventoryRepositoryProvider),
+    datasources: [OpenFoodFactsDatasource()],
+  );
+});
+
+/// Keyed by Firebase uid, same cross-user-isolation reason as every other
+/// controller in this app.
+final productLookupControllerProvider = NotifierProvider.autoDispose
+    .family<ProductLookupController, ProductLookupState, String>(
+  ProductLookupController.new,
 );
 
 /// One-shot create/update form state for a single Add/Edit Product screen —

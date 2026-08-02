@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../core/widgets/navigation/app_main_scaffold.dart';
-import '../features/analytics/presentation/screens/reports_placeholder_screen.dart';
 import '../features/billing/pages/billing_page.dart';
+import '../features/customers/pages/customer_list_page.dart';
 import '../features/dashboard/pages/dashboard_page.dart';
 import '../features/inventory/pages/inventory_home_page.dart';
-import '../features/settings/presentation/screens/settings_placeholder_screen.dart';
+import '../features/reports/pages/reports_home_page.dart';
+import '../features/settings/pages/settings_home_page.dart';
 
 /// The application shell — the post-login/post-approval destination. Owns
-/// which of the 5 tabs (Dashboard/Billing/Inventory/Reports/Settings) is
-/// active and renders all 5 inside an [IndexedStack] so switching tabs
-/// never rebuilds/loses the state of the ones not currently visible (e.g.
-/// the Dashboard's scroll position and loaded data survive a trip to
-/// another tab and back). See docs/22_DEVELOPMENT_ROADMAP.md Phase 1
-/// (BOTTOM NAVIGATION).
+/// which of the 6 tabs (Dashboard/Billing/Inventory/Reports/Customers/
+/// Settings) is active and renders all 6 inside an [IndexedStack] so
+/// switching tabs never rebuilds/loses the state of the ones not
+/// currently visible (e.g. the Dashboard's scroll position and loaded
+/// data survive a trip to another tab and back). See
+/// docs/22_DEVELOPMENT_ROADMAP.md Phase 1 (BOTTOM NAVIGATION); "Customers"
+/// was added in Phase 6.
 class MainShellPage extends StatefulWidget {
   const MainShellPage({super.key});
 
@@ -39,8 +41,9 @@ class _MainShellPageState extends State<MainShellPage> {
           DashboardPage(onNavigateToTab: _goToTab),
           const BillingPage(),
           const InventoryHomePage(),
-          const ReportsPlaceholderScreen(),
-          const SettingsPlaceholderScreen(),
+          const ReportsHomePage(),
+          const CustomerListPage(),
+          const SettingsHomePage(),
         ],
       ),
     );

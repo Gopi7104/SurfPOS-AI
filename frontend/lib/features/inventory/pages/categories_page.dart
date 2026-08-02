@@ -9,10 +9,10 @@ import '../../../core/widgets/empty_states/error_state.dart';
 import '../../../core/widgets/loading/skeleton_list.dart';
 import '../../authentication/providers/auth_providers.dart';
 import '../providers/inventory_providers.dart';
-import 'product_list_page.dart';
+import 'inventory_home_page.dart';
 
 /// Every distinct category currently in use across the catalog — tapping
-/// one opens the Product List pre-filtered to it.
+/// one opens Inventory Home pre-filtered to it.
 class CategoriesPage extends ConsumerWidget {
   const CategoriesPage({super.key});
 
@@ -66,7 +66,7 @@ class _CategoriesList extends StatelessWidget {
           trailing: const Icon(LucideIcons.chevronRight, size: 18),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-                builder: (_) => ProductListPage(initialCategory: category)),
+                builder: (_) => InventoryHomePage(initialCategory: category)),
           ),
         );
       },

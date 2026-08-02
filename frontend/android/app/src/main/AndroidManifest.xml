@@ -30,6 +30,19 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Phase 5's redirect-bridge deep link (see
+                 backend/src/controllers/paymentRedirect.controller.js) — Surfboard's hosted
+                 Payment Page redirects the Custom Tab to a public http(s) URL, which 302s to
+                 surfpos://payment/success|failed. android:launchMode="singleTop" above means this
+                 hits MainActivity's existing instance via onNewIntent rather than restarting the
+                 app, so app_links' getInitialLink/uriLinkStream sees it while Checkout is still on
+                 screen. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="surfpos" android:host="payment"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

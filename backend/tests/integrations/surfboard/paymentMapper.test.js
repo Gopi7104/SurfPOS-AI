@@ -37,11 +37,15 @@ describe('payment.mapper', () => {
       expect(line.id).toBe('p1');
       expect(line.name).toBe('Surf Wax');
       expect(line.quantity).toBe(2);
-      // subtotal = 200, discount = 0, tax = 25% of 200 = 50, total = 250
-      expect(line.amount).toMatchObject({ regular: 10000, campaign: 0, total: 25000, currency: '752' });
-      expect(line.amount.tax).toEqual([{ amount: 5000, percentage: 25, type: 'VAT' }]);
+      // Line amounts are PER-UNIT (Surfboard multiplies by quantity itself for totalOrderAmount —
+      // see toOrderWire's doc comment): unit price 100, discount 0, tax = 25% of 100 = 25,
+      // unit total (tax-inclusive) = 125. regular is derived as total + campaign, so Surfboard's
+      // own `total === regular + shipping - campaign` validation holds by construction.
+      expect(line.amount).toMatchObject({ regular: 12500, campaign: 0, total: 12500, currency: '752' });
+      expect(line.amount.tax).toEqual([{ amount: 2500, percentage: 25, type: 'VAT' }]);
 
-      expect(wire.totalOrderAmount).toEqual({ regular: 20000, campaign: 0, total: 25000, currency: '752' });
+      // totalOrderAmount = per-unit total × quantity (2) — see "Order Line Level Calculation".
+      expect(wire.totalOrderAmount).toEqual({ regular: 25000, campaign: 0, total: 25000, currency: '752' });
     });
 
     it('applies per-line discount before computing tax', () => {
@@ -60,11 +64,124 @@ describe('payment.mapper', () => {
         ],
       });
 
-      // subtotal = 100, discount = 20, taxable = 80, tax = 8, total = 88
+      // subtotal = 100, discount = 20, taxable = 80, tax = 8, total (tax-inclusive) = 88.
+      // regular = total + campaign = 88 + 20 = 108, so total === regular - campaign holds.
       const [line] = wire.orderLines;
-      expect(line.amount).toMatchObject({ regular: 10000, campaign: 2000, total: 8800 });
+      expect(line.amount).toMatchObject({ regular: 10800, campaign: 2000, total: 8800 });
       expect(line.amount.tax).toEqual([{ amount: 800, percentage: 10, type: 'VAT' }]);
-      expect(wire.totalOrderAmount).toMatchObject({ regular: 10000, campaign: 2000, total: 8800 });
+      // Order-level regular === total and campaign === 0 always (unlike a line's own amount,
+      // which does carry the real 2000 discount) — see toOrderWire's doc comment.
+      expect(wire.totalOrderAmount).toMatchObject({ regular: 8800, campaign: 0, total: 8800 });
+    });
+
+    it('keeps line amounts per-unit and multiplies by quantity only for totalOrderAmount, with tax and discount combined', () => {
+      const wire = paymentMapper.toOrderWire({
+        terminalId: 'term_1',
+        referenceId: 'checkout-uid-1-126',
+        items: [
+          {
+            productId: 'p1',
+            name: 'Wax 3-pack',
+            quantity: 3,
+            unitPrice: 100,
+            taxPercentage: 7,
+            discountPercentage: 10,
+          },
+        ],
+      });
+
+      // Per unit: discount = 10, taxable = 90, tax = 6.3, total (tax-inclusive) = 96.3.
+      const [line] = wire.orderLines;
+      expect(line.quantity).toBe(3);
+      expect(line.amount).toMatchObject({ regular: 10630, campaign: 1000, total: 9630 });
+      expect(line.amount.tax).toEqual([{ amount: 630, percentage: 7, type: 'VAT' }]);
+
+      // Order total = per-unit total (96.3) × quantity (3) = 288.9 — NOT the per-unit total alone.
+      // Order-level regular === total and campaign === 0 always (unlike a line's own amount,
+      // which does carry the real 3000 discount) — see toOrderWire's doc comment.
+      expect(wire.totalOrderAmount).toEqual({ regular: 28890, campaign: 0, total: 28890, currency: '752' });
+    });
+
+    // Surfboard's officially-documented redirect-back mechanism (web-guides/payment-page.md):
+    // `controlFunctions.online.redirectUrl`/`failureRedirectUrl` on Create Order — see
+    // payment.service.js#buildRedirectUrls, which supplies this block only when
+    // config.publicBaseUrl is set (never a private/loopback/non-http(s) URL — Surfboard rejects
+    // those at Create Order time, confirmed live).
+    it('includes the officially-documented redirect/callback fields when redirectUrls is provided', () => {
+      const wire = paymentMapper.toOrderWire({
+        terminalId: 'term_1',
+        referenceId: 'checkout-uid-1-200',
+        items: [
+          {
+            productId: 'p1',
+            name: 'Wax',
+            quantity: 1,
+            unitPrice: 100,
+            taxPercentage: 0,
+            discountPercentage: 0,
+          },
+        ],
+        redirectUrls: {
+          success: 'https://api.example.com/payments/redirect/success',
+          failure: 'https://api.example.com/payments/redirect/failed',
+          callBackUrl: 'https://api.example.com/webhooks/surfboard',
+        },
+      });
+
+      expect(wire.controlFunctions.online).toEqual({
+        redirectUrl: 'https://api.example.com/payments/redirect/success',
+        failureRedirectUrl: 'https://api.example.com/payments/redirect/failed',
+        generateShortLink: true,
+      });
+      expect(wire.controlFunctions.callBackUrl).toBe('https://api.example.com/webhooks/surfboard');
+    });
+
+    it('omits the redirect/callback block entirely when redirectUrls is not provided', () => {
+      const wire = paymentMapper.toOrderWire({
+        terminalId: 'term_1',
+        referenceId: 'checkout-uid-1-201',
+        items: [
+          {
+            productId: 'p1',
+            name: 'Wax',
+            quantity: 1,
+            unitPrice: 100,
+            taxPercentage: 0,
+            discountPercentage: 0,
+          },
+        ],
+      });
+
+      expect(wire.controlFunctions.online).toBeUndefined();
+      expect(wire.controlFunctions.callBackUrl).toBeUndefined();
+    });
+
+    it('omits callBackUrl when redirectUrls has no callBackUrl, while still setting the redirect fields', () => {
+      const wire = paymentMapper.toOrderWire({
+        terminalId: 'term_1',
+        referenceId: 'checkout-uid-1-202',
+        items: [
+          {
+            productId: 'p1',
+            name: 'Wax',
+            quantity: 1,
+            unitPrice: 100,
+            taxPercentage: 0,
+            discountPercentage: 0,
+          },
+        ],
+        redirectUrls: {
+          success: 'https://api.example.com/payments/redirect/success',
+          failure: 'https://api.example.com/payments/redirect/failed',
+        },
+      });
+
+      expect(wire.controlFunctions.online).toEqual({
+        redirectUrl: 'https://api.example.com/payments/redirect/success',
+        failureRedirectUrl: 'https://api.example.com/payments/redirect/failed',
+        generateShortLink: true,
+      });
+      expect(wire.controlFunctions.callBackUrl).toBeUndefined();
     });
 
     it('sums totals across multiple line items', () => {
@@ -89,9 +206,13 @@ describe('payment.mapper', () => {
   });
 
   describe('toOrderDomain', () => {
-    it('extracts orderId from the envelope', () => {
-      expect(paymentMapper.toOrderDomain({ data: { orderId: 'order_1' } })).toEqual({ orderId: 'order_1' });
-      expect(paymentMapper.toOrderDomain({})).toEqual({ orderId: null });
+    it("extracts orderId and paymentUrl (Surfboard's paymentPageLink) from the envelope", () => {
+      expect(
+        paymentMapper.toOrderDomain({
+          data: { orderId: 'order_1', paymentPageLink: 'https://pay.example/x' },
+        }),
+      ).toEqual({ orderId: 'order_1', paymentUrl: 'https://pay.example/x' });
+      expect(paymentMapper.toOrderDomain({})).toEqual({ orderId: null, paymentUrl: null });
     });
   });
 

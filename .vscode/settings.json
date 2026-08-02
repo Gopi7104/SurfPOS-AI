@@ -38,6 +38,9 @@
   },
 
   "prettier.requireConfig": true,
-  "eslint.workingDirectories": [{ "directory": "backend", "changeProcessCWD": true }],
-  "eslint.useFlatConfig": true
+  "eslint.workingDirectories": [
+    { "directory": "backend", "changeProcessCWD": true }
+  ],
+  "eslint.useFlatConfig": true,
+  "java.configuration.updateBuildConfiguration": "interactive"
 }

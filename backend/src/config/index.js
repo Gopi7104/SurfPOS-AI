@@ -26,6 +26,15 @@ const envSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   CORS_ALLOWED_ORIGINS: z.string().default('*'),
+  // This backend's own publicly-reachable URL (e.g. https://api.surfpos.example, or an ngrok
+  // tunnel in dev) — distinct from HOST/PORT, which only describe what interface/port this
+  // process binds *locally*. Needed to build absolute redirect/callback URLs to hand to Surfboard
+  // (see modules/payments/payment.service.js#buildRedirectUrls) — Surfboard's own servers reject
+  // both non-http(s) schemes and private/loopback addresses for these fields (confirmed live), so
+  // on a typical local-LAN dev machine this is intentionally left unset and the redirect/webhook
+  // fields are simply omitted from Create Order — Checkout still works via status polling, exactly
+  // as docs/15_SURFBOARD_INTEGRATION.md § 5.3 documents as the standard fallback.
+  PUBLIC_BASE_URL: z.string().url().optional(),
 
   FIREBASE_PROJECT_ID: z.string().optional(),
   FIREBASE_CLIENT_EMAIL: z.string().optional(),
@@ -49,6 +58,16 @@ const envSchema = z.object({
   SURFBOARD_PARTNER_ID: z.string().optional(),
   SURFBOARD_API_URL: z.string().url().optional(),
   SURFBOARD_SECRET_KEY: z.string().optional(),
+
+  // A store must be converted to an "online store" (Update Store Details' `onlineInfo`, settable
+  // only ONCE per store — see api-md/stores-update-store-details.md) before it can accept payments
+  // through a PaymentPage-mode online terminal — see payment.service.js#ensureStoreOnlineInfo.
+  // Defaults to IANA's reserved, always-reachable placeholder domain — safe for sandbox/TEST_MERCHANT
+  // use, but a real merchant needs its own real webshop/terms/privacy URLs before going to
+  // production, since this can never be changed again for a given store via this API.
+  SURFBOARD_ONLINE_STORE_WEBSHOP_URL: z.string().url().default('https://example.com'),
+  SURFBOARD_ONLINE_STORE_TERMS_URL: z.string().url().default('https://example.com/terms'),
+  SURFBOARD_ONLINE_STORE_PRIVACY_URL: z.string().url().default('https://example.com/privacy'),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -97,6 +116,7 @@ const config = {
     env.CORS_ALLOWED_ORIGINS === '*'
       ? '*'
       : env.CORS_ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()),
+  publicBaseUrl: env.PUBLIC_BASE_URL,
 
   firebase: {
     projectId: env.FIREBASE_PROJECT_ID,
@@ -124,6 +144,11 @@ const config = {
     partnerId: env.SURFBOARD_PARTNER_ID,
     apiUrl: env.SURFBOARD_API_URL,
     secretKey: env.SURFBOARD_SECRET_KEY,
+    onlineStore: {
+      webshopUrl: env.SURFBOARD_ONLINE_STORE_WEBSHOP_URL,
+      termsUrl: env.SURFBOARD_ONLINE_STORE_TERMS_URL,
+      privacyUrl: env.SURFBOARD_ONLINE_STORE_PRIVACY_URL,
+    },
   },
 };
 

@@ -6,6 +6,7 @@ import '../../../app/themes/app_typography.dart';
 import '../../../core/widgets/buttons/app_primary_button.dart';
 import '../../../core/widgets/text_fields/app_text_field.dart';
 import '../models/product_draft.dart';
+import '../models/product_lookup_result.dart';
 import '../models/product_model.dart';
 import '../models/product_status.dart';
 import 'product_image_picker.dart';
@@ -29,6 +30,7 @@ class ProductForm extends StatefulWidget {
   const ProductForm({
     required this.uid,
     this.initial,
+    this.prefill,
     required this.onSubmit,
     this.isSubmitting = false,
     this.errorMessage,
@@ -40,6 +42,15 @@ class ProductForm extends StatefulWidget {
   /// `inventoryFormControllerProvider(uid)` this form submits through.
   final String uid;
   final ProductModel? initial;
+
+  /// A barcode scan's resolved product info — only consulted when
+  /// [initial] is null (Add mode; Edit always shows the real saved
+  /// product). Name/Category/Barcode/Image prefill their matching field
+  /// directly; Brand/Weight/Ingredients/Nutrition/Packaging/Country (no
+  /// dedicated catalog field exists for these) are folded into Description
+  /// as editable text. Price/Cost/Tax/Stock/SKU/Low Stock Threshold are
+  /// never touched — those are always store-specific and merchant-entered.
+  final ProductLookupResult? prefill;
   final ValueChanged<ProductFormResult> onSubmit;
   final bool isSubmitting;
   final String? errorMessage;
@@ -50,16 +61,18 @@ class ProductForm extends StatefulWidget {
 }
 
 class _ProductFormState extends State<ProductForm> {
-  late final _nameController =
-      TextEditingController(text: widget.initial?.name ?? '');
-  late final _descriptionController =
-      TextEditingController(text: widget.initial?.description ?? '');
+  late final _nameController = TextEditingController(
+      text: widget.initial?.name ?? widget.prefill?.name ?? '');
+  late final _descriptionController = TextEditingController(
+      text: widget.initial?.description ??
+          _composeEnrichedDescription(widget.prefill) ??
+          '');
   late final _skuController =
       TextEditingController(text: widget.initial?.sku ?? '');
-  late final _barcodeController =
-      TextEditingController(text: widget.initial?.barcode ?? '');
-  late final _categoryController =
-      TextEditingController(text: widget.initial?.category ?? '');
+  late final _barcodeController = TextEditingController(
+      text: widget.initial?.barcode ?? widget.prefill?.barcode ?? '');
+  late final _categoryController = TextEditingController(
+      text: widget.initial?.category ?? widget.prefill?.category ?? '');
   late final _unitController =
       TextEditingController(text: widget.initial?.unit ?? 'pcs');
   late final _priceController = TextEditingController(
@@ -83,6 +96,7 @@ class _ProductFormState extends State<ProductForm> {
     text: widget.initial?.lowStockThreshold?.toString() ?? '',
   );
   late String? _imagePath = widget.initial?.imagePath;
+  late String? _imageUrl = widget.initial?.imageUrl ?? widget.prefill?.imageUrl;
 
   String? _nameError;
   String? _skuError;
@@ -169,6 +183,7 @@ class _ProductFormState extends State<ProductForm> {
           taxPercentage: tax,
           discountPercentage: discount,
           lowStockThreshold: lowStockThreshold,
+          imageUrl: _imageUrl,
           imagePath: _imagePath,
           status: widget.initial?.status ?? ProductStatus.active,
         ),
@@ -177,28 +192,92 @@ class _ProductFormState extends State<ProductForm> {
     );
   }
 
+  /// Folds a barcode scan's Brand/Weight/Packaging/Country/Ingredients/
+  /// Nutrition into one editable block of text — there's no dedicated
+  /// catalog field for any of these, so Description is where they surface,
+  /// fully visible and editable before the merchant saves.
+  static String? _composeEnrichedDescription(ProductLookupResult? prefill) {
+    if (prefill == null) return null;
+    final lines = <String>[
+      if (prefill.brand != null) 'Brand: ${prefill.brand}',
+      if (prefill.weight != null) 'Weight: ${prefill.weight}',
+      if (prefill.packaging != null) 'Packaging: ${prefill.packaging}',
+      if (prefill.country != null) 'Country: ${prefill.country}',
+      if (prefill.ingredients != null) 'Ingredients: ${prefill.ingredients}',
+      if (prefill.nutritionSummary != null)
+        'Nutrition: ${prefill.nutritionSummary}',
+    ];
+    return lines.isEmpty ? null : lines.join('\n');
+  }
+
+  /// True only for the plain "Add from a barcode scan" path — Edit always
+  /// supplies [ProductForm.initial] and never a [ProductForm.prefill], and
+  /// Duplicate supplies [ProductForm.initial] but no [ProductForm.prefill]
+  /// either (see `AddProductPage._initial`'s header comment) — so this is
+  /// unambiguous.
+  bool get _isImportedFromScan =>
+      widget.initial == null && widget.prefill != null;
+
   @override
   Widget build(BuildContext context) {
+    final prefill = widget.prefill;
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
+        if (_isImportedFromScan) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.successContainer,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle,
+                      size: 16, color: AppColors.success),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text('Imported from Open Food Facts',
+                      style: AppTypography.caption.copyWith(
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
         ProductImagePicker(
           uid: widget.uid,
           initialImagePath: widget.initial?.imagePath,
-          onChanged: (path) => setState(() => _imagePath = path),
+          initialImageUrl: _imagePath == null ? _imageUrl : null,
+          onChanged: (path) => setState(() {
+            _imagePath = path;
+            _imageUrl = null;
+          }),
         ),
         const SizedBox(height: AppSpacing.lg),
         AppTextField(
             label: 'Name',
             hint: 'e.g. Tropical Surf Wax',
             controller: _nameController,
-            errorText: _nameError),
+            errorText: _nameError,
+            helperText: _isImportedFromScan && prefill?.name != null
+                ? 'Auto-filled from Open Food Facts'
+                : null),
         const SizedBox(height: AppSpacing.md),
         AppTextField(
           label: 'Description',
           hint: 'Optional',
           controller: _descriptionController,
           maxLines: 3,
+          helperText: _isImportedFromScan &&
+                  _composeEnrichedDescription(prefill) != null
+              ? 'Brand/weight/packaging from Open Food Facts — edit freely'
+              : null,
         ),
         const SizedBox(height: AppSpacing.md),
         Row(
@@ -214,7 +293,10 @@ class _ProductFormState extends State<ProductForm> {
               child: AppTextField(
                   label: 'Barcode',
                   hint: 'Optional',
-                  controller: _barcodeController),
+                  controller: _barcodeController,
+                  helperText: _isImportedFromScan && prefill?.barcode != null
+                      ? 'Auto-filled'
+                      : null),
             ),
           ],
         ),
@@ -225,7 +307,10 @@ class _ProductFormState extends State<ProductForm> {
               child: AppTextField(
                   label: 'Category',
                   hint: 'Optional',
-                  controller: _categoryController),
+                  controller: _categoryController,
+                  helperText: _isImportedFromScan && prefill?.category != null
+                      ? 'Auto-filled'
+                      : null),
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(

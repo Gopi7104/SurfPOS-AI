@@ -96,30 +96,39 @@ describe('SurfboardStoreClient.getStore', () => {
 });
 
 describe('SurfboardStoreClient.updateStore', () => {
-  it('PATCHes /stores/:storeId with the wire payload', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ store_id: 'sb_store_1', name: 'New Name' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-    const client = createClient({ fetchImpl });
+  it('PUTs /partners/:partnerId/merchants/:merchantId/stores/:storeId with a MERCHANT-ID header', async () => {
+    const body = {
+      status: 'SUCCESS',
+      data: { merchantUrlDomainVerificationKey: 'key-1' },
+      message: 'Store data updated successfully',
+    };
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
+    const client = createClient({ fetchImpl, config: { partnerId: 'partner-1' } });
 
-    const result = await client.updateStore('sb_store_1', { name: 'New Name' });
+    const result = await client.updateStore('sb_merchant_1', 'sb_store_1', { storeName: 'New Name' });
 
-    expect(result).toEqual({ store_id: 'sb_store_1', name: 'New Name' });
+    expect(result).toEqual(body);
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe('https://sandbox.example.test/stores/sb_store_1');
-    expect(init.method).toBe('PATCH');
-    expect(JSON.parse(init.body)).toEqual({ name: 'New Name' });
+    expect(url).toBe(
+      'https://sandbox.example.test/partners/partner-1/merchants/sb_merchant_1/stores/sb_store_1',
+    );
+    expect(init.method).toBe('PUT');
+    expect(init.headers['MERCHANT-ID']).toBe('sb_merchant_1');
+    expect(JSON.parse(init.body)).toEqual({ storeName: 'New Name' });
   });
 
   it('throws a SurfboardApiError when Surfboard rejects the update', async () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(new Response(JSON.stringify({ message: 'invalid field' }), { status: 400 }));
-    const client = createClient({ fetchImpl });
+    const client = createClient({ fetchImpl, config: { partnerId: 'partner-1' } });
 
-    await expect(client.updateStore('sb_store_1', {})).rejects.toMatchObject({ name: 'SurfboardApiError' });
+    await expect(client.updateStore('sb_merchant_1', 'sb_store_1', {})).rejects.toMatchObject({
+      name: 'SurfboardApiError',
+    });
   });
 });

@@ -1,9 +1,11 @@
 /// Mirrors the `checkout` object returned by `POST /payments/checkout` and
 /// `POST /payments/checkout/:orderId/retry` (see
 /// `backend/src/modules/payments/payment.service.js#createCheckout`/
-/// `#retryPayment`). `subtotal`/`discountTotal`/`taxTotal`/`amount` are only
-/// present on the initial create response — a retry reuses the same order,
-/// so the caller already has those from the original [CheckoutResultModel].
+/// `#retryPayment`). A retry response carries a brand-new [orderId] — the
+/// backend creates a fresh order (and its own fresh hosted payment link)
+/// rather than reopening the original order's now-possibly-dead link — so
+/// callers must overwrite their cached `orderId` with this one, not keep
+/// polling the old one.
 class CheckoutResultModel {
   const CheckoutResultModel({
     required this.orderId,

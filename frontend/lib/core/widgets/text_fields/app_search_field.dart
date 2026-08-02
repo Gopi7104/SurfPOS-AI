@@ -12,6 +12,7 @@ class AppSearchField extends StatelessWidget {
   const AppSearchField({
     required this.hint,
     this.controller,
+    this.focusNode,
     this.onChanged,
     this.onScanTap,
     this.autofocus = false,
@@ -20,6 +21,7 @@ class AppSearchField extends StatelessWidget {
 
   final String hint;
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
   final VoidCallback? onScanTap;
   final bool autofocus;
@@ -41,6 +43,7 @@ class AppSearchField extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              focusNode: focusNode,
               onChanged: onChanged,
               autofocus: autofocus,
               style: AppTypography.bodyLG,

@@ -7,10 +7,13 @@ import 'app_bottom_nav_bar.dart';
 import 'app_nav_item.dart';
 
 /// The shell every top-level tab screen (Dashboard, Billing, Inventory,
-/// Reports, Settings) is rendered inside — wires up [AppBottomNavBar]
-/// and the floating "Start New Sale" [AppFab] consistently so no screen
-/// re-implements this composition. See docs/17_FOLDER_STRUCTURE.md and the
-/// BOTTOM NAVIGATION design brief.
+/// Reports, Customers, Settings) is rendered inside — wires up
+/// [AppBottomNavBar] and the floating "Start New Sale" [AppFab]
+/// consistently so no screen re-implements this composition. See
+/// docs/17_FOLDER_STRUCTURE.md and the BOTTOM NAVIGATION design brief.
+/// "Customers" (Phase 6) was added after Reports — the FAB floats
+/// independently (`centerFloat`, no Material notch), so a 6th destination
+/// doesn't disturb its position, just narrows each nav item slightly.
 class AppMainScaffold extends StatelessWidget {
   const AppMainScaffold({
     required this.body,
@@ -49,6 +52,11 @@ class AppMainScaffold extends StatelessWidget {
       icon: LucideIcons.barChart3,
       activeIcon: LucideIcons.barChart3,
       label: 'Reports',
+    ),
+    AppNavItem(
+      icon: LucideIcons.users,
+      activeIcon: LucideIcons.users,
+      label: 'Customers',
     ),
     AppNavItem(
       icon: LucideIcons.settings,

@@ -14,9 +14,12 @@ environment:
 # docs/08_ARCHITECTURE_DECISIONS.md and docs/10_TASKS.md.
 
 dependencies:
+  app_links: ^7.2.1
   dio: ^5.11.0
+  esc_pos_utils_plus: ^2.0.4
   firebase_auth: ^6.5.6
   firebase_core: ^4.12.1
+  fl_chart: ^1.2.0
   flutter:
     sdk: flutter
   flutter_dotenv: ^6.0.1
@@ -29,6 +32,10 @@ dependencies:
   lucide_icons_flutter: ^3.1.15
   # Opens the Surfboard-hosted KYB web form (merchant onboarding) in an external browser.
   mobile_scanner: ^7.4.0
+  package_info_plus: ^10.2.1
+  pdf: ^3.13.0
+  print_bluetooth_thermal: ^1.2.2
+  share_plus: ^13.3.0
   url_launcher: ^6.3.1
 dev_dependencies:
   flutter_test:

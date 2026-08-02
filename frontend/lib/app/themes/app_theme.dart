@@ -11,6 +11,34 @@ import 'app_typography.dart';
 /// directly, never redefine a color/style inline. See docs/06_UI_UX_GUIDE.md
 /// and docs/07_CODING_RULES.md § 13.
 abstract final class AppTheme {
+  /// A dark counterpart for [light] — added for Settings' Theme preference
+  /// (Phase 7). Screens across this app read fixed `AppColors` constants
+  /// directly rather than `Theme.of(context)` (by this class's own design
+  /// rule above), so switching to this only actually re-themes the parts
+  /// of the app that already go through `ThemeData`/`Theme.of(context)`
+  /// (default Material chrome, text selection, etc.) — most already-built
+  /// screens keep their current light-styled look. Documented explicitly
+  /// rather than silently overselling "full dark mode".
+  static ThemeData get dark {
+    final base = light;
+    return base.copyWith(
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: const Color(0xFF121319),
+      canvasColor: const Color(0xFF121319),
+      colorScheme: base.colorScheme.copyWith(
+        brightness: Brightness.dark,
+        surface: const Color(0xFF1C1E27),
+        onSurface: AppColors.white,
+      ),
+      cardTheme: base.cardTheme.copyWith(color: const Color(0xFF1C1E27)),
+      dialogTheme: base.dialogTheme.copyWith(
+        backgroundColor: const Color(0xFF1C1E27),
+        contentTextStyle:
+            base.dialogTheme.contentTextStyle?.copyWith(color: AppColors.white),
+      ),
+    );
+  }
+
   static ThemeData get light {
     final textTheme = AppTypography.buildTextTheme();
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/checkout_item.dart';
@@ -41,11 +42,14 @@ class PaymentController
       final result =
           await repository.createCheckout(storeId: storeId, items: items);
       state = state.copyWith(
-        phase: PaymentPhase.waitingForPayment,
+        phase: PaymentPhase.waitingForCustomer,
         orderId: result.orderId,
         storeId: result.storeId ?? storeId,
         paymentId: result.paymentId,
         amount: result.amount,
+        subtotal: result.subtotal,
+        discountTotal: result.discountTotal,
+        taxTotal: result.taxTotal,
         paymentUrl: result.paymentUrl,
       );
       if (result.paymentUrl != null) {
@@ -60,8 +64,15 @@ class PaymentController
     }
   }
 
-  /// Re-initiates payment against the same order — per Surfboard's payment
-  /// lifecycle, a cancelled/failed/timed-out attempt doesn't need a new order.
+  /// Retries payment for the same cart — creates a brand-new order (and its
+  /// own fresh hosted Payment Page link) rather than reopening the previous
+  /// order's link. Surfboard's hosted Payment Page is a one-shot session: once
+  /// the customer's browser reaches it and the attempt concludes (success,
+  /// decline, or cancel), that link is done — reopening it shows Surfboard's
+  /// own "Invalid or Expired Link" page, which is exactly the bug this
+  /// avoids. The backend returns a NEW [CheckoutResultModel.orderId], which
+  /// this must switch to — polling would never resolve against the old,
+  /// now-abandoned order.
   Future<void> retry() async {
     final orderId = state.orderId;
     final storeId = state.storeId;
@@ -78,9 +89,17 @@ class PaymentController
       final result =
           await repository.retryPayment(orderId: orderId, storeId: storeId);
       state = state.copyWith(
-        phase: PaymentPhase.waitingForPayment,
+        phase: PaymentPhase.waitingForCustomer,
+        orderId: result.orderId,
         paymentId: result.paymentId,
         paymentUrl: result.paymentUrl,
+        // Re-priced against the current catalog by the backend — see
+        // payment.service.js#createOrderAndLink — so refresh these too
+        // rather than leaving the original attempt's snapshot in place.
+        amount: result.amount,
+        subtotal: result.subtotal,
+        discountTotal: result.discountTotal,
+        taxTotal: result.taxTotal,
       );
       if (result.paymentUrl != null) {
         await repository.openPaymentUrl(result.paymentUrl!);
@@ -95,7 +114,7 @@ class PaymentController
   }
 
   /// Re-opens the hosted Payment Page — for when the customer's browser tab
-  /// was closed/backgrounded by mistake while still `waitingForPayment`.
+  /// was closed/backgrounded by mistake while still `waitingForCustomer`.
   Future<void> reopenPaymentUrl() async {
     final url = state.paymentUrl;
     if (url == null) return;
@@ -110,7 +129,7 @@ class PaymentController
     _stopPolling();
     final paymentId = state.paymentId;
     if (paymentId == null) {
-      state = state.copyWith(phase: PaymentPhase.cancelled);
+      state = state.copyWith(phase: PaymentPhase.paymentCancelled);
       return;
     }
     try {
@@ -119,7 +138,27 @@ class PaymentController
       // Best-effort — Surfboard may already consider it completed/failed by
       // the time this reaches it; the cashier backing out is final either way.
     }
-    state = state.copyWith(phase: PaymentPhase.cancelled);
+    state = state.copyWith(phase: PaymentPhase.paymentCancelled);
+  }
+
+  /// Forces an immediate status check without waiting for the next timer
+  /// tick — the fast path triggered by the redirect deep link landing
+  /// ([PaymentDeepLinkListener]) or the app resuming from the Custom Tab
+  /// (`WidgetsBindingObserver` in [PaymentStatusPage]), per Phase 5's
+  /// "detect browser close and immediately verify the payment status"
+  /// requirement. The periodic timer keeps running underneath this as the
+  /// existing fallback safety net — this never replaces it, only shortcuts
+  /// the wait when a stronger signal says the customer is done.
+  Future<void> checkStatusNow() async {
+    debugPrint(
+        '[PAYMENT_TRACE] step=8 event=entered orderId=${state.orderId} phase=${state.phase} isTerminal=${state.phase.isTerminal}');
+    if (state.orderId == null || state.phase.isTerminal) {
+      debugPrint('[PAYMENT_TRACE] step=8 event=exited_early_return');
+      return;
+    }
+    await _poll();
+    debugPrint(
+        '[PAYMENT_TRACE] step=8 event=exited orderId=${state.orderId} phase=${state.phase}');
   }
 
   void _startPolling() {
@@ -132,53 +171,79 @@ class PaymentController
     _pollTimer = null;
   }
 
+  // Guards against overlapping status checks: Timer.periodic fires on a
+  // fixed 2s schedule regardless of whether the previous _poll() call's HTTP
+  // request has finished. Without this flag, a single slow/stalled status
+  // check (this network is flaky enough that it happens routinely) lets
+  // every following timer tick pile another concurrent request on top of
+  // it. checkStatusNow() (the redirect deep-link's fast path) shares this
+  // guard too, since the deep link can legitimately fire more than once for
+  // a single redirect. _pollAttempts only counts a request that actually
+  // got to run — a tick skipped by this guard is not a wasted attempt.
+  bool _pollInFlight = false;
+
   Future<void> _poll() async {
-    final orderId = state.orderId;
-    if (orderId == null) {
-      _stopPolling();
-      return;
-    }
-
-    _pollAttempts++;
-    if (_pollAttempts > _maxPollAttempts) {
-      _stopPolling();
-      state = state.copyWith(phase: PaymentPhase.timedOut);
-      return;
-    }
-
+    if (_pollInFlight) return;
+    _pollInFlight = true;
     try {
-      final status =
-          await ref.read(paymentRepositoryProvider).getCheckoutStatus(orderId);
-      final phase = _mapPhase(status.paymentStatus);
-      state = state.copyWith(
-        phase: phase,
-        transactionId: status.transactionId,
-        paymentMethod: status.paymentMethod,
-        failureReason: status.failureReason,
-      );
-      if (phase.isTerminal) {
+      final orderId = state.orderId;
+      if (orderId == null) {
         _stopPolling();
+        return;
       }
-    } catch (error) {
-      // A single failed poll is likely a transient network hiccup — keep
-      // retrying until _maxPollAttempts rather than failing the whole flow.
-      if (_pollAttempts >= _maxPollAttempts) {
+
+      _pollAttempts++;
+      if (_pollAttempts > _maxPollAttempts) {
         _stopPolling();
+        state = state.copyWith(phase: PaymentPhase.paymentExpired);
+        return;
+      }
+
+      try {
+        debugPrint(
+            '[PAYMENT_TRACE] step=9 event=entered orderId=$orderId pollAttempt=$_pollAttempts');
+        final status = await ref
+            .read(paymentRepositoryProvider)
+            .getCheckoutStatus(orderId);
+        debugPrint(
+            '[PAYMENT_TRACE] step=9 event=exited orderId=$orderId orderStatus=${status.orderStatus} paymentStatus=${status.paymentStatus} paymentId=${status.paymentId} transactionId=${status.transactionId}');
+        final phase = _mapPhase(status.paymentStatus);
+        debugPrint(
+            '[PAYMENT_TRACE] step=12 event=phase_mapped rawPaymentStatus=${status.paymentStatus} mappedPhase=$phase');
         state = state.copyWith(
-          phase: PaymentPhase.error,
-          errorMessage: PaymentFailure.fromException(error).message,
+          phase: phase,
+          transactionId: status.transactionId,
+          paymentMethod: status.paymentMethod,
+          failureReason: status.failureReason,
         );
+        if (phase.isTerminal) {
+          _stopPolling();
+        }
+      } catch (error) {
+        // A single failed poll is likely a transient network hiccup — keep
+        // retrying until _maxPollAttempts rather than failing the whole flow.
+        if (_pollAttempts >= _maxPollAttempts) {
+          _stopPolling();
+          state = state.copyWith(
+            phase: PaymentPhase.error,
+            errorMessage: PaymentFailure.fromException(error).message,
+          );
+        }
       }
+    } finally {
+      _pollInFlight = false;
     }
   }
 
   PaymentPhase _mapPhase(String? paymentStatus) {
     return switch (paymentStatus) {
-      'PAYMENT_COMPLETED' => PaymentPhase.approved,
-      'PAYMENT_FAILED' => PaymentPhase.declined,
-      'PAYMENT_CANCELLED' => PaymentPhase.cancelled,
-      'PAYMENT_PROCESSING' || 'PAYMENT_PROCESSED' => PaymentPhase.processing,
-      _ => PaymentPhase.waitingForPayment,
+      'PAYMENT_COMPLETED' => PaymentPhase.paymentSuccessful,
+      'PAYMENT_FAILED' => PaymentPhase.paymentFailed,
+      'PAYMENT_CANCELLED' => PaymentPhase.paymentCancelled,
+      'PAYMENT_PROCESSING' ||
+      'PAYMENT_PROCESSED' =>
+        PaymentPhase.paymentProcessing,
+      _ => PaymentPhase.waitingForCustomer,
     };
   }
 }

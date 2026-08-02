@@ -31,6 +31,7 @@ Future<void> _pumpDialog(WidgetTester tester,
                   merchantName: 'Nordic Surf AB',
                   storeName: 'Stockholm Store',
                   onConfirm: onConfirm,
+                  onTestPayment: () {},
                 ),
               ),
               child: const Text('Open'),
@@ -59,13 +60,14 @@ void main() {
     expect(find.text('Payment Amount'), findsOneWidget);
   });
 
-  testWidgets('Confirm closes the dialog and invokes onConfirm',
+  testWidgets(
+      'tapping the Surfboard payment method card closes the dialog and invokes onConfirm',
       (tester) async {
     useTallTestSurface(tester);
     var confirmed = false;
     await _pumpDialog(tester, onConfirm: () => confirmed = true);
 
-    await tester.tap(find.text('Confirm'));
+    await tester.tap(find.text('Surfboard'));
     await tester.pumpAndSettle();
 
     expect(confirmed, isTrue);

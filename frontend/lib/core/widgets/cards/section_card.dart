@@ -12,15 +12,24 @@ import 'app_card.dart';
 /// per docs/07_CODING_RULES.md § 8, imported by any feature that needs it.
 class SectionCard extends StatelessWidget {
   const SectionCard(
-      {required this.child, this.title, this.trailing, super.key});
+      {required this.child,
+      this.title,
+      this.trailing,
+      this.padding,
+      super.key});
 
   final Widget child;
   final String? title;
   final Widget? trailing;
 
+  /// Overrides [AppCard]'s default padding — omit to keep the app-wide
+  /// default; Settings passes a tighter value for its denser rows.
+  final EdgeInsetsGeometry? padding;
+
   @override
   Widget build(BuildContext context) {
     return AppCard(
+      padding: padding ?? const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

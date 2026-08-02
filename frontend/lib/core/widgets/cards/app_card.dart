@@ -15,6 +15,7 @@ class AppCard extends StatefulWidget {
     this.padding = const EdgeInsets.all(AppSpacing.md),
     this.color = AppColors.surface,
     this.border,
+    this.elevated = false,
     super.key,
   });
 
@@ -23,6 +24,12 @@ class AppCard extends StatefulWidget {
   final EdgeInsetsGeometry padding;
   final Color color;
   final BoxBorder? border;
+
+  /// Uses [AppShadows.elevated] instead of the default [AppShadows.card] —
+  /// for a surface that should read as more prominent than a plain card
+  /// (e.g. a chart section). Omit for the standard elevation everywhere
+  /// else.
+  final bool elevated;
 
   @override
   State<AppCard> createState() => _AppCardState();
@@ -41,7 +48,9 @@ class _AppCardState extends State<AppCard> {
         color: widget.color,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: widget.border,
-        boxShadow: _pressed ? AppShadows.subtle : AppShadows.card,
+        boxShadow: _pressed
+            ? AppShadows.subtle
+            : (widget.elevated ? AppShadows.elevated : AppShadows.card),
       ),
       child: widget.child,
     );

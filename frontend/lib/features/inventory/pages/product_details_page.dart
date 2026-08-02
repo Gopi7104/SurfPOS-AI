@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/themes/app_colors.dart';
 import '../../../app/themes/app_spacing.dart';
@@ -14,55 +15,19 @@ import '../../authentication/providers/auth_providers.dart';
 import '../models/product_model.dart';
 import '../models/product_status.dart';
 import '../providers/inventory_providers.dart';
+import '../widgets/product_quick_actions_sheet.dart';
+import '../widgets/product_thumbnail.dart';
+import '../widgets/stock_movement_timeline.dart';
 import 'edit_product_page.dart';
 
-/// Product Details — every field, an Edit action, and a soft-delete action
-/// behind a confirmation dialog (so a merchant never loses a product by a
-/// stray tap).
+/// Product Details — every field, a Stock Movement timeline (always the
+/// "no history yet" placeholder — see `StockMovementTimeline`'s header
+/// comment), Quick Actions parity with the catalog cards, and a
+/// soft-delete action behind a confirmation dialog.
 class ProductDetailsPage extends ConsumerWidget {
   const ProductDetailsPage({required this.productId, super.key});
 
   final String productId;
-
-  Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref, String uid) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete this product?'),
-        content: const Text(
-            'This removes it from your catalog. This cannot be undone from here.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child:
-                const Text('Delete', style: TextStyle(color: AppColors.error)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-
-    try {
-      await ref
-          .read(inventoryListControllerProvider(uid).notifier)
-          .deleteProduct(productId);
-      ref.invalidate(inventoryCategoriesProvider(uid));
-      ref.invalidate(inventoryStatsProvider(uid));
-      if (context.mounted) Navigator.of(context).pop();
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content:
-                  Text('Could not delete this product. Please try again.')),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -76,8 +41,20 @@ class ProductDetailsPage extends ConsumerWidget {
     final productAsync = ref.watch(productDetailsProvider(key));
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppTopBar(
-          title: 'Product Details', onBack: () => Navigator.of(context).pop()),
+        title: 'Product Details',
+        onBack: () => Navigator.of(context).pop(),
+        actions: [
+          if (productAsync.hasValue)
+            IconButton(
+              tooltip: 'More actions',
+              icon: const Icon(Icons.more_vert),
+              onPressed: () => showProductQuickActionsSheet(context,
+                  uid: uid, product: productAsync.value!),
+            ),
+        ],
+      ),
       body: switch (productAsync) {
         AsyncLoading() when !productAsync.hasValue => const AppFullScreenBody(),
         AsyncError() when !productAsync.hasValue => ErrorState(
@@ -94,7 +71,6 @@ class ProductDetailsPage extends ConsumerWidget {
               );
               if (updated != null) ref.invalidate(productDetailsProvider(key));
             },
-            onDelete: () => _confirmDelete(context, ref, uid),
           ),
       },
     );
@@ -111,18 +87,26 @@ class AppFullScreenBody extends StatelessWidget {
 }
 
 class _ProductDetailsBody extends StatelessWidget {
-  const _ProductDetailsBody(
-      {required this.product, required this.onEdit, required this.onDelete});
+  const _ProductDetailsBody({required this.product, required this.onEdit});
 
   final ProductModel product;
   final VoidCallback onEdit;
-  final VoidCallback onDelete;
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
+        _GalleryHeader(product: product),
+        const SizedBox(height: AppSpacing.md),
         SectionCard(
           title: product.name,
           trailing: StatusChip(
@@ -140,10 +124,32 @@ class _ProductDetailsBody extends StatelessWidget {
                         .copyWith(color: AppColors.textGrey)),
                 const SizedBox(height: AppSpacing.md),
               ],
+              if (product.isOutOfStock)
+                const StatusChip(label: 'Out of Stock', tone: StatusTone.error)
+              else if (product.isLowStock)
+                const StatusChip(label: 'Low Stock', tone: StatusTone.warning),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        SectionCard(
+          title: 'Details',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               _DetailRow(label: 'SKU', value: product.sku),
               _DetailRow(label: 'Barcode', value: product.barcode ?? '—'),
               _DetailRow(label: 'Category', value: product.category ?? '—'),
               _DetailRow(label: 'Unit', value: product.unit),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        SectionCard(
+          title: 'Pricing',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               _DetailRow(
                   label: 'Price',
                   value: '\$${product.price.toStringAsFixed(2)}'),
@@ -156,42 +162,117 @@ class _ProductDetailsBody extends StatelessWidget {
               _DetailRow(
                   label: 'Discount',
                   value: '${product.discountPercentage.toStringAsFixed(1)}%'),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        SectionCard(
+          title: 'Stock',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               _DetailRow(
-                  label: 'Stock',
+                  label: 'Current Stock',
                   value: '${product.stockQuantity} ${product.unit}'),
               _DetailRow(
                 label: 'Low Stock Alert',
                 value: product.lowStockThreshold?.toString() ?? 'Not set',
               ),
-              if (product.isOutOfStock)
-                const Padding(
-                  padding: EdgeInsets.only(top: AppSpacing.sm),
-                  child:
-                      StatusChip(label: 'Out of Stock', tone: StatusTone.error),
-                )
-              else if (product.isLowStock)
-                const Padding(
-                  padding: EdgeInsets.only(top: AppSpacing.sm),
-                  child:
-                      StatusChip(label: 'Low Stock', tone: StatusTone.warning),
-                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        SectionCard(
+          title: 'Supplier',
+          trailing: const StatusChip(label: 'Coming Soon'),
+          child: Text(
+            'Supplier details aren\'t tracked yet — this section is reserved '
+            'for a future update.',
+            style: AppTypography.bodySM.copyWith(color: AppColors.textGrey),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        const SectionCard(
+          title: 'Stock Movement',
+          child: StockMovementTimeline(),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        SectionCard(
+          title: 'Info',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _DetailRow(
+                  label: 'Created', value: _formatDate(product.createdAt)),
+              _DetailRow(
+                  label: 'Last Updated', value: _formatDate(product.updatedAt)),
             ],
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
         AppPrimaryButton(label: 'Edit Product', onPressed: onEdit),
-        const SizedBox(height: AppSpacing.sm),
-        OutlinedButton(
-          onPressed: onDelete,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.error,
-            side: const BorderSide(color: AppColors.error),
-            minimumSize: const Size.fromHeight(48),
-          ),
-          child: const Text('Delete Product'),
-        ),
         const SizedBox(height: AppSpacing.xl),
       ],
+    );
+  }
+}
+
+/// Large product image + a gallery strip — only one real photo exists on
+/// [ProductModel] today, so the remaining tiles are disabled "Add Photo"
+/// placeholders for a future multi-image gallery.
+class _GalleryHeader extends StatelessWidget {
+  const _GalleryHeader({required this.product});
+
+  final ProductModel product;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: AspectRatio(
+            aspectRatio: 1.4,
+            child:
+                ProductThumbnail(product: product, size: null, borderRadius: 0),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        SizedBox(
+          height: 56,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              ProductThumbnail(product: product, size: 56),
+              const SizedBox(width: AppSpacing.sm),
+              for (var i = 0; i < 3; i++) ...[
+                const _AddPhotoPlaceholder(),
+                const SizedBox(width: AppSpacing.sm),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AddPhotoPlaceholder extends StatelessWidget {
+  const _AddPhotoPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        color: AppColors.disabledSurface,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: const Icon(LucideIcons.imagePlus,
+          size: 20, color: AppColors.textGrey),
     );
   }
 }

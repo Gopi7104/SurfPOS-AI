@@ -4,7 +4,9 @@ import { createPaymentService } from '../../../src/modules/payments/payment.serv
 function createFakePaymentClient(overrides = {}) {
   return {
     registerOnlineTerminal: vi.fn().mockResolvedValue({ data: { terminalId: 'term_1' } }),
-    createOrder: vi.fn().mockResolvedValue({ data: { orderId: 'order_1' } }),
+    createOrder: vi
+      .fn()
+      .mockResolvedValue({ data: { orderId: 'order_1', paymentPageLink: 'https://pay.example/x' } }),
     initiatePayment: vi
       .fn()
       .mockResolvedValue({ data: { paymentId: 'pay_1', paymentUrl: 'https://pay.example/x' } }),
@@ -18,6 +20,10 @@ function createFakePaymentRepository(overrides = {}) {
   return {
     getTerminalId: vi.fn().mockResolvedValue(null),
     setTerminalId: vi.fn().mockResolvedValue(undefined),
+    getPaymentUrl: vi.fn().mockResolvedValue('https://pay.example/x'),
+    setPaymentUrl: vi.fn().mockResolvedValue(undefined),
+    getCheckoutItems: vi.fn().mockResolvedValue(ITEMS),
+    setCheckoutItems: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -30,6 +36,12 @@ function createFakeStoreService(overrides = {}) {
   return {
     verifyStoreOwnership: vi.fn().mockResolvedValue(undefined),
     getPrimaryStoreId: vi.fn().mockResolvedValue('sb_store_1'),
+    // Already converted to an online store by default — see ensureStoreOnlineInfo(). Tests for
+    // the "not yet online" path override this explicitly.
+    getStore: vi
+      .fn()
+      .mockResolvedValue({ id: 'sb_store_1', onlineInfo: { merchantWebshopURL: 'https://example.com' } }),
+    updateStore: vi.fn().mockResolvedValue({ id: 'sb_store_1' }),
     ...overrides,
   };
 }
@@ -74,7 +86,7 @@ const ITEMS = [{ productId: 'p1', quantity: 1 }];
 
 describe('payment.service', () => {
   describe('createCheckout', () => {
-    it('registers a terminal on first use, creates an order, and initiates payment', async () => {
+    it('registers a terminal on first use, creates an order, and returns its hosted payment link', async () => {
       const paymentClient = createFakePaymentClient();
       const paymentRepository = createFakePaymentRepository();
       const merchantService = createFakeMerchantService();
@@ -101,18 +113,111 @@ describe('payment.service', () => {
         'sb_merchant_1',
         expect.objectContaining({ terminal$id: 'term_1' }),
       );
-      expect(paymentClient.initiatePayment).toHaveBeenCalledWith('sb_merchant_1', {
-        orderId: 'order_1',
-        terminalId: 'term_1',
-        paymentMethod: 'CARD',
-      });
+      // Never called — confirmed live to be both unnecessary and broken (PS_0025) for a
+      // PaymentPage-mode order, see payment.mapper.js#toOrderWire's doc comment.
+      expect(paymentClient.initiatePayment).not.toHaveBeenCalled();
+      expect(paymentRepository.setPaymentUrl).toHaveBeenCalledWith('order_1', 'https://pay.example/x');
+      expect(paymentRepository.setCheckoutItems).toHaveBeenCalledWith('order_1', ITEMS);
       expect(checkout).toMatchObject({
         orderId: 'order_1',
         storeId: 'sb_store_1',
-        paymentId: 'pay_1',
+        paymentId: null,
         paymentUrl: 'https://pay.example/x',
         amount: 125, // 100 * 1.25 (25% VAT, no discount)
       });
+    });
+
+    it('omits the redirect/callback block when PUBLIC_BASE_URL is not configured (buildRedirectUrls() returns null)', async () => {
+      const paymentClient = createFakePaymentClient();
+      const service = createPaymentService({
+        paymentClient,
+        mapper: realMapper,
+        paymentRepository: createFakePaymentRepository(),
+        merchantService: createFakeMerchantService(),
+        storeService: createFakeStoreService(),
+        billingService: createFakeBillingService(),
+        logger: createFakeLogger(),
+        config: { publicBaseUrl: undefined },
+      });
+
+      await service.createCheckout('uid_1', { items: ITEMS });
+
+      const wire = paymentClient.createOrder.mock.calls[0][1];
+      expect(wire.controlFunctions.online).toBeUndefined();
+      expect(wire.controlFunctions.callBackUrl).toBeUndefined();
+    });
+
+    it('includes the officially-documented redirectUrl/failureRedirectUrl/callBackUrl when PUBLIC_BASE_URL is configured', async () => {
+      const paymentClient = createFakePaymentClient();
+      const service = createPaymentService({
+        paymentClient,
+        mapper: realMapper,
+        paymentRepository: createFakePaymentRepository(),
+        merchantService: createFakeMerchantService(),
+        storeService: createFakeStoreService(),
+        billingService: createFakeBillingService(),
+        logger: createFakeLogger(),
+        config: { publicBaseUrl: 'https://api.example.com/' },
+      });
+
+      await service.createCheckout('uid_1', { items: ITEMS });
+
+      const wire = paymentClient.createOrder.mock.calls[0][1];
+      expect(wire.controlFunctions.online).toEqual({
+        redirectUrl: 'https://api.example.com/payments/redirect/success',
+        failureRedirectUrl: 'https://api.example.com/payments/redirect/failed',
+        generateShortLink: true,
+      });
+      expect(wire.controlFunctions.callBackUrl).toBe('https://api.example.com/webhooks/surfboard');
+    });
+
+    it('converts the store to an online store (sets onlineInfo) before registering a terminal, when missing', async () => {
+      const paymentClient = createFakePaymentClient();
+      const storeService = createFakeStoreService({
+        getStore: vi.fn().mockResolvedValue({ id: 'sb_store_1', onlineInfo: null }),
+      });
+      const service = createPaymentService({
+        paymentClient,
+        mapper: realMapper,
+        paymentRepository: createFakePaymentRepository(),
+        merchantService: createFakeMerchantService(),
+        storeService,
+        billingService: createFakeBillingService(),
+        logger: createFakeLogger(),
+      });
+
+      await service.createCheckout('uid_1', { items: ITEMS });
+
+      expect(storeService.getStore).toHaveBeenCalledWith('uid_1', 'sb_store_1');
+      expect(storeService.updateStore).toHaveBeenCalledWith('uid_1', 'sb_store_1', {
+        onlineInfo: expect.objectContaining({
+          merchantWebshopURL: expect.any(String),
+          termsAndConditionsURL: expect.any(String),
+          privacyPolicyURL: expect.any(String),
+        }),
+      });
+      // Must happen before terminal registration — Surfboard rejects it otherwise (TM_0029).
+      const updateOrder = storeService.updateStore.mock.invocationCallOrder[0];
+      const registerOrder = paymentClient.registerOnlineTerminal.mock.invocationCallOrder[0];
+      expect(updateOrder).toBeLessThan(registerOrder);
+    });
+
+    it('skips updateStore when the store already has onlineInfo set', async () => {
+      const storeService = createFakeStoreService();
+      const service = createPaymentService({
+        paymentClient: createFakePaymentClient(),
+        mapper: realMapper,
+        paymentRepository: createFakePaymentRepository(),
+        merchantService: createFakeMerchantService(),
+        storeService,
+        billingService: createFakeBillingService(),
+        logger: createFakeLogger(),
+      });
+
+      await service.createCheckout('uid_1', { items: ITEMS });
+
+      expect(storeService.getStore).toHaveBeenCalledWith('uid_1', 'sb_store_1');
+      expect(storeService.updateStore).not.toHaveBeenCalled();
     });
 
     it('reuses a cached terminalId instead of registering a new one', async () => {
@@ -120,17 +225,21 @@ describe('payment.service', () => {
       const paymentRepository = createFakePaymentRepository({
         getTerminalId: vi.fn().mockResolvedValue('term_cached'),
       });
+      const storeService = createFakeStoreService();
       const service = createPaymentService({
         paymentClient,
         mapper: realMapper,
         paymentRepository,
         merchantService: createFakeMerchantService(),
-        storeService: createFakeStoreService(),
+        storeService,
         billingService: createFakeBillingService(),
         logger: createFakeLogger(),
       });
 
       await service.createCheckout('uid_1', { items: ITEMS });
+
+      // A cached terminalId means we never need to check/set the store's online status again.
+      expect(storeService.getStore).not.toHaveBeenCalled();
 
       expect(paymentClient.registerOnlineTerminal).not.toHaveBeenCalled();
       expect(paymentClient.createOrder).toHaveBeenCalledWith(
@@ -193,15 +302,108 @@ describe('payment.service', () => {
       });
 
       await expect(service.createCheckout('uid_1', { items: ITEMS })).rejects.toBe(surfboardError);
-      expect(paymentClient.initiatePayment).not.toHaveBeenCalled();
     });
   });
 
   describe('retryPayment', () => {
-    it('re-initiates payment against the same orderId without creating a new order', async () => {
-      const paymentClient = createFakePaymentClient({ getTerminalId: undefined });
+    it("creates a brand-new order with its own fresh payment link, instead of reopening the previous order's link", async () => {
+      // Surfboard's hosted Payment Page is a one-shot session — once the previous attempt on
+      // order_1 concluded (failed/cancelled/expired), reopening its cached link would show
+      // Surfboard's own "Invalid or Expired Link" page. Retry must mint a NEW order/link instead.
+      const paymentClient = createFakePaymentClient({
+        getOrderStatus: vi.fn().mockResolvedValue({ data: { orderStatus: 'PENDING', payments: [] } }),
+        createOrder: vi
+          .fn()
+          .mockResolvedValue({ data: { orderId: 'order_2', paymentPageLink: 'https://pay.example/retry' } }),
+      });
       const paymentRepository = createFakePaymentRepository({
-        getTerminalId: vi.fn().mockResolvedValue('term_1'),
+        getCheckoutItems: vi.fn().mockResolvedValue(ITEMS),
+      });
+      const storeService = createFakeStoreService();
+      const service = createPaymentService({
+        paymentClient,
+        mapper: realMapper,
+        paymentRepository,
+        merchantService: createFakeMerchantService(),
+        storeService,
+        billingService: createFakeBillingService(),
+        logger: createFakeLogger(),
+      });
+
+      const result = await service.retryPayment('uid_1', 'order_1', 'sb_store_1');
+
+      expect(storeService.verifyStoreOwnership).toHaveBeenCalledWith('uid_1', 'sb_store_1');
+      expect(paymentRepository.getCheckoutItems).toHaveBeenCalledWith('order_1');
+      expect(paymentClient.createOrder).toHaveBeenCalledWith(
+        'sb_merchant_1',
+        expect.objectContaining({ terminal$id: expect.any(String) }),
+      );
+      expect(paymentClient.initiatePayment).not.toHaveBeenCalled();
+      // order_1's own referenceId must never reappear on the retry's request — it's a genuinely
+      // new order, not a mutation of the old one.
+      const retryReferenceId = paymentClient.createOrder.mock.calls[0][1].referenceId;
+      expect(retryReferenceId).toMatch(/^checkout-retry-/);
+      expect(paymentRepository.setCheckoutItems).toHaveBeenCalledWith('order_2', ITEMS);
+      expect(result).toMatchObject({
+        orderId: 'order_2',
+        paymentUrl: 'https://pay.example/retry',
+        paymentId: null,
+      });
+    });
+
+    it('refuses to retry an order that has already completed', async () => {
+      const paymentClient = createFakePaymentClient({
+        getOrderStatus: vi.fn().mockResolvedValue({
+          data: { orderStatus: 'PAYMENT_COMPLETED', payments: [{ paymentStatus: 'PAYMENT_COMPLETED' }] },
+        }),
+      });
+      const service = createPaymentService({
+        paymentClient,
+        mapper: realMapper,
+        paymentRepository: createFakePaymentRepository(),
+        merchantService: createFakeMerchantService(),
+        storeService: createFakeStoreService(),
+        billingService: createFakeBillingService(),
+        logger: createFakeLogger(),
+      });
+
+      await expect(service.retryPayment('uid_1', 'order_1', 'sb_store_1')).rejects.toMatchObject({
+        name: 'NotFoundError',
+      });
+      expect(paymentClient.createOrder).not.toHaveBeenCalled();
+    });
+
+    it('refuses to retry an order that has already partially completed', async () => {
+      const paymentClient = createFakePaymentClient({
+        getOrderStatus: vi.fn().mockResolvedValue({
+          data: {
+            orderStatus: 'PARTIAL_PAYMENT_COMPLETED',
+            payments: [{ paymentStatus: 'PAYMENT_COMPLETED' }],
+          },
+        }),
+      });
+      const service = createPaymentService({
+        paymentClient,
+        mapper: realMapper,
+        paymentRepository: createFakePaymentRepository(),
+        merchantService: createFakeMerchantService(),
+        storeService: createFakeStoreService(),
+        billingService: createFakeBillingService(),
+        logger: createFakeLogger(),
+      });
+
+      await expect(service.retryPayment('uid_1', 'order_1', 'sb_store_1')).rejects.toMatchObject({
+        name: 'NotFoundError',
+      });
+      expect(paymentClient.createOrder).not.toHaveBeenCalled();
+    });
+
+    it("refuses to retry when the original order's items were never cached (context lost)", async () => {
+      const paymentClient = createFakePaymentClient({
+        getOrderStatus: vi.fn().mockResolvedValue({ data: { orderStatus: 'PENDING', payments: [] } }),
+      });
+      const paymentRepository = createFakePaymentRepository({
+        getCheckoutItems: vi.fn().mockResolvedValue(null),
       });
       const service = createPaymentService({
         paymentClient,
@@ -213,15 +415,10 @@ describe('payment.service', () => {
         logger: createFakeLogger(),
       });
 
-      const result = await service.retryPayment('uid_1', 'order_1', 'sb_store_1');
-
-      expect(paymentClient.createOrder).not.toHaveBeenCalled();
-      expect(paymentClient.initiatePayment).toHaveBeenCalledWith('sb_merchant_1', {
-        orderId: 'order_1',
-        terminalId: 'term_1',
-        paymentMethod: 'CARD',
+      await expect(service.retryPayment('uid_1', 'order_1', 'sb_store_1')).rejects.toMatchObject({
+        name: 'NotFoundError',
       });
-      expect(result).toMatchObject({ orderId: 'order_1', paymentId: 'pay_1' });
+      expect(paymentClient.createOrder).not.toHaveBeenCalled();
     });
   });
 

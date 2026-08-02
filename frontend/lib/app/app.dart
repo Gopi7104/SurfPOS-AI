@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/authentication/presentation/screens/login_page.dart';
 import '../features/authentication/presentation/screens/splash_screen.dart';
 import '../features/authentication/providers/auth_providers.dart';
+import '../features/settings/providers/settings_providers.dart';
 import 'app_scaffold_messenger.dart';
 import 'main_shell_page.dart';
 import 'themes/app_theme.dart';
@@ -30,10 +31,19 @@ class SurfPosApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Settings' Theme preference (Phase 7) — see `AppTheme.dark`'s header
+    // comment for how much of the app actually re-themes. Defaults to
+    // `system` (Riverpod's `AsyncValue.valueOrNull` before the pref loads)
+    // rather than blocking the whole app on Settings' own storage read.
+    final themeMode =
+        ref.watch(themeControllerProvider).valueOrNull ?? ThemeMode.system;
+
     return MaterialApp(
       title: 'SurfPOS AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: themeMode,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       home: Builder(
         builder: (context) => SplashScreen(

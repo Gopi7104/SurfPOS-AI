@@ -54,7 +54,10 @@ class PaymentRepositoryImpl implements PaymentRepository {
   @override
   Future<void> openPaymentUrl(String url) async {
     final uri = Uri.parse(url);
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    // Chrome Custom Tabs on Android / SFSafariViewController on iOS — keeps the customer inside
+    // the SurfPOS app shell instead of handing off to the external browser (Phase 5 requirement:
+    // never LaunchMode.externalApplication for the hosted Surfboard Payment Page).
+    final launched = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
     if (!launched) {
       throw Exception('Could not open the payment page.');
     }

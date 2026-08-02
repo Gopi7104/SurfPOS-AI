@@ -64,7 +64,7 @@ void main() {
         async.flushMicrotasks();
 
         final state = container.read(paymentControllerProvider(_uidA));
-        expect(state.phase, PaymentPhase.waitingForPayment);
+        expect(state.phase, PaymentPhase.waitingForCustomer);
         expect(state.orderId, 'order-1');
         expect(state.paymentId, 'pay-1');
         expect(state.amount, 250);
@@ -134,7 +134,7 @@ void main() {
           async.elapse(const Duration(seconds: 2));
 
           final state = container.read(paymentControllerProvider(_uidA));
-          expect(state.phase, PaymentPhase.processing);
+          expect(state.phase, PaymentPhase.paymentProcessing);
           expect(state.transactionId, 'txn-1');
           expect(state.paymentMethod, 'CARD');
         });
@@ -167,7 +167,7 @@ void main() {
           async.elapse(const Duration(seconds: 2));
 
           expect(container.read(paymentControllerProvider(_uidA)).phase,
-              PaymentPhase.approved);
+              PaymentPhase.paymentSuccessful);
           final countAtApproval = callCount;
 
           // Polling must have stopped — elapsing further time doesn't call the status endpoint again.
@@ -193,7 +193,7 @@ void main() {
           async.elapse(const Duration(seconds: 2));
 
           final state = container.read(paymentControllerProvider(_uidA));
-          expect(state.phase, PaymentPhase.declined);
+          expect(state.phase, PaymentPhase.paymentFailed);
           expect(state.failureReason, 'Card declined by issuer');
         });
       });
@@ -215,7 +215,7 @@ void main() {
           async.elapse(const Duration(seconds: 2));
 
           expect(container.read(paymentControllerProvider(_uidA)).phase,
-              PaymentPhase.cancelled);
+              PaymentPhase.paymentCancelled);
         });
       });
 
@@ -238,17 +238,123 @@ void main() {
           async.elapse(const Duration(seconds: 200));
 
           expect(container.read(paymentControllerProvider(_uidA)).phase,
-              PaymentPhase.timedOut);
+              PaymentPhase.paymentExpired);
+        });
+      });
+    });
+
+    group('checkStatusNow() — deep link / app-resume fast path', () {
+      test('checks status immediately without waiting for the poll timer', () {
+        fakeAsync((async) {
+          var statusCallCount = 0;
+          final container = _makeContainer(
+            FakePaymentRepository(
+              createCheckout: ({storeId, required items}) async =>
+                  const CheckoutResultModel(
+                      orderId: 'order-1', paymentId: 'pay-1'),
+              getCheckoutStatus: (orderId) async {
+                statusCallCount++;
+                return const OrderStatusModel(
+                    paymentStatus: 'PAYMENT_COMPLETED', transactionId: 'txn-1');
+              },
+            ),
+          );
+          addTearDown(container.dispose);
+          addTearDown(container
+              .listen(paymentControllerProvider(_uidA), (_, __) {})
+              .close);
+
+          final notifier =
+              container.read(paymentControllerProvider(_uidA).notifier);
+          notifier.startCheckout(items: _items);
+          async.flushMicrotasks();
+          expect(statusCallCount, 0);
+
+          notifier.checkStatusNow();
+          async.flushMicrotasks();
+
+          expect(statusCallCount, 1);
+          expect(container.read(paymentControllerProvider(_uidA)).phase,
+              PaymentPhase.paymentSuccessful);
+        });
+      });
+
+      test('does nothing before an order exists', () {
+        fakeAsync((async) {
+          var statusCallCount = 0;
+          final container = _makeContainer(
+            FakePaymentRepository(
+              getCheckoutStatus: (orderId) async {
+                statusCallCount++;
+                return const OrderStatusModel(
+                    paymentStatus: 'PAYMENT_COMPLETED');
+              },
+            ),
+          );
+          addTearDown(container.dispose);
+          addTearDown(container
+              .listen(paymentControllerProvider(_uidA), (_, __) {})
+              .close);
+
+          container
+              .read(paymentControllerProvider(_uidA).notifier)
+              .checkStatusNow();
+          async.flushMicrotasks();
+
+          expect(statusCallCount, 0);
+        });
+      });
+
+      test('does nothing once the payment has already reached a terminal phase',
+          () {
+        fakeAsync((async) {
+          var statusCallCount = 0;
+          final container = _makeContainer(
+            FakePaymentRepository(
+              createCheckout: ({storeId, required items}) async =>
+                  const CheckoutResultModel(
+                      orderId: 'order-1', paymentId: 'pay-1'),
+              getCheckoutStatus: (orderId) async {
+                statusCallCount++;
+                return const OrderStatusModel(
+                    paymentStatus: 'PAYMENT_COMPLETED');
+              },
+            ),
+          );
+          addTearDown(container.dispose);
+          addTearDown(container
+              .listen(paymentControllerProvider(_uidA), (_, __) {})
+              .close);
+
+          final notifier =
+              container.read(paymentControllerProvider(_uidA).notifier);
+          notifier.startCheckout(items: _items);
+          async.flushMicrotasks();
+
+          notifier.checkStatusNow();
+          async.flushMicrotasks();
+          expect(container.read(paymentControllerProvider(_uidA)).phase,
+              PaymentPhase.paymentSuccessful);
+          final callsAtApproval = statusCallCount;
+
+          notifier.checkStatusNow();
+          async.flushMicrotasks();
+
+          expect(statusCallCount, callsAtApproval);
         });
       });
     });
 
     test(
-        'retry() re-initiates payment against the same order and resumes polling',
+        'retry() switches to the brand-new order the backend creates and polls that order, never the dead one',
         () {
       fakeAsync((async) {
+        // The backend never reopens order-1's (now-terminated) hosted Payment
+        // Page link — it creates a genuinely new order-2 with its own fresh
+        // link (see payment.service.js#retryPayment). The controller must
+        // adopt that new orderId, or polling would chase order-1 forever.
         final urls = <String>[];
-        var statusCallCount = 0;
+        final statusQueriedOrderIds = <String>[];
         final container = _makeContainer(
           FakePaymentRepository(
             createCheckout: ({storeId, required items}) async =>
@@ -259,14 +365,14 @@ void main() {
               paymentUrl: 'https://pay.example/first',
             ),
             retryPayment: ({required orderId, required storeId}) async =>
-                CheckoutResultModel(
-              orderId: orderId,
+                const CheckoutResultModel(
+              orderId: 'order-2',
               paymentId: 'pay-2',
               paymentUrl: 'https://pay.example/retry',
             ),
             openPaymentUrl: (url) async => urls.add(url),
             getCheckoutStatus: (orderId) async {
-              statusCallCount++;
+              statusQueriedOrderIds.add(orderId);
               return const OrderStatusModel(paymentStatus: 'PAYMENT_FAILED');
             },
           ),
@@ -282,22 +388,24 @@ void main() {
         async.flushMicrotasks();
         async.elapse(const Duration(seconds: 2));
         expect(container.read(paymentControllerProvider(_uidA)).phase,
-            PaymentPhase.declined);
-        final callsBeforeRetry = statusCallCount;
+            PaymentPhase.paymentFailed);
+        expect(statusQueriedOrderIds, everyElement('order-1'));
 
         notifier.retry();
         async.flushMicrotasks();
 
         var state = container.read(paymentControllerProvider(_uidA));
-        expect(state.orderId, 'order-1');
+        expect(state.orderId, 'order-2');
         expect(state.paymentId, 'pay-2');
-        expect(state.phase, PaymentPhase.waitingForPayment);
+        expect(state.phase, PaymentPhase.waitingForCustomer);
         expect(
             urls, ['https://pay.example/first', 'https://pay.example/retry']);
 
-        // Polling resumed after the retry.
+        // Polling resumed after the retry — against the NEW order only.
+        statusQueriedOrderIds.clear();
         async.elapse(const Duration(seconds: 2));
-        expect(statusCallCount, greaterThan(callsBeforeRetry));
+        expect(statusQueriedOrderIds, isNotEmpty);
+        expect(statusQueriedOrderIds, everyElement('order-2'));
       });
     });
 
@@ -333,7 +441,7 @@ void main() {
 
         expect(cancelledPaymentId, 'pay-1');
         expect(container.read(paymentControllerProvider(_uidA)).phase,
-            PaymentPhase.cancelled);
+            PaymentPhase.paymentCancelled);
 
         final callsAtCancel = statusCallCount;
         async.elapse(const Duration(seconds: 10));

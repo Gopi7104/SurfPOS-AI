@@ -3,25 +3,18 @@ import 'package:flutter/material.dart';
 import '../../../app/themes/app_colors.dart';
 import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
-import '../../../core/widgets/buttons/app_primary_button.dart';
 import '../../../core/widgets/cards/section_card.dart';
 import '../models/billing_state.dart';
 
-/// Subtotal/Tax/Discount/Grand Total breakdown plus the Clear Cart and
-/// Checkout actions — purely presentational, recomputed from [state] on
-/// every rebuild (see `BillingState`'s getters), never computes totals
-/// itself.
+/// The Order Summary — Subtotal/Tax/Discount/Grand Total, recomputed from
+/// [state] on every rebuild (see `BillingState`'s getters). Deliberately
+/// shows only fields the order model actually carries — no invented "Service
+/// Fee" or similar line. Purely presentational; Clear Cart/Proceed to
+/// Payment live in `CartBottomSheet`, the only place this card is used.
 class BillingSummaryCard extends StatelessWidget {
-  const BillingSummaryCard({
-    required this.state,
-    required this.onClearCart,
-    required this.onCheckout,
-    super.key,
-  });
+  const BillingSummaryCard({required this.state, super.key});
 
   final BillingState state;
-  final VoidCallback onClearCart;
-  final VoidCallback onCheckout;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +22,8 @@ class BillingSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text('Order Summary', style: AppTypography.headingSM),
+          const SizedBox(height: AppSpacing.sm),
           _TotalRow(label: 'Subtotal', value: state.subtotal),
           _TotalRow(label: 'Tax', value: state.taxTotal),
           _TotalRow(label: 'Discount', value: -state.discountTotal),
@@ -38,30 +33,6 @@ class BillingSummaryCard extends StatelessWidget {
           ),
           _TotalRow(
               label: 'Grand Total', value: state.grandTotal, emphasize: true),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: state.isEmpty ? null : onClearCart,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.error,
-                    side: const BorderSide(color: AppColors.error),
-                    minimumSize: const Size.fromHeight(48),
-                  ),
-                  child: const Text('Clear Cart'),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                flex: 2,
-                child: AppPrimaryButton(
-                  label: 'Checkout',
-                  onPressed: state.isEmpty ? null : onCheckout,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );

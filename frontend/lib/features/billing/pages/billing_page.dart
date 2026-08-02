@@ -4,32 +4,46 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../app/themes/app_colors.dart';
 import '../../../app/themes/app_spacing.dart';
-import '../../../core/widgets/app_bars/app_top_bar.dart';
+import '../../../core/widgets/app_bars/glass_header.dart';
+import '../../../core/widgets/bottom_sheets/app_bottom_sheet.dart';
 import '../../../core/widgets/empty_states/empty_state.dart';
+import '../../../core/widgets/empty_states/error_state.dart';
 import '../../../core/widgets/loading/app_loading_indicator.dart';
 import '../../../core/widgets/text_fields/app_search_field.dart';
 import '../../authentication/providers/auth_providers.dart';
 import '../../dashboard/providers/dashboard_providers.dart';
+import '../../inventory/controllers/inventory_list_state.dart';
+import '../../inventory/models/inventory_query.dart';
 import '../../inventory/models/product_model.dart';
 import '../../inventory/pages/add_product_page.dart';
+import '../../inventory/pages/product_details_page.dart';
+import '../../inventory/providers/inventory_providers.dart';
 import '../../payments/models/checkout_item.dart';
 import '../../payments/pages/payment_status_page.dart';
+import '../../payments/pages/test_payment_status_page.dart';
 import '../../payments/widgets/payment_summary_dialog.dart';
-import '../controllers/billing_controller.dart';
+import '../../receipt/models/receipt_line_item.dart';
 import '../models/billing_state.dart';
+import '../models/customer_details.dart';
 import '../providers/billing_providers.dart';
-import '../widgets/billing_summary_card.dart';
-import '../widgets/cart_item_tile.dart';
+import '../widgets/cart_bottom_sheet.dart';
+import '../widgets/category_chip_bar.dart';
+import '../widgets/customer_details_sheet.dart';
+import '../widgets/floating_cart_bar.dart';
+import '../widgets/product_grid_card.dart';
 import '../widgets/product_not_found_banner.dart';
 import '../widgets/search_suggestions_list.dart';
 import 'barcode_scanner_page.dart';
 
-/// The Billing tab's root screen — search-or-scan product entry, the
-/// shopping cart, and the totals/checkout/payment flow (see
-/// docs/22_DEVELOPMENT_ROADMAP.md, Phase 4). This screen owns Checkout's
-/// entry point (the Payment Summary confirmation); the actual Surfboard
-/// order/payment orchestration lives in `features/payments/`.
+/// The Billing tab's root screen — search-or-scan product entry, a
+/// category-filtered product grid, the floating cart, and the totals/
+/// checkout/payment flow (see docs/22_DEVELOPMENT_ROADMAP.md, Phase 4, and
+/// the Phase UI/UX 3 redesign brief). This screen owns Checkout's entry
+/// point (the optional Customer Details step, then the Payment Summary
+/// confirmation); the actual Surfboard order/payment orchestration lives in
+/// `features/payments/`.
 class BillingPage extends ConsumerStatefulWidget {
   const BillingPage({super.key});
 
@@ -41,13 +55,30 @@ class _BillingPageState extends ConsumerState<BillingPage> {
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
   Timer? _debounce;
+  Timer? _clockTimer;
+  DateTime _now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+  }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _clockTimer?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  String get _timeLabel {
+    final hour = _now.hour.toString().padLeft(2, '0');
+    final minute = _now.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 
   void _onSearchChanged(String value, String uid) {
@@ -82,6 +113,46 @@ class _BillingPageState extends ConsumerState<BillingPage> {
         .push(MaterialPageRoute(builder: (_) => const AddProductPage()));
   }
 
+  Future<void> _showQuickActions(ProductModel product) {
+    return showAppBottomSheet<void>(
+      context: context,
+      title: product.name,
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            leading:
+                const Icon(LucideIcons.squarePen, color: AppColors.primary),
+            title: const Text('View / Edit in Inventory'),
+            contentPadding: EdgeInsets.zero,
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ProductDetailsPage(productId: product.id),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openCart(String uid, BillingState state) {
+    final notifier = ref.read(billingControllerProvider(uid).notifier);
+    showCartBottomSheet(
+      context: context,
+      state: state,
+      onIncrease: notifier.increaseQuantity,
+      onDecrease: notifier.decreaseQuantity,
+      onRemove: notifier.removeItem,
+      onClearCart: () => _confirmClearCart(uid),
+      onCheckout: () => _openCheckout(uid, state),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final uid =
@@ -104,55 +175,97 @@ class _BillingPageState extends ConsumerState<BillingPage> {
       }
     });
 
+    final dashboard = ref.watch(dashboardControllerProvider(uid)).valueOrNull;
+    final merchantName = dashboard?.merchant?.name ?? 'Merchant';
+    final storeName = dashboard?.store?.name ?? 'Store';
+
     final isSearchingView = state.searchQuery.isNotEmpty;
 
     return Scaffold(
-      appBar: const AppTopBar(title: 'Billing'),
+      backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppSearchField(
-                hint: 'Search by name, SKU, or barcode',
-                controller: _searchController,
-                autofocus: false,
-                onChanged: (value) => _onSearchChanged(value, uid),
-                onScanTap: () => _openScanner(uid),
+        child: Column(
+          children: [
+            GlassHeader(
+              title: storeName,
+              subtitle: _timeLabel,
+              avatarLabel: merchantName,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _HeaderIconButton(
+                    icon: LucideIcons.search,
+                    onTap: _searchFocusNode.requestFocus,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  _HeaderIconButton(
+                    icon: LucideIcons.scanLine,
+                    onTap: () => _openScanner(uid),
+                  ),
+                ],
               ),
-              if (state.notFoundBarcode != null)
-                ProductNotFoundBanner(
-                  barcode: state.notFoundBarcode!,
-                  onSearchManually: () => _searchManually(uid),
-                  onAddProduct: () => _addProductFromNotFound(uid),
-                  onDismiss: notifier.dismissNotFound,
-                ),
-              const SizedBox(height: AppSpacing.sm),
-              Expanded(
-                child: isSearchingView
-                    ? SearchSuggestionsList(
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+              child: Column(
+                children: [
+                  AppSearchField(
+                    hint: 'Search by name, SKU, or barcode',
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    autofocus: false,
+                    onChanged: (value) => _onSearchChanged(value, uid),
+                    onScanTap: () => _openScanner(uid),
+                  ),
+                  if (state.notFoundBarcode != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.sm),
+                      child: ProductNotFoundBanner(
+                        barcode: state.notFoundBarcode!,
+                        onSearchManually: () => _searchManually(uid),
+                        onAddProduct: () => _addProductFromNotFound(uid),
+                        onDismiss: notifier.dismissNotFound,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: isSearchingView
+                  ? Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                      child: SearchSuggestionsList(
                         results: state.searchResults,
                         isSearching: state.isSearching,
                         errorMessage: state.searchError,
                         onSelect: (product) => _selectSuggestion(uid, product),
-                      )
-                    : _CartList(state: state, notifier: notifier),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              BillingSummaryCard(
+                      ),
+                    )
+                  : _ProductBrowseView(
+                      uid: uid,
+                      onProductTap: (product) =>
+                          notifier.selectSearchResult(product),
+                      onProductLongPress: _showQuickActions,
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+              child: FloatingCartBar(
                 state: state,
-                onClearCart: () => _confirmClearCart(uid),
+                onExpand: () => _openCart(uid, state),
                 onCheckout: () => _openCheckout(uid, state),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  void _openCheckout(String uid, BillingState cart) {
+  Future<void> _openCheckout(String uid, BillingState cart) async {
     final dashboard = ref.read(dashboardControllerProvider(uid)).valueOrNull;
     final storeId = dashboard?.store?.id;
     if (storeId == null) {
@@ -162,21 +275,96 @@ class _BillingPageState extends ConsumerState<BillingPage> {
       return;
     }
 
+    final merchantName = dashboard?.merchant?.name ?? '—';
+    final storeName = dashboard?.store?.name ?? '—';
+
+    final customer = await showCustomerDetailsSheet(context);
+    if (!mounted) return;
+
     showDialog<void>(
       context: context,
       builder: (dialogContext) => PaymentSummaryDialog(
         cart: cart,
-        merchantName: dashboard?.merchant?.name ?? '—',
-        storeName: dashboard?.store?.name ?? '—',
-        onConfirm: () => _startPaymentFlow(uid, storeId, cart),
+        merchantName: merchantName,
+        storeName: storeName,
+        customer: customer,
+        onConfirm: () => _startPaymentFlow(
+            uid, storeId, cart, merchantName, storeName, customer),
+        onTestPayment: () =>
+            _confirmTestPayment(uid, cart, merchantName, storeName, customer),
       ),
     );
   }
 
-  void _startPaymentFlow(String uid, String storeId, BillingState cart) {
+  Future<void> _confirmTestPayment(String uid, BillingState cart,
+      String merchantName, String storeName, CustomerDetails? customer) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Complete a simulated payment?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Complete Payment')),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      _startTestPaymentFlow(uid, cart, merchantName, storeName, customer);
+    }
+  }
+
+  void _startTestPaymentFlow(String uid, BillingState cart, String merchantName,
+      String storeName, CustomerDetails? customer) {
+    final receiptItems = [
+      for (final item in cart.items)
+        ReceiptLineItem(
+          productName: item.product.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: item.lineTotal,
+        ),
+    ];
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TestPaymentStatusPage(
+          uid: uid,
+          merchantName: merchantName,
+          storeName: storeName,
+          receiptItems: receiptItems,
+          subtotal: cart.subtotal,
+          discountTotal: cart.discountTotal,
+          taxTotal: cart.taxTotal,
+          grandTotal: cart.grandTotal,
+          customerName: customer?.name,
+          customerPhone: customer?.phone,
+          onDone: () {
+            ref.read(billingControllerProvider(uid).notifier).clearCart();
+            Navigator.of(context).pop();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _startPaymentFlow(String uid, String storeId, BillingState cart,
+      String merchantName, String storeName, CustomerDetails? customer) {
     final items = [
       for (final item in cart.items)
         CheckoutItem(productId: item.product.id, quantity: item.quantity),
+    ];
+    final receiptItems = [
+      for (final item in cart.items)
+        ReceiptLineItem(
+          productName: item.product.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: item.lineTotal,
+        ),
     ];
 
     Navigator.of(context).push(
@@ -185,6 +373,11 @@ class _BillingPageState extends ConsumerState<BillingPage> {
           uid: uid,
           storeId: storeId,
           items: items,
+          merchantName: merchantName,
+          storeName: storeName,
+          receiptItems: receiptItems,
+          customerName: customer?.name,
+          customerPhone: customer?.phone,
           onDone: () {
             ref.read(billingControllerProvider(uid).notifier).clearCart();
             Navigator.of(context).pop();
@@ -216,34 +409,177 @@ class _BillingPageState extends ConsumerState<BillingPage> {
   }
 }
 
-class _CartList extends StatelessWidget {
-  const _CartList({required this.state, required this.notifier});
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({required this.icon, required this.onTap});
 
-  final BillingState state;
-  final BillingController notifier;
+  final IconData icon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    if (state.isEmpty) {
-      return const EmptyState(
-        icon: LucideIcons.shoppingCart,
-        title: 'Cart is Empty',
-        message: 'Search for a product or scan a barcode to start a new bill.',
-      );
+    return Material(
+      color: AppColors.white.withValues(alpha: 0.18),
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, size: 20, color: AppColors.white),
+        ),
+      ),
+    );
+  }
+}
+
+/// Category chips + the product grid — the default (non-searching) Billing
+/// view. Pulls from Inventory's own `inventoryListControllerProvider`/
+/// `inventoryCategoriesProvider` (already built for `ProductListPage`,
+/// unmodified here) rather than re-implementing catalog browsing inside
+/// Billing.
+class _ProductBrowseView extends ConsumerStatefulWidget {
+  const _ProductBrowseView({
+    required this.uid,
+    required this.onProductTap,
+    required this.onProductLongPress,
+  });
+
+  final String uid;
+  final ValueChanged<ProductModel> onProductTap;
+  final ValueChanged<ProductModel> onProductLongPress;
+
+  @override
+  ConsumerState<_ProductBrowseView> createState() => _ProductBrowseViewState();
+}
+
+class _ProductBrowseViewState extends ConsumerState<_ProductBrowseView> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels <
+        _scrollController.position.maxScrollExtent - 200) {
+      return;
+    }
+    ref
+        .read(inventoryListControllerProvider(widget.uid).notifier)
+        .loadMore()
+        .catchError((Object error) {});
+  }
+
+  void _onCategorySelected(String? category) {
+    final current = ref
+            .read(inventoryListControllerProvider(widget.uid))
+            .valueOrNull
+            ?.query ??
+        const InventoryQuery();
+    ref.read(inventoryListControllerProvider(widget.uid).notifier).applyQuery(
+          category == null
+              ? current.copyWith(clearCategory: true)
+              : current.copyWith(category: category),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(inventoryListControllerProvider(widget.uid));
+    final categories =
+        ref.watch(inventoryCategoriesProvider(widget.uid)).valueOrNull ??
+            const <String>[];
+    final selectedCategory = state.valueOrNull?.query.category;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: CategoryChipBar(
+            categories: categories,
+            selectedCategory: selectedCategory,
+            onSelected: _onCategorySelected,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Expanded(
+          child: switch (state) {
+            AsyncLoading() when !state.hasValue =>
+              const Center(child: AppLoadingIndicator()),
+            AsyncError() when !state.hasValue => ErrorState(
+                message:
+                    'Could not load your products. Please check your connection and try again.',
+                onRetry: () => ref
+                    .read(inventoryListControllerProvider(widget.uid).notifier)
+                    .refresh(),
+              ),
+            _ => _buildGrid(state.value!),
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGrid(InventoryListState data) {
+    if (data.items.isEmpty) {
+      return data.query.hasActiveFilters
+          ? const EmptyState(
+              icon: LucideIcons.searchX,
+              title: 'No Results',
+              message: 'No products match this category.',
+            )
+          : const EmptyState(
+              icon: LucideIcons.package,
+              title: 'No Products',
+              message: 'Add products in Inventory to start selling.',
+            );
     }
 
-    return ListView.separated(
-      itemCount: state.items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) {
-        final item = state.items[index];
-        return CartItemTile(
-          item: item,
-          onIncrease: () => notifier.increaseQuantity(item.product.id),
-          onDecrease: () => notifier.decreaseQuantity(item.product.id),
-          onDelete: () => notifier.removeItem(item.product.id),
-        );
-      },
+    return Column(
+      children: [
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final crossAxisCount =
+                  (constraints.maxWidth / 170).floor().clamp(2, 6);
+              return GridView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  mainAxisSpacing: AppSpacing.sm,
+                  crossAxisSpacing: AppSpacing.sm,
+                  childAspectRatio: 0.72,
+                ),
+                itemCount: data.items.length,
+                itemBuilder: (context, index) {
+                  final product = data.items[index];
+                  return ProductGridCard(
+                    product: product,
+                    onTap: () => widget.onProductTap(product),
+                    onLongPress: () => widget.onProductLongPress(product),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        if (data.isLoadingMore)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: AppLoadingIndicator(),
+          ),
+      ],
     );
   }
 }

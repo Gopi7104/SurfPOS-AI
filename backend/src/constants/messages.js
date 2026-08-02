@@ -26,5 +26,9 @@ module.exports = Object.freeze({
   INSUFFICIENT_STOCK: 'Insufficient stock for this adjustment',
   NO_STORE_AVAILABLE: 'No store is set up for this merchant yet — create a store before taking payments',
   ORDER_NOT_FOUND: 'Order not found',
+  ORDER_RETRY_CONTEXT_NOT_FOUND:
+    'Original order details are no longer available for retry — start a new checkout',
+  INVALID_WEBHOOK_SIGNATURE: 'Invalid webhook signature',
+  MISSING_WEBHOOK_SIGNATURE: 'Missing x-webhook-signature header',
   routeNotFound: (method, path) => `Route not found: ${method} ${path}`,
 });

@@ -40,22 +40,22 @@ class PaymentStatusIndicator extends StatelessWidget {
 
   Widget _buildIcon() {
     final (icon, color, background) = switch (phase) {
-      PaymentPhase.approved => (
+      PaymentPhase.paymentSuccessful => (
           LucideIcons.circleCheck,
           AppColors.success,
           AppColors.successContainer
         ),
-      PaymentPhase.declined => (
+      PaymentPhase.paymentFailed => (
           LucideIcons.circleX,
           AppColors.error,
           AppColors.errorContainer
         ),
-      PaymentPhase.cancelled => (
+      PaymentPhase.paymentCancelled => (
           LucideIcons.circleX,
           AppColors.textGrey,
           AppColors.disabledSurface
         ),
-      PaymentPhase.timedOut => (
+      PaymentPhase.paymentExpired => (
           LucideIcons.clock,
           AppColors.warning,
           AppColors.warningContainer

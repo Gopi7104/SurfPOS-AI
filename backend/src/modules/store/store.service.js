@@ -65,8 +65,9 @@ function createStoreService({
    */
   async function updateStore(uid, storeId, patch) {
     await assertOwnsStore(uid, storeId);
+    const merchantId = await merchantService.getMerchantId(uid);
     const wirePayload = mapper.toUpdateWire(patch);
-    const surfboardResponse = await storeClient.updateStore(storeId, wirePayload);
+    const surfboardResponse = await storeClient.updateStore(merchantId, storeId, wirePayload);
     const store = mapper.toDomain(surfboardResponse);
 
     logger.info({ uid, storeId }, 'Updated store');

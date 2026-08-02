@@ -6,32 +6,37 @@ import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
 import '../models/payment_phase.dart';
 
-enum _Step { creating, waiting, processing, done }
+enum _Step { cart, payment, processing, receipt }
 
-/// The four-step Checkout journey (Creating Payment → Waiting For Payment →
-/// Processing → Done), each step marked complete/current/pending from
-/// [phase]. A failure ([PaymentPhase.declined]/[cancelled]/[timedOut]/[error])
-/// still marks every step up to "Processing" complete — the failure itself
-/// is communicated by [PaymentStatusIndicator], not by regressing a step.
+/// The four-step Checkout journey the redesign brief asks for — Cart →
+/// Payment → Processing → Receipt — each step marked complete/current/
+/// pending from [phase]. "Cart" is always shown complete (this screen only
+/// ever appears after the cart step); "Payment" covers both
+/// [PaymentPhase.creatingPayment] and [waitingForCustomer] (choosing a
+/// method through the customer completing it). A failure
+/// ([PaymentPhase.paymentFailed]/[paymentCancelled]/[paymentExpired]/
+/// [error]) still marks every step up to "Processing" complete — the
+/// failure itself is communicated by [PaymentStatusIndicator]/
+/// [PaymentSuccessView], not by regressing a step.
 class PaymentProgressSteps extends StatelessWidget {
   const PaymentProgressSteps({required this.phase, super.key});
 
   final PaymentPhase phase;
 
   _Step get _currentStep => switch (phase) {
-        PaymentPhase.creatingPayment => _Step.creating,
-        PaymentPhase.waitingForPayment => _Step.waiting,
-        PaymentPhase.processing => _Step.processing,
-        _ => _Step.done,
+        PaymentPhase.creatingPayment => _Step.payment,
+        PaymentPhase.waitingForCustomer => _Step.payment,
+        PaymentPhase.paymentProcessing => _Step.processing,
+        _ => _Step.receipt,
       };
 
   @override
   Widget build(BuildContext context) {
     final steps = [
-      (_Step.creating, 'Creating Payment'),
-      (_Step.waiting, 'Waiting For Payment'),
+      (_Step.cart, 'Cart'),
+      (_Step.payment, 'Payment'),
       (_Step.processing, 'Processing'),
-      (_Step.done, phase.isTerminal ? _terminalLabel : 'Done'),
+      (_Step.receipt, phase.isTerminal ? _terminalLabel : 'Receipt'),
     ];
     final currentIndex = _currentStep.index;
 
@@ -55,10 +60,10 @@ class PaymentProgressSteps extends StatelessWidget {
   }
 
   String get _terminalLabel => switch (phase) {
-        PaymentPhase.approved => 'Approved',
-        PaymentPhase.declined => 'Declined',
-        PaymentPhase.cancelled => 'Cancelled',
-        PaymentPhase.timedOut => 'Timed Out',
+        PaymentPhase.paymentSuccessful => 'Successful',
+        PaymentPhase.paymentFailed => 'Failed',
+        PaymentPhase.paymentCancelled => 'Cancelled',
+        PaymentPhase.paymentExpired => 'Expired',
         PaymentPhase.error => 'Error',
         _ => 'Done',
       };

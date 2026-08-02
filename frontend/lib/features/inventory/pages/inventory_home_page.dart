@@ -1,238 +1,437 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/themes/app_colors.dart';
 import '../../../app/themes/app_spacing.dart';
-import '../../../app/themes/app_typography.dart';
 import '../../../core/exceptions/api_exception.dart';
 import '../../../core/widgets/app_bars/app_top_bar.dart';
-import '../../../core/widgets/cards/app_card.dart';
-import '../../../core/widgets/cards/section_card.dart';
-import '../../../core/widgets/empty_states/empty_state.dart';
+import '../../../core/widgets/buttons/app_fab.dart';
 import '../../../core/widgets/empty_states/error_state.dart';
-import '../../../core/widgets/loading/skeleton_box.dart';
+import '../../../core/widgets/loading/app_loading_indicator.dart';
+import '../../../core/widgets/text_fields/app_search_field.dart';
 import '../../authentication/providers/auth_providers.dart';
 import '../../merchant/presentation/screens/merchant_onboarding_wizard_page.dart';
-import '../models/inventory_failure.dart';
+import '../controllers/inventory_list_state.dart';
+import '../models/inventory_query.dart';
+import '../models/product_model.dart';
 import '../providers/inventory_providers.dart';
-import 'add_product_page.dart';
+import '../widgets/inventory_category_chip_bar.dart';
+import '../widgets/inventory_empty_state.dart';
+import '../widgets/inventory_hero_card.dart';
+import '../widgets/inventory_quick_filter_bar.dart';
+import '../widgets/low_stock_section.dart';
+import '../widgets/product_card.dart';
+import '../widgets/product_grid_card.dart';
+import '../widgets/product_quick_actions_sheet.dart';
+import 'add_product_entry_page.dart';
 import 'categories_page.dart';
-import 'product_list_page.dart';
+import 'product_details_page.dart';
 
-/// The Inventory tab's landing screen — summary stats + quick actions,
-/// mirroring the Dashboard's own "home" philosophy. Full browsing/search
-/// lives one level down, on [ProductListPage].
-class InventoryHomePage extends ConsumerWidget {
-  const InventoryHomePage({super.key});
+enum _ViewMode { grid, list }
+
+/// The Inventory tab's unified Home — hero stats, instant search, sticky
+/// category chips, quick filters, a pinned Low Stock section, and a
+/// switchable grid/list of the catalog (see the Phase UI/UX 4 redesign
+/// brief). Supersedes the old split Home/Product-List pair: this **is**
+/// the product list now, not just a summary+quick-actions landing page.
+class InventoryHomePage extends ConsumerStatefulWidget {
+  const InventoryHomePage({this.initialCategory, super.key});
+
+  /// Pre-applies a category filter — used when arriving from
+  /// [CategoriesPage]. Applied to the same shared
+  /// `inventoryListControllerProvider(uid)` the tab-root instance of this
+  /// page already reads, so returning to that instance reflects the filter
+  /// too (same behavior the old `ProductListPage(initialCategory:)` had).
+  final String? initialCategory;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<InventoryHomePage> createState() => _InventoryHomePageState();
+}
+
+class _InventoryHomePageState extends ConsumerState<InventoryHomePage> {
+  final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
+  Timer? _searchDebounce;
+
+  /// Remembered for the lifetime of this widget (kept mounted by the app
+  /// shell's `IndexedStack`, so this survives switching tabs) — not
+  /// persisted to disk; `shared_preferences` isn't a dependency of this app
+  /// today and adding one is out of scope for a UI-only phase.
+  _ViewMode _viewMode = _ViewMode.grid;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    if (widget.initialCategory != null) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _applyInitialCategory());
+    }
+  }
+
+  void _applyInitialCategory() {
+    final uid = ref.read(authControllerProvider).valueOrNull?.uid;
+    if (uid == null) return;
+    ref
+        .read(inventoryListControllerProvider(uid).notifier)
+        .applyQuery(InventoryQuery(category: widget.initialCategory));
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels <
+        _scrollController.position.maxScrollExtent - 200) {
+      return;
+    }
+    final uid = ref.read(authControllerProvider).valueOrNull?.uid;
+    if (uid == null) return;
+    ref
+        .read(inventoryListControllerProvider(uid).notifier)
+        .loadMore()
+        .catchError((Object error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Could not load more products. Pull down to try again.')),
+      );
+    });
+  }
+
+  void _onSearchChanged(String value, String uid) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      final current =
+          ref.read(inventoryListControllerProvider(uid)).valueOrNull?.query ??
+              const InventoryQuery();
+      ref.read(inventoryListControllerProvider(uid).notifier).applyQuery(
+          current.copyWith(search: value, clearSearch: value.isEmpty));
+    });
+  }
+
+  void _onCategorySelected(String uid, String? category) {
+    final current =
+        ref.read(inventoryListControllerProvider(uid)).valueOrNull?.query ??
+            const InventoryQuery();
+    ref.read(inventoryListControllerProvider(uid).notifier).applyQuery(
+          category == null
+              ? current.copyWith(clearCategory: true)
+              : current.copyWith(category: category),
+        );
+  }
+
+  void _openProduct(String productId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+          builder: (_) => ProductDetailsPage(productId: productId)),
+    );
+  }
+
+  void _openQuickActions(String uid, ProductModel product) {
+    showProductQuickActionsSheet(context, uid: uid, product: product);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final uid =
         ref.watch(authControllerProvider.select((s) => s.valueOrNull?.uid));
     if (uid == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final statsAsync = ref.watch(inventoryStatsProvider(uid));
+    final provider = inventoryListControllerProvider(uid);
+    final state = ref.watch(provider);
+    final categories =
+        ref.watch(inventoryCategoriesProvider(uid)).valueOrNull ??
+            const <String>[];
 
-    // A caller with no merchant/store yet (onboarding not complete) gets a 404 from every
-    // Inventory endpoint (merchantId can't be resolved) — that's expected, not a real error, so
-    // it gets the same "finish onboarding first" prompt as the Dashboard's own empty state,
-    // rather than a scary "something went wrong" or (worse) a skeleton stuck loading forever.
-    final notOnboarded =
-        statsAsync.hasError && statsAsync.error is NotFoundApiException;
+    final notOnboarded = state.hasError && state.error is NotFoundApiException;
 
     return Scaffold(
-      appBar: const AppTopBar(title: 'Inventory'),
-      body: RefreshIndicator(
-        // Wraps both branches, not just the loaded one — IndexedStack keeps this tab mounted
-        // (and its provider cached) even while the merchant finishes onboarding on another tab,
-        // so pull-to-refresh is the only way back to real content without an app restart.
-        onRefresh: () async => ref.invalidate(inventoryStatsProvider(uid)),
-        child: notOnboarded
-            ? LayoutBuilder(
-                builder: (context, constraints) => SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: ConstrainedBox(
-                    constraints:
-                        BoxConstraints(minHeight: constraints.maxHeight),
-                    child: EmptyState(
-                      icon: LucideIcons.building2,
-                      title: 'Complete Merchant Onboarding',
-                      message:
-                          'Submit your merchant application to start managing inventory.',
-                      actionLabel: 'Start Onboarding',
-                      onAction: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                const MerchantOnboardingWizardPage()),
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            : ListView(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                children: [
-                  Text('Overview', style: AppTypography.headingSM),
-                  const SizedBox(height: AppSpacing.sm),
-                  switch (statsAsync) {
-                    AsyncData(value: final stats) => _StatsRow(stats: stats),
-                    AsyncError(:final error) => ErrorState(
-                        message: InventoryFailure.fromException(error).message,
-                        onRetry: () =>
-                            ref.invalidate(inventoryStatsProvider(uid)),
-                      ),
-                    _ => const _StatsRowSkeleton(),
-                  },
-                  const SizedBox(height: AppSpacing.lg),
-                  SectionCard(
-                    title: 'Quick Actions',
-                    child: Column(
-                      children: [
-                        _QuickActionTile(
-                          icon: LucideIcons.plusCircle,
-                          label: 'Add Product',
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (_) => const AddProductPage()),
-                          ),
-                        ),
-                        _QuickActionTile(
-                          icon: LucideIcons.package,
-                          label: 'View All Products',
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (_) => const ProductListPage()),
-                          ),
-                        ),
-                        _QuickActionTile(
-                          icon: LucideIcons.tag,
-                          label: 'Categories',
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (_) => const CategoriesPage()),
-                          ),
-                          showDivider: false,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-}
-
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.stats});
-
-  final InventoryStats stats;
-
-  @override
-  Widget build(BuildContext context) {
-    final totalLabel = stats.isApproximate
-        ? '${stats.totalProducts}+'
-        : '${stats.totalProducts}';
-    return Row(
-      children: [
-        Expanded(
-            child: _StatCard(
-                label: 'Total Products',
-                value: totalLabel,
-                color: AppColors.primary)),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _StatCard(
-              label: 'Low Stock',
-              value: '${stats.lowStockCount}',
-              color: AppColors.warning),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _StatCard(
-              label: 'Out of Stock',
-              value: '${stats.outOfStockCount}',
-              color: AppColors.error),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard(
-      {required this.label, required this.value, required this.color});
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(value, style: AppTypography.headingLG.copyWith(color: color)),
-          const SizedBox(height: AppSpacing.xs),
-          Text(label,
-              style: AppTypography.caption.copyWith(color: AppColors.textGrey)),
+      backgroundColor: AppColors.background,
+      appBar: AppTopBar(
+        title: 'Inventory',
+        actions: [
+          IconButton(
+            tooltip: 'Categories',
+            icon: const Icon(LucideIcons.tag),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CategoriesPage()),
+            ),
+          ),
+          IconButton(
+            tooltip: _viewMode == _ViewMode.grid ? 'List view' : 'Grid view',
+            icon: Icon(_viewMode == _ViewMode.grid
+                ? LucideIcons.list
+                : LucideIcons.layoutGrid),
+            onPressed: () => setState(() {
+              _viewMode =
+                  _viewMode == _ViewMode.grid ? _ViewMode.list : _ViewMode.grid;
+            }),
+          ),
         ],
       ),
+      floatingActionButton: AppFab(
+        icon: Icons.add_rounded,
+        label: 'Add Product',
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const AddProductEntryPage()),
+        ),
+      ),
+      body: notOnboarded
+          ? _OnboardingPrompt(
+              onRefresh: () => ref.invalidate(provider),
+            )
+          : RefreshIndicator(
+              onRefresh: () async => ref.invalidate(provider),
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.md,
+                          AppSpacing.md, AppSpacing.md, AppSpacing.md),
+                      child: switch (state) {
+                        AsyncLoading() when !state.hasValue =>
+                          const InventoryHeroCard(
+                              items: [], isApproximate: false),
+                        _ => InventoryHeroCard(
+                            items: state.valueOrNull?.items ?? const [],
+                            isApproximate: state.valueOrNull?.hasMore ?? false,
+                          ),
+                      },
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                      child: AppSearchField(
+                        hint: 'Search by name, SKU, or barcode',
+                        controller: _searchController,
+                        onChanged: (value) => _onSearchChanged(value, uid),
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(
+                      child: SizedBox(height: AppSpacing.sm)),
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _StickyRowDelegate(
+                      height: 40,
+                      child: InventoryCategoryChipBar(
+                        categories: categories,
+                        selectedCategory: state.valueOrNull?.query.category,
+                        onSelected: (category) =>
+                            _onCategorySelected(uid, category),
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+                      child: InventoryQuickFilterBar(
+                        query:
+                            state.valueOrNull?.query ?? const InventoryQuery(),
+                        onQueryChanged: (query) =>
+                            ref.read(provider.notifier).applyQuery(query),
+                      ),
+                    ),
+                  ),
+                  if ((state.valueOrNull?.items ?? const <ProductModel>[])
+                      .isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                        child: LowStockSection(
+                            uid: uid, items: state.valueOrNull!.items),
+                      ),
+                    ),
+                  const SliverToBoxAdapter(
+                      child: SizedBox(height: AppSpacing.sm)),
+                  ..._buildBody(context, uid, state),
+                ],
+              ),
+            ),
     );
   }
-}
 
-class _StatsRowSkeleton extends StatelessWidget {
-  const _StatsRowSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(child: AppCard(child: SkeletonBox(height: 48))),
-        SizedBox(width: AppSpacing.sm),
-        Expanded(child: AppCard(child: SkeletonBox(height: 48))),
-        SizedBox(width: AppSpacing.sm),
-        Expanded(child: AppCard(child: SkeletonBox(height: 48))),
-      ],
-    );
-  }
-}
-
-class _QuickActionTile extends StatelessWidget {
-  const _QuickActionTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.showDivider = true,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool showDivider;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Material(
-          type: MaterialType.transparency,
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(icon, color: AppColors.primary),
-            title: Text(label, style: AppTypography.bodyLG),
-            trailing: const Icon(LucideIcons.chevronRight,
-                size: 18, color: AppColors.textGrey),
-            onTap: onTap,
+  List<Widget> _buildBody(
+      BuildContext context, String uid, AsyncValue<InventoryListState> state) {
+    if (state is AsyncLoading && !state.hasValue) {
+      return const [
+        SliverFillRemaining(
+            hasScrollBody: false, child: Center(child: AppLoadingIndicator()))
+      ];
+    }
+    if (state is AsyncError && !state.hasValue) {
+      final provider = inventoryListControllerProvider(uid);
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: ErrorState(
+            message:
+                'Could not load your products. Please check your connection and try again.',
+            onRetry: () => ref.read(provider.notifier).refresh(),
           ),
         ),
-        if (showDivider) const Divider(height: 1, color: AppColors.border),
-      ],
+      ];
+    }
+
+    final data = state.value!;
+    if (data.items.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: data.query.hasActiveFilters
+              ? const InventoryEmptyState(
+                  icon: LucideIcons.searchX,
+                  title: 'No Search Results',
+                  message: 'No products match your search or filters.',
+                )
+              : InventoryEmptyState(
+                  icon: LucideIcons.package,
+                  title: 'No Products',
+                  message: 'Add your first product to get started.',
+                  actionLabel: 'Add Product',
+                  onAction: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const AddProductEntryPage()),
+                  ),
+                ),
+        ),
+      ];
+    }
+
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: _viewMode == _ViewMode.grid
+              ? _buildGrid(context, uid, data)
+              : _buildList(context, uid, data),
+        ),
+      ),
+      if (data.isLoadingMore)
+        const SliverPadding(
+          padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+          sliver:
+              SliverToBoxAdapter(child: Center(child: AppLoadingIndicator())),
+        ),
+      const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
+    ];
+  }
+
+  Widget _buildGrid(BuildContext context, String uid, InventoryListState data) {
+    final width = MediaQuery.sizeOf(context).width;
+    final crossAxisCount = (width / 170).floor().clamp(2, 6);
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        mainAxisSpacing: AppSpacing.sm,
+        crossAxisSpacing: AppSpacing.sm,
+        childAspectRatio: 0.68,
+      ),
+      itemCount: data.items.length,
+      itemBuilder: (context, index) {
+        final product = data.items[index];
+        return ProductGridCard(
+          product: product,
+          onTap: () => _openProduct(product.id),
+          onLongPress: () => _openQuickActions(uid, product),
+        );
+      },
     );
+  }
+
+  Widget _buildList(BuildContext context, String uid, InventoryListState data) {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: data.items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+      itemBuilder: (context, index) {
+        final product = data.items[index];
+        return ProductCard(
+          product: product,
+          onTap: () => _openProduct(product.id),
+          onLongPress: () => _openQuickActions(uid, product),
+        );
+      },
+    );
+  }
+}
+
+class _OnboardingPrompt extends StatelessWidget {
+  const _OnboardingPrompt({required this.onRefresh});
+
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: () async => onRefresh(),
+      child: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: InventoryEmptyState(
+              icon: LucideIcons.building2,
+              title: 'Complete Merchant Onboarding',
+              message:
+                  'Submit your merchant application to start managing inventory.',
+              actionLabel: 'Start Onboarding',
+              onAction: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const MerchantOnboardingWizardPage()),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pins [child] at a fixed [height] inside a `CustomScrollView` — used for
+/// the category chip row so it stays put ("sticky while scrolling") while
+/// everything above it (hero, search) scrolls away.
+class _StickyRowDelegate extends SliverPersistentHeaderDelegate {
+  const _StickyRowDelegate({required this.child, required this.height});
+
+  final Widget child;
+  final double height;
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return ColoredBox(color: AppColors.background, child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _StickyRowDelegate oldDelegate) {
+    return oldDelegate.child != child;
   }
 }

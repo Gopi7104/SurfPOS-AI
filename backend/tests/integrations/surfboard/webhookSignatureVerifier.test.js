@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { createHmac } from 'crypto';
 import { verifyWebhookSignature } from '../../../src/integrations/surfboard/utils/webhookSignatureVerifier.js';
 
+// HMAC-SHA512, Base64-encoded — confirmed against web-guides/webhooks-notifications.md
+// § "Verifying Webhook Signatures" (the same scheme's own TypeScript example).
 function sign(payload, secret) {
-  return createHmac('sha256', secret).update(payload).digest('hex');
+  return createHmac('sha512', secret).update(payload).digest('base64');
 }
 
 describe('verifyWebhookSignature', () => {
