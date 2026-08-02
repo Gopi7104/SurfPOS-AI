@@ -1,0 +1,12 @@
+# Android release signing template — see DEPLOYMENT.md § Android release signing.
+# Copy to `key.properties` (same directory) and fill in real values. Never commit the real file —
+# it's git-ignored, along with any .jks/.keystore file.
+#
+# Generate a keystore first if you don't have one:
+#   keytool -genkey -v -keystore ~/surfpos-ai-release.jks -keyalg RSA -keysize 2048 \
+#     -validity 10000 -alias surfpos_ai
+
+storePassword=
+keyPassword=
+keyAlias=surfpos_ai
+storeFile=/absolute/path/to/surfpos-ai-release.jks

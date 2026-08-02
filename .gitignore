@@ -30,6 +30,9 @@ frontend/build/
 frontend/android/**/gradle-wrapper.jar
 frontend/android/.gradle
 frontend/android/local.properties
+frontend/android/key.properties
+*.jks
+*.keystore
 frontend/ios/Flutter/.last_build_id
 frontend/ios/Pods/
 frontend/**/*.g.dart

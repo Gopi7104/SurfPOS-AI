@@ -1,0 +1,51 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+
+jobs:
+  analyze-test-build:
+    name: Analyze, Test, Build APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Set up .env
+        # frontend/.env is git-ignored and personal per-machine (see
+        # docs/23_ENVIRONMENT_CONFIGURATION.md) but is declared as a pubspec asset, so analyze/test/
+        # build all need *some* file present. The committed example is a safe, secret-free stand-in.
+        run: cp .env.example .env
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Build release APK
+        # No signing secrets in CI — falls back to debug signing (see
+        # frontend/android/app/build.gradle.kts), which is fine for a build-verification pass.
+        # This never publishes or deploys the APK anywhere.
+        run: flutter build apk --release

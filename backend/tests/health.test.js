@@ -11,6 +11,8 @@ describe('GET /health', () => {
     expect(response.body.data.status).toBe('ok');
     expect(typeof response.body.data.uptimeSeconds).toBe('number');
     expect(typeof response.body.data.timestamp).toBe('string');
+    expect(typeof response.body.data.version).toBe('string');
+    expect(typeof response.body.data.environment).toBe('string');
   });
 
   it('sets an X-Request-Id response header', async () => {

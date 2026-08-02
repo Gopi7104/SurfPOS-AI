@@ -1,7 +1,7 @@
 name: surfpos_ai
 description: "SurfPOS AI — AI-powered mobile-first cloud POS for small retailers. See docs/01_PROJECT_OVERVIEW.md."
 publish_to: "none"
-version: 0.1.0
+version: 0.1.0+1
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
