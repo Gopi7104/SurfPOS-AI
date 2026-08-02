@@ -5,8 +5,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../app/themes/app_colors.dart';
 import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
+import '../../../core/widgets/animations/fade_slide_in.dart';
 import '../../../core/widgets/app_bars/app_top_bar.dart';
 import '../../../core/widgets/buttons/app_primary_button.dart';
+import '../../../core/widgets/cards/app_card.dart';
 import '../../../core/widgets/cards/section_card.dart';
 import '../../../core/widgets/chips/status_chip.dart';
 import '../../../core/widgets/empty_states/error_state.dart';
@@ -18,22 +20,26 @@ import '../models/customer_purchase.dart';
 import '../models/customer_status.dart';
 import '../providers/customer_providers.dart';
 import '../widgets/customer_avatar.dart';
-import '../widgets/customer_empty_state.dart';
+import '../widgets/customer_communication_card.dart';
 import '../widgets/customer_info_section.dart';
+import '../widgets/customer_insights_section.dart';
+import '../widgets/customer_loyalty_card.dart';
 import '../widgets/customer_summary_card.dart';
-import '../widgets/purchase_history_tile.dart';
+import '../widgets/purchase_timeline_card.dart';
 import 'edit_customer_page.dart';
 import 'purchase_history_page.dart';
 
-/// Customer Details — Profile, Loyalty, Purchase History (a preview —
-/// "View All" opens [PurchaseHistoryPage]), Favourite Products, Payment
-/// Methods, Notes, and Tags, plus Edit/soft-delete actions. Mirrors
-/// `ProductDetailsPage`'s shape.
+/// Customer Details — redesigned (Phase UI/UX 7) into a CRM-style profile:
+/// header, quick stats, Communication actions, Customer Insights, Profile/
+/// Address/Business info, Loyalty, Tags, Notes, and a Purchase Timeline.
+/// "Favourite Products" and "Payment Methods" (always-empty before this
+/// redesign — no purchase-linked product/payment data exists anywhere,
+/// see `CustomerRepositoryImpl`'s header comment) are gracefully omitted
+/// entirely per the redesign brief ("gracefully hide unavailable
+/// sections") rather than shown as a permanent dead-end empty card.
 ///
-/// "Receipts" (the spec's own separate line item) isn't a second list —
-/// every [CustomerPurchase] already carries its own receipt number, so
-/// Purchase History *is* the receipts list; a second, identical section
-/// would just repeat the same (currently always-empty) rows twice.
+/// Every action (edit, delete, add note, view all purchases) is unchanged
+/// from before — only the layout/visual composition changed.
 class CustomerDetailsPage extends ConsumerWidget {
   const CustomerDetailsPage({required this.customerId, super.key});
 
@@ -122,7 +128,7 @@ class CustomerDetailsPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppTopBar(
-          title: 'Customer Details', onBack: () => Navigator.of(context).pop()),
+          title: 'Customer Profile', onBack: () => Navigator.of(context).pop()),
       body: switch (customerAsync) {
         AsyncLoading() when !customerAsync.hasValue =>
           const Center(child: AppLoadingIndicator()),
@@ -172,178 +178,197 @@ class _CustomerDetailsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    var delay = 0;
+    Duration next() {
+      final d = Duration(milliseconds: delay);
+      delay += 20;
+      return d;
+    }
+
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
-        SectionCard(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CustomerAvatar(customer: customer, size: 56),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(customer.fullName, style: AppTypography.headingSM),
-                    const SizedBox(height: 2),
-                    Text(customer.phone, style: AppTypography.bodySM),
-                    if (customer.email != null)
-                      Text(customer.email!, style: AppTypography.bodySM),
-                    const SizedBox(height: AppSpacing.xs),
-                    Wrap(
-                      spacing: AppSpacing.xs,
-                      runSpacing: AppSpacing.xs,
-                      children: [
-                        StatusChip(
-                          label: customer.status.label,
-                          tone: customer.status == CustomerStatus.active
-                              ? StatusTone.success
-                              : StatusTone.neutral,
-                        ),
-                        StatusChip(
-                            label: customer.membershipTier.label,
-                            tone: StatusTone.warning),
-                      ],
-                    ),
-                  ],
+        FadeSlideIn(
+          delay: next(),
+          child: SectionCard(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CustomerAvatar(customer: customer, size: 64),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(customer.fullName,
+                                style: AppTypography.headingSM,
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                          if (customer.isVip) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            const Icon(LucideIcons.crown,
+                                size: 16, color: AppColors.warning),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(customer.phone, style: AppTypography.bodySM),
+                      if (customer.email != null)
+                        Text(customer.email!, style: AppTypography.bodySM),
+                      const SizedBox(height: AppSpacing.xs),
+                      Wrap(
+                        spacing: AppSpacing.xs,
+                        runSpacing: AppSpacing.xs,
+                        children: [
+                          StatusChip(
+                            label: customer.status.label,
+                            tone: customer.status == CustomerStatus.active
+                                ? StatusTone.success
+                                : StatusTone.neutral,
+                          ),
+                          StatusChip(
+                              label: customer.membershipTier.label,
+                              tone: StatusTone.warning),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        FadeSlideIn(
+          delay: next(),
+          child: GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 3,
+            mainAxisSpacing: AppSpacing.sm,
+            crossAxisSpacing: AppSpacing.sm,
+            childAspectRatio: 1.0,
+            children: [
+              CustomerSummaryCard(
+                  label: 'Lifetime Spend',
+                  value: '\$${customer.lifetimeSpend.toStringAsFixed(2)}',
+                  icon: LucideIcons.dollarSign),
+              CustomerSummaryCard(
+                  label: 'Total Orders',
+                  value: '${customer.totalOrders}',
+                  icon: LucideIcons.shoppingBag),
+              CustomerSummaryCard(
+                  label: 'Avg. Order Value',
+                  value: '\$${customer.averageOrderValue.toStringAsFixed(2)}',
+                  icon: LucideIcons.calculator),
             ],
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 3,
-          mainAxisSpacing: AppSpacing.sm,
-          crossAxisSpacing: AppSpacing.sm,
-          childAspectRatio: 1.0,
-          children: [
-            CustomerSummaryCard(
-                label: 'Lifetime Spend',
-                value: '\$${customer.lifetimeSpend.toStringAsFixed(2)}',
-                icon: LucideIcons.dollarSign),
-            CustomerSummaryCard(
-                label: 'Total Orders',
-                value: '${customer.totalOrders}',
-                icon: LucideIcons.shoppingBag),
-            CustomerSummaryCard(
-                label: 'Avg. Order Value',
-                value: '\$${customer.averageOrderValue.toStringAsFixed(2)}',
-                icon: LucideIcons.calculator),
-          ],
+        FadeSlideIn(
+          delay: next(),
+          child: CustomerCommunicationCard(
+              phone: customer.phone, email: customer.email),
         ),
         const SizedBox(height: AppSpacing.md),
-        CustomerInfoSection(title: 'Profile', rows: [
-          ('Customer ID', customer.id),
-          (
-            'Date of Birth',
-            customer.dateOfBirth == null
-                ? null
-                : _formatDate(customer.dateOfBirth!)
-          ),
-          ('Gender', customer.gender),
-          ('Member Since', _formatDate(customer.memberSince)),
-          (
-            'Last Purchase',
-            customer.lastPurchaseAt == null
-                ? null
-                : _formatDate(customer.lastPurchaseAt!)
-          ),
-        ]),
+        FadeSlideIn(
+            delay: next(), child: CustomerInsightsSection(customer: customer)),
         const SizedBox(height: AppSpacing.md),
-        CustomerInfoSection(title: 'Address', rows: [
-          ('Address', customer.address),
-          ('City', customer.city),
-          ('Postal Code', customer.postalCode),
-          ('Country', customer.country),
-        ]),
+        FadeSlideIn(
+          delay: next(),
+          child: CustomerInfoSection(title: 'Profile', rows: [
+            ('Customer ID', customer.id),
+            (
+              'Date of Birth',
+              customer.dateOfBirth == null
+                  ? null
+                  : _formatDate(customer.dateOfBirth!)
+            ),
+            ('Gender', customer.gender),
+            ('Member Since', _formatDate(customer.memberSince)),
+            (
+              'Last Purchase',
+              customer.lastPurchaseAt == null
+                  ? null
+                  : _formatDate(customer.lastPurchaseAt!)
+            ),
+          ]),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        FadeSlideIn(
+          delay: next(),
+          child: CustomerInfoSection(title: 'Address', rows: [
+            ('Address', customer.address),
+            ('City', customer.city),
+            ('Postal Code', customer.postalCode),
+            ('Country', customer.country),
+          ]),
+        ),
         if (customer.company != null || customer.vatNumber != null) ...[
           const SizedBox(height: AppSpacing.md),
-          CustomerInfoSection(title: 'Business', rows: [
-            ('Company', customer.company),
-            ('VAT Number', customer.vatNumber),
-          ]),
+          FadeSlideIn(
+            delay: next(),
+            child: CustomerInfoSection(title: 'Business', rows: [
+              ('Company', customer.company),
+              ('VAT Number', customer.vatNumber),
+            ]),
+          ),
         ],
         const SizedBox(height: AppSpacing.md),
-        CustomerInfoSection(title: 'Loyalty', rows: [
-          ('Current Points', '${customer.loyaltyPoints}'),
-          ('Lifetime Points', '${customer.lifetimePoints}'),
-          ('Membership Tier', customer.membershipTier.label),
-        ]),
+        FadeSlideIn(
+            delay: next(), child: CustomerLoyaltyCard(customer: customer)),
         const SizedBox(height: AppSpacing.md),
-        SectionCard(
-          title: 'Tags',
-          child: customer.tags.isEmpty
-              ? Text('No tags yet.', style: AppTypography.bodySM)
-              : Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
-                  children: [
-                    for (final tag in customer.tags)
-                      StatusChip(
-                          label: tag,
-                          tone: tag == 'VIP'
-                              ? StatusTone.warning
-                              : StatusTone.neutral),
-                  ],
-                ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        const SectionCard(
-          title: 'Favourite Products',
-          child: CustomerEmptyState(
-            icon: LucideIcons.heart,
-            title: 'Nothing yet',
-            message: 'No purchases recorded yet to learn favourites from.',
+        FadeSlideIn(
+          delay: next(),
+          child: SectionCard(
+            title: 'Tags',
+            child: customer.tags.isEmpty
+                ? Text('No tags yet.', style: AppTypography.bodySM)
+                : Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      for (final tag in customer.tags)
+                        StatusChip(
+                            label: tag,
+                            tone: tag == 'VIP'
+                                ? StatusTone.warning
+                                : StatusTone.neutral),
+                    ],
+                  ),
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        const SectionCard(
-          title: 'Payment Methods',
-          child: CustomerEmptyState(
-            icon: LucideIcons.creditCard,
-            title: 'Nothing yet',
-            message: 'No saved payment methods for this customer.',
+        FadeSlideIn(
+          delay: next(),
+          child: SectionCard(
+            title: 'Notes',
+            trailing:
+                TextButton(onPressed: onAddNote, child: const Text('Add Note')),
+            child: customer.notes.isEmpty
+                ? Text('No notes yet.', style: AppTypography.bodySM)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final note in customer.notes.reversed)
+                        _NoteRow(note: note)
+                    ],
+                  ),
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        SectionCard(
-          title: 'Notes',
-          trailing:
-              TextButton(onPressed: onAddNote, child: const Text('Add Note')),
-          child: customer.notes.isEmpty
-              ? Text('No notes yet.', style: AppTypography.bodySM)
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final note in customer.notes.reversed)
-                      _NoteRow(note: note),
-                  ],
-                ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        SectionCard(
-          title: 'Purchase History',
-          trailing: TextButton(
-              onPressed: onViewAllPurchases, child: const Text('View All')),
-          child: recentPurchases.isEmpty
-              ? const CustomerEmptyState(
-                  icon: LucideIcons.receipt,
-                  title: 'No purchases yet',
-                  message: 'Completed purchases will show up here.',
-                )
-              : Column(
-                  children: [
-                    for (final purchase in recentPurchases.take(3))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                        child: PurchaseHistoryTile(purchase: purchase),
-                      ),
-                  ],
-                ),
+        FadeSlideIn(
+          delay: next(),
+          child: AppCard(
+            child: PurchaseTimelineCard(
+              purchases: recentPurchases.take(3).toList(),
+              trailing: TextButton(
+                  onPressed: onViewAllPurchases, child: const Text('View All')),
+            ),
+          ),
         ),
         const SizedBox(height: AppSpacing.lg),
         AppPrimaryButton(label: 'Edit Customer', onPressed: onEdit),

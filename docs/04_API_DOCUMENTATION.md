@@ -411,14 +411,14 @@ Full detail in [15_SURFBOARD_INTEGRATION.md](15_SURFBOARD_INTEGRATION.md), [19_S
 ## 14. Health & Infra
 
 ### `GET /health`
-- **Purpose:** Liveness probe for the backend process itself — independent of Firebase/Surfboard/Gemini connectivity.
+- **Purpose:** Liveness probe for the backend process itself — independent of Firebase/Surfboard/OpenRouter connectivity.
 - **Auth:** None.
 - **Response (200):** `{ "success": true, "data": { "status": "ok", "uptimeSeconds": 42, "timestamp": "..." } }`
 
 ## 15. Rate Limiting & Abuse Protection
 
 - All endpoints are rate-limited per authenticated `uid` (default: 120 requests/minute) via backend middleware.
-- `POST /invoice-scans` and Gemini-backed endpoints have a stricter limit (default: 10/minute) due to AI provider cost.
+- `POST /invoice-scans` and OpenRouter-backed endpoints have a stricter limit (default: 10/minute) due to AI provider cost.
 - Surfboard-proxying endpoints (🔵, §§ 3–4, 10) should additionally respect any rate limit Surfboard itself imposes — surfaced as `SURFBOARD_ERROR` if Surfboard rejects a call for rate-limiting reasons, not a generic `INTERNAL_ERROR`.
 - Exceeding SurfPOS's own limit returns `429 RATE_LIMITED`.
 

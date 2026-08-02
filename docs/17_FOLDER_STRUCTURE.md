@@ -99,7 +99,7 @@ backend/
 │   │   ├── device/                 # device.service.js, device.mapper.js — Surfboard-owned — Roadmap Phase 10
 │   │   ├── branding/                # branding.service.js, branding.mapper.js — Surfboard-owned — Roadmap Phase 11
 │   │   ├── analytics/                # analytics.service.js, analytics.repository.js — Firebase-owned — Roadmap Phase 12
-│   │   ├── ai/                        # OCR, Gemini, product/supplier matching — Firebase-owned — Roadmap Phase 13
+│   │   ├── ai/                        # OCR, OpenRouter, product/supplier matching — Firebase-owned — Roadmap Phase 13
 │   │   ├── receipts/                   # receipts.service.js, receipts.repository.js — Firebase-owned
 │   │   └── suppliers/                   # suppliers.service.js, suppliers.repository.js — Firebase-owned, new in this pass
 │   │

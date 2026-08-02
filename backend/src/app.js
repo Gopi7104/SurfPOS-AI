@@ -25,6 +25,7 @@ const inventoryRoutes = require('./routes/inventory.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const paymentRedirectRoutes = require('./routes/paymentRedirect.routes');
 const webhookRoutes = require('./routes/webhook.routes');
+const aiRoutes = require('./routes/ai.routes');
 
 const app = express();
 
@@ -95,6 +96,7 @@ app.use(API_ROUTES.MERCHANT, merchantRoutes);
 app.use(API_ROUTES.STORES, storeRoutes);
 app.use(API_ROUTES.INVENTORY, inventoryRoutes);
 app.use(API_ROUTES.PAYMENTS, paymentRoutes);
+app.use(API_ROUTES.AI, aiRoutes);
 
 app.use((req, res, next) => {
   next(new NotFoundError(MESSAGES.routeNotFound(req.method, req.originalUrl)));

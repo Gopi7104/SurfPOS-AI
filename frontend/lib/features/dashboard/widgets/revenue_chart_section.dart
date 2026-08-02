@@ -131,16 +131,25 @@ class _RevenueBarChart extends StatelessWidget {
             ),
           ),
         ),
-        barTouchData: BarTouchData(
-          touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (_) => AppColors.primaryDark,
-            getTooltipItem: (group, groupIndex, rod, rodIndex) =>
-                BarTooltipItem(
-              '\$${rod.toY.toStringAsFixed(2)}',
-              AppTypography.caption.copyWith(color: AppColors.white),
-            ),
-          ),
-        ),
+        // Touch/tooltip handling deliberately disabled — fl_chart's
+        // un-scaled BarChart/LineChart (`transformationConfig` left at its
+        // default `FlScaleAxis.none`, as every chart in this app is) arms a
+        // raw, omnidirectional `PanGestureRecognizer` directly on the
+        // chart's RenderBox whenever any touch callback is active (see
+        // `RenderBaseChart.handleEvent` in the fl_chart package — gated
+        // only by `canBeScaled`, which is false here). Because that
+        // RenderBox sits deeper in the tree than this section's ancestor
+        // `ListView` (Flutter dispatches pointer events to the most
+        // specific/deepest hit first — see `HitTestResult.path`'s own
+        // doc comment), the chart's pan recognizer reliably wins the
+        // gesture arena over the ListView's own vertical drag recognizer
+        // for any scroll gesture that starts with a touch-down on the
+        // chart — this was the confirmed root cause of the Dashboard
+        // "can't scroll after touching a chart" bug. fl_chart exposes no
+        // way to keep tap-tooltip while dropping just the pan recognizer,
+        // so touch is disabled outright; the chart's data/appearance are
+        // unchanged.
+        barTouchData: const BarTouchData(enabled: false),
         barGroups: [
           for (var i = 0; i < points.length; i++)
             BarChartGroupData(x: i, barRods: [

@@ -212,7 +212,7 @@ Full schema: [03_DATABASE_DESIGN.md § 4.4](03_DATABASE_DESIGN.md#44-ordersmerch
 
 ### 2.12 InvoiceScan — *Firebase-owned*
 
-The OCR + Gemini AI extraction pipeline record. See [16_AI_MODULE.md](16_AI_MODULE.md).
+The OCR + OpenRouter AI extraction pipeline record. See [16_AI_MODULE.md](16_AI_MODULE.md).
 
 Full schema: [03_DATABASE_DESIGN.md § 4.5](03_DATABASE_DESIGN.md#45-invoicescansmerchantidscanid).
 

@@ -8,7 +8,7 @@
 const fs = require('fs');
 
 const TRACE_FILE =
-  '/private/tmp/claude-501/-Users-sgopinath-Desktop-SurfPOS-AI/17c813e6-4a3e-48dd-a280-47c0827bc0b1/scratchpad/payment_trace.log';
+  '/private/tmp/claude-501/-Users-sgopinath-Desktop-SurfPOS-AI/b1d5544d-fd6c-4056-b89e-642c1f4bf78b/scratchpad/payment_trace.log';
 
 function paymentTrace(step, event, data = {}) {
   const line = JSON.stringify({ ts: new Date().toISOString(), step, event, ...data });

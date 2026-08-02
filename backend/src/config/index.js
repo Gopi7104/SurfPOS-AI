@@ -42,7 +42,12 @@ const envSchema = z.object({
   FIREBASE_DATABASE_URL: z.string().optional(),
   FIREBASE_STORAGE_BUCKET: z.string().optional(),
 
-  GEMINI_API_KEY: z.string().optional(),
+  // SurfAI's single AI provider (docs/16_AI_MODULE.md) — replaces the removed Gemini
+  // integration. OPENROUTER_BASE_URL/DEFAULT_MODEL have safe defaults so dev only needs to set
+  // the key; production can still override either via env.
+  OPENROUTER_API_KEY: z.string().optional(),
+  OPENROUTER_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
+  DEFAULT_MODEL: z.string().default('openai/gpt-5-mini'),
   OCR_PROVIDER_API_KEY: z.string().optional(),
 
   SURFBOARD_API_KEY: z.string().optional(),
@@ -79,15 +84,16 @@ if (!parsed.success) {
 
 const env = parsed.data;
 
-// Firebase/Gemini/Surfboard projects aren't provisioned yet (see docs/10_TASKS.md Phase 0.3-0.5),
-// so these are only hard-required once NODE_ENV=production — enforced here, not on first use.
+// Firebase/OpenRouter/Surfboard projects aren't provisioned yet (see docs/10_TASKS.md Phase
+// 0.3-0.5), so these are only hard-required once NODE_ENV=production — enforced here, not on
+// first use.
 const PRODUCTION_REQUIRED_KEYS = [
   ENV_KEYS.FIREBASE_PROJECT_ID,
   ENV_KEYS.FIREBASE_CLIENT_EMAIL,
   ENV_KEYS.FIREBASE_PRIVATE_KEY,
   ENV_KEYS.FIREBASE_DATABASE_URL,
   ENV_KEYS.FIREBASE_STORAGE_BUCKET,
-  ENV_KEYS.GEMINI_API_KEY,
+  ENV_KEYS.OPENROUTER_API_KEY,
   ENV_KEYS.SURFBOARD_API_KEY,
   ENV_KEYS.SURFBOARD_API_SECRET,
   ENV_KEYS.SURFBOARD_WEBHOOK_SECRET,
@@ -126,8 +132,10 @@ const config = {
     storageBucket: env.FIREBASE_STORAGE_BUCKET,
   },
 
-  gemini: {
-    apiKey: env.GEMINI_API_KEY,
+  openRouter: {
+    apiKey: env.OPENROUTER_API_KEY,
+    baseUrl: env.OPENROUTER_BASE_URL,
+    defaultModel: env.DEFAULT_MODEL,
   },
 
   ocr: {

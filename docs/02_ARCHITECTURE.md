@@ -36,7 +36,7 @@ SurfPOS AI is a **client-server, cloud-native, multi-tenant** system with **two 
           │  FIREBASE RTDB / STORAGE  │            └──────────────────────┘
           └──────────────────────────┘
 
-                (AI Layer — Gemini + OCR — hangs off Domain Services the
+                (AI Layer — OpenRouter + OCR — hangs off Domain Services the
                  same way Repositories do; see § 5)
 ```
 
@@ -58,7 +58,7 @@ SurfPOS AI is a **client-server, cloud-native, multi-tenant** system with **two 
   - Verify every incoming request's Firebase ID token (`auth.middleware.js`) — Firebase Authentication remains SurfPOS's identity provider regardless of the Merchant/Store ownership change (identity is not a Surfboard concept).
   - Own all business logic that must not run on the client, exactly as before: sale totals/tax computation, inventory decrement, invoice-to-inventory reconciliation, analytics aggregation.
   - Own the **only** code path that talks to Surfboard, through the Integration Layer (§ 5), and the **only** code path that talks to Firebase for application data, through Repositories (§ 4).
-  - Never store secrets or service credentials on the client. Every third-party secret (Gemini API key, Surfboard API keys, Firebase service account) lives only in backend environment variables.
+  - Never store secrets or service credentials on the client. Every third-party secret (OpenRouter API key, Surfboard API keys, Firebase service account) lives only in backend environment variables.
 - **The backend has no primary datastore of its own.** For application data it reads/writes Firebase RTDB via Repositories. For Merchant/Store/Device/Payment/Branding/Tips/Payment Methods it has **no datastore at all** — it calls Surfboard live every time, because Surfboard is the datastore for those entities (see [20_DOMAIN_MODEL.md § 1](20_DOMAIN_MODEL.md#1-the-ownership-principle)).
 
 ## 4. Data Ownership: Surfboard vs. Firebase
@@ -88,7 +88,7 @@ Domain Services (`src/modules/<domain>/`) sit above two parallel data-access pat
 
 1. **Repositories** (`<domain>.repository.js`) — the only code that calls the Firebase Admin SDK, one per Firebase-owned entity.
 2. **Surfboard Integration Layer** (`src/integrations/surfboard/<domain>.client.js`) — the only code that calls a Surfboard API, one per Surfboard-owned domain.
-3. **AI Layer** (`src/modules/ai/`) — OCR + Gemini, called only from the backend (never the client, so API keys stay server-side and output is validated before touching Firebase). Unchanged in shape from earlier plans — the AI layer's inputs/outputs are entirely Firebase-owned data (InvoiceScan, Analytics), so it doesn't touch Surfboard at all.
+3. **AI Layer** (`src/modules/ai/`) — OCR + OpenRouter, called only from the backend (never the client, so API keys stay server-side and output is validated before touching Firebase). Unchanged in shape from earlier plans — the AI layer's inputs/outputs are entirely Firebase-owned data (InvoiceScan, Analytics), so it doesn't touch Surfboard at all.
 
 Full layering contract, including the Mapper/Validator sub-layers and the cross-module calling rule: [21_BACKEND_GUIDELINES.md](21_BACKEND_GUIDELINES.md).
 

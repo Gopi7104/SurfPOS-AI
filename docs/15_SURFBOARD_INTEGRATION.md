@@ -101,4 +101,4 @@ Tips:              Queried/configured live via their respective clients — neve
 
 ---
 
-**Next:** [19_SURFBOARD_WORKFLOWS.md](19_SURFBOARD_WORKFLOWS.md) if arriving here first, otherwise [16_AI_MODULE.md](16_AI_MODULE.md) — the OCR + Gemini AI pipeline (unaffected by this pass).
+**Next:** [19_SURFBOARD_WORKFLOWS.md](19_SURFBOARD_WORKFLOWS.md) if arriving here first, otherwise [16_AI_MODULE.md](16_AI_MODULE.md) — the OCR + OpenRouter AI pipeline (unaffected by this pass).

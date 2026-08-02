@@ -207,7 +207,7 @@ class PaymentController
             .getCheckoutStatus(orderId);
         debugPrint(
             '[PAYMENT_TRACE] step=9 event=exited orderId=$orderId orderStatus=${status.orderStatus} paymentStatus=${status.paymentStatus} paymentId=${status.paymentId} transactionId=${status.transactionId}');
-        final phase = _mapPhase(status.paymentStatus);
+        final phase = _mapPhase(status.paymentStatus, status.orderStatus);
         debugPrint(
             '[PAYMENT_TRACE] step=12 event=phase_mapped rawPaymentStatus=${status.paymentStatus} mappedPhase=$phase');
         state = state.copyWith(
@@ -235,7 +235,13 @@ class PaymentController
     }
   }
 
-  PaymentPhase _mapPhase(String? paymentStatus) {
+  // `paymentStatus` comes from Surfboard's `payments[0].paymentStatus` (Fetch Order Status) or the
+  // webhook cache — the primary signal. But Fetch Order Status can report the order itself as
+  // already `PAYMENT_COMPLETED`/`PAYMENT_CANCELLED` (`orderStatus`) while its `payments[]` array
+  // hasn't caught up yet, leaving `paymentStatus` null — confirmed live on the sandbox (see
+  // webhook.controller.js's header comment on the same lag). Falling back to `orderStatus` here
+  // stops the app polling forever in that window instead of just waiting for the webhook/next poll.
+  PaymentPhase _mapPhase(String? paymentStatus, String? orderStatus) {
     return switch (paymentStatus) {
       'PAYMENT_COMPLETED' => PaymentPhase.paymentSuccessful,
       'PAYMENT_FAILED' => PaymentPhase.paymentFailed,
@@ -243,7 +249,13 @@ class PaymentController
       'PAYMENT_PROCESSING' ||
       'PAYMENT_PROCESSED' =>
         PaymentPhase.paymentProcessing,
-      _ => PaymentPhase.waitingForCustomer,
+      _ => switch (orderStatus) {
+          'PAYMENT_COMPLETED' ||
+          'PARTIAL_PAYMENT_COMPLETED' =>
+            PaymentPhase.paymentSuccessful,
+          'PAYMENT_CANCELLED' => PaymentPhase.paymentCancelled,
+          _ => PaymentPhase.waitingForCustomer,
+        },
     };
   }
 }

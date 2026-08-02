@@ -71,18 +71,15 @@ class _LineChart extends StatelessWidget {
             ),
           ),
         ),
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => AppColors.primaryDark,
-            getTooltipItems: (spots) => [
-              for (final spot in spots)
-                LineTooltipItem(
-                  '\$${spot.y.toStringAsFixed(2)}',
-                  AppTypography.caption.copyWith(color: AppColors.white),
-                ),
-            ],
-          ),
-        ),
+        // Touch/tooltip handling deliberately disabled — see
+        // `revenue_chart_section.dart`'s matching comment for the full
+        // explanation: fl_chart's un-scaled LineChart arms a raw,
+        // omnidirectional pan recognizer whenever touch is enabled, and
+        // because it sits deeper in the tree than this section's ancestor
+        // ListView, it reliably wins the gesture arena over the page's own
+        // scroll gesture — the confirmed root cause of the Dashboard
+        // "can't scroll after touching a chart" bug.
+        lineTouchData: const LineTouchData(enabled: false),
         lineBarsData: [
           LineChartBarData(
             spots: [

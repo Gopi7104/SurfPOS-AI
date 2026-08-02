@@ -12,7 +12,7 @@ It combines four things that are usually sold separately:
 
 1. **A POS system** — barcode billing, cart, receipts, inventory.
 2. **A payments platform** — card, Swish, and wallet acceptance via **Surfboard Payments**, which is also the system of record for the merchant's business identity, stores, and card-reader devices (see [20_DOMAIN_MODEL.md § 1](20_DOMAIN_MODEL.md#1-the-ownership-principle)).
-3. **An AI layer** — OCR-based supplier invoice scanning and Gemini-powered business insights.
+3. **An AI layer** — OCR-based supplier invoice scanning and OpenRouter-powered business insights.
 4. **A cloud backend** — Firebase-based for application data (inventory, catalog, sales, analytics), so merchants never need local servers, local databases, or IT staff.
 
 The entire experience is designed to run from a merchant's own smartphone. No dedicated POS terminal, no separate barcode scanner hardware (the phone camera is the scanner), and no local installation.
@@ -44,7 +44,7 @@ SurfPOS AI addresses all four gaps in a single mobile app built entirely on top 
 SurfPOS AI is a single Flutter application (phone-first, tablet-friendly) backed by a Node.js/Express API that lets a merchant:
 
 - Register their business — SurfPOS creates the Merchant and default Store **directly in Surfboard** (see [19_SURFBOARD_WORKFLOWS.md § 1](19_SURFBOARD_WORKFLOWS.md#1-merchant-lifecycle)), not as a separate SurfPOS-owned record that then needs reconciling.
-- Scan a supplier invoice with the phone camera; AI (OCR + Gemini) extracts line items and proposes inventory updates.
+- Scan a supplier invoice with the phone camera; AI (OCR + OpenRouter) extracts line items and proposes inventory updates.
 - Search or barcode-scan any product during a sale.
 - Build a cart and check out, accepting payment through whichever rails Surfboard has configured for that Store (card / Swish / wallet).
 - Automatically generate and share a digital receipt.
@@ -61,7 +61,7 @@ Full detail for each of these lives in [05_FEATURES.md](05_FEATURES.md).
 3. Dashboard (daily snapshot: sales, top products, low stock — Firebase-owned analytics)
 4. Inventory Management (Firebase-owned)
 5. Barcode Scanner (camera-based, no external hardware)
-6. AI Invoice Scanner (OCR + Gemini extraction → inventory update)
+6. AI Invoice Scanner (OCR + OpenRouter extraction → inventory update)
 7. Billing / Cart / Checkout
 8. Payments (Surfboard-owned Payment lifecycle, Device linkage, Tips)
 9. Digital Receipts (Firebase-owned, distinct from Surfboard's own checkout branding)
@@ -97,7 +97,7 @@ Explicitly **out of scope for the initial build**, architected for (see [22_DEVE
 | Authentication | **Firebase Authentication** | Identity only — email/password + phone OTP |
 | Storage | **Firebase Storage** | Product images, invoice scans, receipt PDFs |
 | AI — OCR | On-device/cloud OCR (final choice open — see [08_ARCHITECTURE_DECISIONS.md § ADR-009](08_ARCHITECTURE_DECISIONS.md#adr-009--pending-decisions-to-record-here-once-made)) | Text extraction from invoice photos and barcodes |
-| AI — Reasoning | **Gemini API** | Structuring OCR text into line items; generating business insights |
+| AI — Reasoning | **OpenRouter API** | Structuring OCR text into line items; generating business insights |
 | Merchant / Store / Device / Payments / Branding / Tips / Payment Methods | **Surfboard Payments** | System of record — see [20_DOMAIN_MODEL.md](20_DOMAIN_MODEL.md), [15_SURFBOARD_INTEGRATION.md](15_SURFBOARD_INTEGRATION.md) |
 
 Full rationale for each choice: [08_ARCHITECTURE_DECISIONS.md](08_ARCHITECTURE_DECISIONS.md).

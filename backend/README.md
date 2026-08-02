@@ -1,6 +1,6 @@
 # backend/ — SurfPOS AI API
 
-Node.js + Express REST API. Stateless, layered (`routes → controllers → services`), orchestrates Firebase Admin SDK, Gemini API, OCR, and Surfboard Payments. See [docs/02_ARCHITECTURE.md § 3](../docs/02_ARCHITECTURE.md#3-backend-nodejs--express) and [docs/04_API_DOCUMENTATION.md](../docs/04_API_DOCUMENTATION.md).
+Node.js + Express REST API. Stateless, layered (`routes → controllers → services`), orchestrates Firebase Admin SDK, OpenRouter (SurfAI), OCR, and Surfboard Payments. See [docs/02_ARCHITECTURE.md § 3](../docs/02_ARCHITECTURE.md#3-backend-nodejs--express) and [docs/04_API_DOCUMENTATION.md](../docs/04_API_DOCUMENTATION.md).
 
 **Status:** foundational scaffolding implemented (Express app, config, logging, error handling, validation, Firebase Admin SDK init, `GET /health`) — no business-domain module (auth, merchant, inventory, billing, etc.) yet. See [docs/13_CLAUDE_CONTEXT.md](../docs/13_CLAUDE_CONTEXT.md).
 

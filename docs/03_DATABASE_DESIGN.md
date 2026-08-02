@@ -134,7 +134,7 @@ Supplier purchase orders — stock coming *in*, distinct from `sales` (stock goi
 
 ### 4.5 `invoiceScans/{merchantId}/{scanId}`
 
-Result of the AI OCR + Gemini pipeline. Full flow in [16_AI_MODULE.md](16_AI_MODULE.md).
+Result of the AI OCR + OpenRouter pipeline. Full flow in [16_AI_MODULE.md](16_AI_MODULE.md).
 
 ```jsonc
 {

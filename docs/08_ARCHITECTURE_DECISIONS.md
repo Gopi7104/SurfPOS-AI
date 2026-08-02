@@ -26,12 +26,12 @@
 ## ADR-003 — Why Node.js + Express for the backend
 
 - **Status:** Accepted
-- **Context:** The backend's job is orchestration (Firebase Admin SDK, Gemini API, OCR, and now a much larger Surfboard integration surface) rather than heavy compute.
+- **Context:** The backend's job is orchestration (Firebase Admin SDK, OpenRouter API, OCR, and now a much larger Surfboard integration surface) rather than heavy compute.
 - **Decision:** Node.js + Express.js as a thin, stateless REST API layer, and — per this pass — the **sole gatekeeper** to both Firebase and Surfboard (see [02_ARCHITECTURE.md § 1](02_ARCHITECTURE.md#1-system-architecture-high-level)).
 - **Consequences:** Naturally async, well suited to orchestrating multiple external calls per request. Trade-off: not ideal for CPU-heavy work.
 - **Revisit if:** a CPU-bound workload needs to move in-process.
 
-## ADR-004 — Why AI OCR + Gemini for invoice scanning
+## ADR-004 — Why AI OCR + OpenRouter for invoice scanning
 
 - **Status:** Accepted — unaffected by the Surfboard-alignment pass (the AI pipeline is entirely Firebase-owned data, see [20_DOMAIN_MODEL.md § 1](20_DOMAIN_MODEL.md#1-the-ownership-principle)).
 - **Context/Decision/Consequences:** unchanged from the founding decision — see [16_AI_MODULE.md](16_AI_MODULE.md) for current detail.
@@ -71,7 +71,7 @@ The following are intentionally **not yet decided**:
 
 - Final choice of OCR provider/library — see [16_AI_MODULE.md](16_AI_MODULE.md).
 - Final production font family — see [06_UI_UX_GUIDE.md § 3](06_UI_UX_GUIDE.md#3-typography).
-- Where Gemini-generated insights are cached/stored in the schema — see [05_FEATURES.md § 12](05_FEATURES.md#12-analytics--ai-business-insights).
+- Where OpenRouter-generated insights are cached/stored in the schema — see [05_FEATURES.md § 12](05_FEATURES.md#12-analytics--ai-business-insights).
 - Exact Surfboard API surface (endpoint paths, payload field names, auth scheme) once official integration docs/credentials are available — see [15_SURFBOARD_INTEGRATION.md](15_SURFBOARD_INTEGRATION.md). **Note:** this is narrower than it used to be — the *ownership model* (which entities Surfboard owns) is now confirmed (ADR-014); only the *wire-level specifics* remain open.
 - **New in this pass:** real-time client strategy. Removing direct Flutter↔Firebase access (see [ADR-014](#adr-014--surfboard-is-the-system-of-record-for-merchant-store-device-payment-branding-tips-and-payment-methods) and [02_ARCHITECTURE.md § 2](02_ARCHITECTURE.md#2-frontend-flutter)) removes the real-time RTDB listener mechanism the original design leaned on for "instant" dashboard/sale-status updates. Whether the client now polls or the backend adds a push/streaming channel (WebSocket/SSE) is undecided — resolve before Phase 8 (Billing) or Phase 12 (Analytics) needs it (see [22_DEVELOPMENT_ROADMAP.md](22_DEVELOPMENT_ROADMAP.md)).
 - ~~Backend validation library, logging library~~ — resolved, [ADR-010](#adr-010--backend-validation-library-zod)/[ADR-011](#adr-011--backend-logging-library-pino).

@@ -300,4 +300,85 @@ describe('payment.mapper', () => {
       });
     });
   });
+
+  describe('toWebhookStatusDomain', () => {
+    it('maps an order.paymentcompleted event to a terminal domain status', () => {
+      const domain = paymentMapper.toWebhookStatusDomain({
+        eventType: 'order.paymentcompleted',
+        data: {
+          orderId: 'order_1',
+          paymentStatus: 'PAYMENT_COMPLETED',
+          paymentMethod: 'CARD',
+          paymentId: 'pay_1',
+          amount: '200',
+          transactionDetails: [{ transactionId: 'txn_1' }],
+        },
+      });
+
+      expect(domain).toEqual({
+        orderId: 'order_1',
+        orderStatus: 'PAYMENT_COMPLETED',
+        paymentStatus: 'PAYMENT_COMPLETED',
+        paymentId: 'pay_1',
+        paymentMethod: 'CARD',
+        // Surfboard sends amount as a numeric string in the webhook body — coerced to a number so
+        // this matches toOrderStatusDomain's shape and the Flutter client's strict `as num?` cast
+        // doesn't throw (see this method's own header comment).
+        amount: 200,
+        failureReason: null,
+        transactionId: 'txn_1',
+      });
+    });
+
+    it('maps an order.paymentfailed event, reading orderStatus and failedTransactionDetails', () => {
+      const domain = paymentMapper.toWebhookStatusDomain({
+        eventType: 'order.paymentfailed',
+        data: {
+          orderId: 'order_2',
+          orderStatus: 'PAYMENT_FAILED',
+          paymentId: 'pay_2',
+          failedTransactionDetails: [{ transactionId: 'txn_2' }],
+        },
+      });
+
+      expect(domain).toMatchObject({
+        orderId: 'order_2',
+        orderStatus: 'PAYMENT_FAILED',
+        paymentStatus: 'PAYMENT_FAILED',
+        paymentId: 'pay_2',
+        transactionId: 'txn_2',
+      });
+    });
+
+    it('maps an order.paymentcancelled event', () => {
+      const domain = paymentMapper.toWebhookStatusDomain({
+        eventType: 'order.paymentcancelled',
+        data: { orderId: 'order_3', orderStatus: 'PAYMENT_CANCELLED', paymentId: 'pay_3' },
+      });
+
+      expect(domain).toMatchObject({
+        orderId: 'order_3',
+        paymentStatus: 'PAYMENT_CANCELLED',
+      });
+    });
+
+    it('returns null for a non-terminal event (e.g. order.paymentprocessed)', () => {
+      expect(
+        paymentMapper.toWebhookStatusDomain({
+          eventType: 'order.paymentprocessed',
+          data: { orderId: 'order_4' },
+        }),
+      ).toBeNull();
+    });
+
+    it('returns null for the Console "test.webhook" event', () => {
+      expect(paymentMapper.toWebhookStatusDomain({ eventType: 'test.webhook', metadata: {} })).toBeNull();
+    });
+
+    it('returns null when data.orderId is missing', () => {
+      expect(
+        paymentMapper.toWebhookStatusDomain({ eventType: 'order.paymentcompleted', data: {} }),
+      ).toBeNull();
+    });
+  });
 });

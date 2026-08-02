@@ -13,7 +13,7 @@
 | Firebase CLI (`npm i -g firebase-tools`) | Managing Firebase project, deploying rules/functions |
 | A Firebase project | Auth, Realtime Database, Storage |
 | A Surfboard Payments sandbox/developer account | Payment integration (see [15_SURFBOARD_INTEGRATION.md](15_SURFBOARD_INTEGRATION.md)) |
-| A Gemini API key | AI features (see [16_AI_MODULE.md](16_AI_MODULE.md)) |
+| An OpenRouter API key | AI features (see [16_AI_MODULE.md](16_AI_MODULE.md)) |
 | Android Studio / Xcode | Platform toolchains for building/running on emulators/devices |
 
 ## 2. Repository Layout
@@ -116,7 +116,9 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 FIREBASE_DATABASE_URL=https://surfpos-ai-default-rtdb.firebaseio.com
 
 # AI
-GEMINI_API_KEY=your-gemini-api-key
+OPENROUTER_API_KEY=your-openrouter-api-key
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+DEFAULT_MODEL=openai/gpt-5-mini
 OCR_PROVIDER_API_KEY=your-ocr-provider-key   # if using a cloud OCR provider — see 16_AI_MODULE.md
 
 # Surfboard Payments
@@ -156,7 +158,7 @@ _Exact deployment target (e.g. Cloud Run, a container platform, or a serverless 
 - **Firebase data issues:** use the Firebase Console's Realtime Database viewer to inspect the actual tree shape against [03_DATABASE_DESIGN.md](03_DATABASE_DESIGN.md) — a mismatch there is a fast way to spot a bug before it's a symptom in the app.
 - **Payment issues:** check Surfboard's sandbox dashboard/logs (once integrated) alongside the backend's webhook logs and the referencing Sale's `surfboardPaymentId`/`paymentStatus` fields — there is no Firebase `payments` node to inspect (see [03_DATABASE_DESIGN.md § 1](03_DATABASE_DESIGN.md#1-scope-of-this-schema)); the full Payment object is only ever visible via a live `GET /payments/:paymentId` call or Surfboard's own dashboard.
 - **Merchant/Store/Device/Branding issues:** these have no Firebase representation to inspect at all — check the relevant Integration Client's logged request/response (IDs only, never full bodies — see [21_BACKEND_GUIDELINES.md § 10](21_BACKEND_GUIDELINES.md#10-logging)) and Surfboard's own dashboard.
-- **AI extraction issues:** inspect the `invoiceScans/{merchantId}/{scanId}` record directly (raw OCR text + Gemini output are both stored) to tell whether OCR or Gemini structuring is the failure point — see [16_AI_MODULE.md § Error Handling](16_AI_MODULE.md#6-error-handling).
+- **AI extraction issues:** inspect the `invoiceScans/{merchantId}/{scanId}` record directly (raw OCR text + OpenRouter output are both stored) to tell whether OCR or OpenRouter structuring is the failure point — see [16_AI_MODULE.md § Error Handling](16_AI_MODULE.md#6-error-handling).
 
 ---
 

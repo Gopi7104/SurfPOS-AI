@@ -30,5 +30,9 @@ module.exports = Object.freeze({
     'Original order details are no longer available for retry — start a new checkout',
   INVALID_WEBHOOK_SIGNATURE: 'Invalid webhook signature',
   MISSING_WEBHOOK_SIGNATURE: 'Missing x-webhook-signature header',
+  AI_PROCESSING_ERROR: 'SurfAI could not process your request. Please try again.',
+  AI_TIMEOUT: 'SurfAI took too long to respond. Please try again.',
+  AI_NOT_CONFIGURED: 'SurfAI is not configured yet. Please contact support.',
+  AI_RATE_LIMITED: 'SurfAI is receiving too many requests right now — please try again shortly',
   routeNotFound: (method, path) => `Route not found: ${method} ${path}`,
 });

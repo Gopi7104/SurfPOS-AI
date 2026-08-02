@@ -19,7 +19,7 @@ Full product context: [01_PROJECT_OVERVIEW.md](01_PROJECT_OVERVIEW.md).
 - 📊 Daily dashboard with AI business insights
 - 📦 Inventory management with low-stock alerts
 - 📷 Camera-based barcode scanning
-- 🤖 AI invoice scanner (OCR + Gemini)
+- 🤖 AI invoice scanner (OCR + OpenRouter)
 - 🛒 Cart & barcode billing
 - 💳 Payments, Tips, and Payment Methods via Surfboard
 - 🔌 Device management (Surfboard card readers)
@@ -54,7 +54,7 @@ Flutter (mobile) ──REST (HTTPS)──> Node.js/Express Backend
 | Application data | Firebase Realtime Database |
 | Auth | Firebase Authentication |
 | Storage | Firebase Storage |
-| AI | OCR + Gemini API |
+| AI | OCR + OpenRouter API |
 | Merchant / Store / Device / Payments / Branding / Tips / Payment Methods | Surfboard Payments |
 
 ## Folder Structure
@@ -109,7 +109,7 @@ flutter run
 | 13 | [CLAUDE_CONTEXT](13_CLAUDE_CONTEXT.md) | Start-here for AI sessions |
 | 14 | [DEVELOPER_GUIDE](14_DEVELOPER_GUIDE.md) | Setup & deployment |
 | 15 | [SURFBOARD_INTEGRATION](15_SURFBOARD_INTEGRATION.md) | Surfboard integration contract |
-| 16 | [AI_MODULE](16_AI_MODULE.md) | OCR + Gemini pipeline |
+| 16 | [AI_MODULE](16_AI_MODULE.md) | OCR + OpenRouter pipeline |
 | 17 | [FOLDER_STRUCTURE](17_FOLDER_STRUCTURE.md) | Directory tree |
 | 18 | [CONTRIBUTING](18_CONTRIBUTING.md) | Git workflow & PR process |
 | 19 | [SURFBOARD_WORKFLOWS](19_SURFBOARD_WORKFLOWS.md) | Merchant/Store/Device/Payment lifecycles |

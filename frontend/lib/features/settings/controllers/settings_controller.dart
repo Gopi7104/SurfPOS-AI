@@ -161,6 +161,14 @@ class SettingsController
     }
   }
 
+  /// "Import Settings" in Backup & Sync — replaces every preference this
+  /// module owns with [data] in one write, the same `_update()` path (and
+  /// therefore the same [SettingsRepository.updateSettings] call) every
+  /// other setter already goes through. The caller is responsible for
+  /// having parsed/validated the incoming JSON via [SettingsData.fromJson]
+  /// before calling this.
+  Future<void> importSettings(SettingsData data) => _update((_) => data);
+
   Future<void> resetToDefaults() async {
     final defaults =
         await ref.read(settingsRepositoryProvider(arg)).resetToDefaults();

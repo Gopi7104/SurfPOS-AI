@@ -82,6 +82,32 @@ function createPaymentRepository({ getDb = defaultGetDb } = {}) {
     await getDb().ref(`orderCheckoutItems/${orderId}`).set({ items, createdAt: Date.now() });
   }
 
+  /**
+   * @param {string} orderId
+   * @returns {Promise<object|null>} the domain-shaped status `webhook.controller.js` cached via
+   *   `setWebhookStatus`, or `null` if no terminal webhook has arrived yet for this order.
+   */
+  async function getWebhookStatus(orderId) {
+    const snapshot = await getDb().ref(`webhookOrderStatus/${orderId}`).once('value');
+    return snapshot.val()?.status ?? null;
+  }
+
+  /**
+   * Caches a terminal payment outcome as soon as Surfboard's webhook reports it — see
+   * payment.mapper.js#toWebhookStatusDomain's header comment for why this exists (the webhook
+   * beats Fetch Order Status to a completed payment by a wide, sometimes multi-minute margin on
+   * Surfboard's sandbox). `status` is only ever one of the three terminal states (enforced by
+   * `toWebhookStatusDomain` returning `null` for anything else), so this never needs to guard
+   * against overwriting a terminal result with a non-terminal one — every write here already is
+   * terminal, matching web-guides/webhooks-notifications.md's "treat these three statuses as
+   * final" rule by construction.
+   * @param {string} orderId
+   * @param {object} status the domain-shaped status object to cache verbatim
+   */
+  async function setWebhookStatus(orderId, status) {
+    await getDb().ref(`webhookOrderStatus/${orderId}`).set({ status, createdAt: Date.now() });
+  }
+
   return {
     getTerminalId,
     setTerminalId,
@@ -89,6 +115,8 @@ function createPaymentRepository({ getDb = defaultGetDb } = {}) {
     setPaymentUrl,
     getCheckoutItems,
     setCheckoutItems,
+    getWebhookStatus,
+    setWebhookStatus,
   };
 }
 

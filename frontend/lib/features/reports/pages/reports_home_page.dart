@@ -1,37 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../../app/themes/app_colors.dart';
 import '../../../app/themes/app_spacing.dart';
-import '../../../app/themes/app_typography.dart';
-import '../../../core/widgets/app_bars/app_gradient_header.dart';
-import '../../../core/widgets/cards/app_card.dart';
+import '../../../core/widgets/animations/fade_slide_in.dart';
 import '../../../core/widgets/empty_states/error_state.dart';
 import '../../../core/widgets/headers/section_header.dart';
 import '../../../core/widgets/loading/app_loading_indicator.dart';
 import '../../authentication/providers/auth_providers.dart';
+import '../../customers/providers/customer_providers.dart';
+import '../../dashboard/providers/dashboard_providers.dart';
+import '../../demo_data/models/demo_business_snapshot.dart';
+import '../../demo_data/providers/demo_data_providers.dart';
 import '../controllers/reports_controller.dart';
-import '../models/inventory_overview.dart';
-import '../models/order_summary.dart';
 import '../models/recent_transaction.dart';
 import '../models/reports_state.dart';
-import '../models/sales_summary.dart';
-import '../models/top_product.dart';
 import '../providers/reports_providers.dart';
-import '../widgets/chart_card.dart';
-import '../widgets/empty_reports_view.dart';
-import '../widgets/pie_chart_card.dart';
+import '../widgets/best_sellers_card.dart';
+import '../widgets/business_health_score_card.dart';
+import '../widgets/business_insights_card.dart';
+import '../widgets/category_performance_card.dart';
+import '../widgets/export_actions_card.dart';
+import '../widgets/inventory_health_card.dart';
+import '../widgets/kpi_showcase_card.dart';
+import '../widgets/peak_hours_card.dart';
+import '../widgets/analytics_hero_header.dart';
 import '../widgets/report_filter_bar.dart';
+import '../widgets/reports_empty_state.dart';
 import '../widgets/reports_loading_skeleton.dart';
-import '../widgets/summary_card.dart';
-import '../widgets/top_product_tile.dart';
+import '../widgets/revenue_breakdown_card.dart';
+import '../widgets/sales_trend_card.dart';
 import '../widgets/transaction_tile.dart';
 
-/// The Reports tab's root screen — replaces the old placeholder (Phase
-/// 5.1). Read-only, same shape as [DashboardPage]: every figure comes from
-/// [ReportsController]'s [ReportsState], this widget only renders it and
-/// delegates actions (retry, refresh, filter change) to the controller.
+/// The Reports tab's root screen — redesigned (Phase UI/UX 6) into a
+/// premium Business Intelligence dashboard, matching the Dashboard/
+/// Billing/Payment/Receipt/Inventory/Settings redesign. Read-only, same
+/// shape as [DashboardPage]: every real figure still comes from
+/// [ReportsController]'s [ReportsState] (period filter, Inventory
+/// Overview) exactly as before; every sales/revenue/transaction-shaped
+/// section is sourced from [DemoDataController]'s generated snapshot when
+/// one exists — the same "demo data populates the redesigned UI naturally"
+/// rule the redesigned Dashboard already established — or collapses into
+/// one illustrated empty state when it doesn't. No business logic lives
+/// here: this widget only renders state and delegates actions (retry,
+/// refresh, filter change) to the existing controllers.
 class ReportsHomePage extends ConsumerWidget {
   const ReportsHomePage({super.key});
 
@@ -58,12 +69,12 @@ class ReportsHomePage extends ConsumerWidget {
               onRetry: notifier.refresh,
             ),
           ),
-        _ => _buildContent(context, state.value!, notifier),
+        _ => _ReportsBody(uid: uid, data: state.value!, notifier: notifier),
       },
     );
   }
 
-  Widget _scrollable(Widget child) {
+  static Widget _scrollable(Widget child) {
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -74,282 +85,318 @@ class ReportsHomePage extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _buildContent(
-      BuildContext context, ReportsState data, ReportsController notifier) {
+class _ReportsBody extends ConsumerWidget {
+  const _ReportsBody(
+      {required this.uid, required this.data, required this.notifier});
+
+  final String uid;
+  final ReportsState data;
+  final ReportsController notifier;
+
+  /// Last 7 entries of whatever daily trend history is available — the
+  /// same "slice what already exists, never fabricate more" rule
+  /// [SalesTrendCard] itself follows for wider windows.
+  List<double> _recentAmounts(List<DemoTrendPoint> points, int count) {
+    if (points.length <= count) return [for (final p in points) p.amount];
+    return [for (final p in points.sublist(points.length - count)) p.amount];
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final snapshot = data.snapshot;
+    final demo = ref.watch(demoDataControllerProvider(uid)).valueOrNull;
+    final customerStats = ref.watch(customerStatsProvider(uid)).valueOrNull;
+    final dashboard = ref.watch(dashboardControllerProvider(uid)).valueOrNull;
+    final displayName =
+        ref.watch(authControllerProvider).valueOrNull?.displayName;
+
+    final merchantName = dashboard?.merchant?.name;
+    final avatarLabel = displayName?.isNotEmpty == true
+        ? displayName!
+        : (merchantName?.isNotEmpty == true ? merchantName! : 'S');
+
+    final hasActivity = demo != null ||
+        snapshot.salesSummary.totalRevenue > 0 ||
+        snapshot.topProducts.isNotEmpty ||
+        snapshot.recentTransactions.isNotEmpty;
+
+    final salesTrendPoints = demo != null
+        ? [for (final p in demo.salesTrend) (label: p.label, amount: p.amount)]
+        : [
+            for (final p in snapshot.salesTrend)
+              (label: p.label, amount: p.amount)
+          ];
+
+    final breakdownSlices = demo != null
+        ? [
+            for (final s in demo.paymentBreakdown)
+              (label: s.method, amount: s.amount, percentage: s.percentage)
+          ]
+        : <({String label, double amount, double percentage})>[];
+
+    final bestSellerRows = demo != null
+        ? _demoBestSellerRows(demo)
+        : [
+            for (final p in snapshot.topProducts)
+              (
+                name: p.name,
+                category: null,
+                unitsSold: p.unitsSold,
+                revenue: p.revenue,
+                progress: p.progress,
+              )
+          ];
+
+    final recentTransactions =
+        demo?.recentTransactions ?? snapshot.recentTransactions;
+
+    var delay = 0;
+    Duration next() {
+      final d = Duration(milliseconds: delay);
+      delay += 20;
+      return d;
+    }
 
     return ListView(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xxl * 2),
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xxl * 2),
       children: [
-        AppGradientHeader(
-          child: Text('Reports',
-              style: AppTypography.headingLG.copyWith(color: AppColors.white)),
+        FadeSlideIn(
+          delay: next(),
+          child: AnalyticsHeroHeader(
+            merchantName: merchantName,
+            avatarLabel: avatarLabel,
+            todaySales: demo?.todaySales ?? snapshot.salesSummary.todaySales,
+            todaySalesGrowth: demo?.todaySalesGrowth ??
+                snapshot.salesSummary.todaySalesGrowth,
+            thisWeekSales:
+                demo?.thisWeekSales ?? snapshot.salesSummary.thisWeekSales,
+            thisWeekGrowth:
+                demo?.thisWeekGrowth ?? snapshot.salesSummary.thisWeekGrowth,
+            thisMonthSales:
+                demo?.thisMonthSales ?? snapshot.salesSummary.thisMonthSales,
+            thisMonthGrowth:
+                demo?.thisMonthGrowth ?? snapshot.salesSummary.thisMonthGrowth,
+            totalRevenue:
+                demo?.totalRevenue ?? snapshot.salesSummary.totalRevenue,
+            // Neither `SalesSummary` nor `DemoBusinessSnapshot` has a
+            // meaningful "growth vs. what" baseline for an all-time total —
+            // real `totalRevenueGrowth` is always null today (see
+            // `SalesSummary.empty()`); left as-is rather than substituting
+            // an unrelated window's growth figure.
+            totalRevenueGrowth: snapshot.salesSummary.totalRevenueGrowth,
+          ),
         ),
-        Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
+        const SizedBox(height: AppSpacing.md),
+        FadeSlideIn(
+          delay: next(),
+          child: ReportFilterBar(
+            selected: data.period,
+            customRange: data.customRange,
+            onPeriodSelected: (period, {customRange}) =>
+                notifier.changePeriod(period, customRange: customRange),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        FadeSlideIn(
+          delay: next(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ReportFilterBar(
-                selected: data.period,
-                customRange: data.customRange,
-                onPeriodSelected: (period, {customRange}) =>
-                    notifier.changePeriod(period, customRange: customRange),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              const SectionHeader(title: 'Sales Summary'),
-              _SalesSummaryGrid(summary: snapshot.salesSummary),
-              const SizedBox(height: AppSpacing.lg),
-              const SectionHeader(title: 'Orders'),
-              _OrderSummaryGrid(summary: snapshot.orderSummary),
-              const SizedBox(height: AppSpacing.lg),
-              const SectionHeader(title: 'Inventory Overview'),
-              _InventoryOverviewGrid(overview: snapshot.inventoryOverview),
-              const SizedBox(height: AppSpacing.lg),
-              const SectionHeader(title: 'Top Selling Products'),
-              _TopProductsList(products: snapshot.topProducts),
-              const SizedBox(height: AppSpacing.lg),
-              ChartCard(title: 'Sales Chart', points: snapshot.salesTrend),
-              const SizedBox(height: AppSpacing.lg),
-              PieChartCard(slices: snapshot.categoryBreakdown),
-              const SizedBox(height: AppSpacing.lg),
-              const SectionHeader(title: 'Recent Transactions'),
-              _RecentTransactionsList(
-                  transactions: snapshot.recentTransactions),
-              const SizedBox(height: AppSpacing.lg),
-              const SectionHeader(title: 'Quick Reports'),
-              const _QuickReportsGrid(),
+              const SectionHeader(title: 'Key Metrics'),
+              Builder(builder: (context) {
+                final revenue =
+                    demo?.todaySales ?? snapshot.salesSummary.todaySales;
+                final revenueGrowth = demo?.todaySalesGrowth ??
+                    snapshot.salesSummary.todaySalesGrowth;
+                final customersCount =
+                    (demo?.customersCount ?? customerStats?.totalCustomers ?? 0)
+                        .toDouble();
+                final growth = demo?.thisWeekGrowth ??
+                    snapshot.salesSummary.thisWeekGrowth;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    KpiHighlightCard(
+                      label: 'Revenue',
+                      icon: Icons.attach_money_rounded,
+                      value: revenue,
+                      formatter: (v) => '\$${v.toStringAsFixed(0)}',
+                      growthPercent: revenueGrowth,
+                      insight: revenueGrowth == null
+                          ? null
+                          : '${revenueGrowth >= 0 ? '+' : ''}${revenueGrowth.toStringAsFixed(0)}% vs yesterday',
+                      sparklineValues: demo != null
+                          ? _recentAmounts(demo.salesTrend, 7)
+                          : const [],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: KpiCompactCard(
+                              label: 'Orders',
+                              icon: Icons.shopping_bag_rounded,
+                              value: (demo?.todayOrders ??
+                                      snapshot.orderSummary.todayOrders)
+                                  .toDouble(),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: KpiCompactCard(
+                              label: 'Customers',
+                              icon: Icons.people_alt_rounded,
+                              value: customersCount,
+                              insight: customerStats == null
+                                  ? null
+                                  : '${customerStats.newThisMonth} new this month',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    KpiMediumCard(
+                      label: 'Profit',
+                      icon: Icons.trending_up_rounded,
+                      value: demo?.totalProfit,
+                      formatter: (v) => '\$${v.toStringAsFixed(0)}',
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    KpiWideCard(
+                      label: 'Average Order Value',
+                      icon: Icons.calculate_rounded,
+                      value: demo?.todayAverageOrderValue ??
+                          snapshot.orderSummary.averageOrderValue,
+                      formatter: (v) => '\$${v.toStringAsFixed(0)}',
+                      sparklineValues: demo != null
+                          ? _recentAmounts(demo.salesTrend, 7)
+                          : const [],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    KpiWideCard(
+                      label: 'Growth',
+                      icon: Icons.show_chart_rounded,
+                      value: growth,
+                      formatter: (v) => '${v.toStringAsFixed(0)}%',
+                      insight: growth == null
+                          ? null
+                          : (growth >= 0
+                              ? 'Trending up this week'
+                              : 'Trending down this week'),
+                      progressValue: growth == null
+                          ? null
+                          : (growth.abs() / 100).clamp(0.0, 1.0),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    const Row(
+                      children: [
+                        KpiStatPill(
+                            label: 'Refund Rate',
+                            icon: Icons.assignment_return_rounded),
+                        SizedBox(width: AppSpacing.sm),
+                        KpiStatPill(
+                            label: 'Inventory Value',
+                            icon: Icons.inventory_2_rounded),
+                      ],
+                    ),
+                  ],
+                );
+              }),
             ],
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _SalesSummaryGrid extends StatelessWidget {
-  const _SalesSummaryGrid({required this.summary});
-
-  final SalesSummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: AppSpacing.sm,
-      crossAxisSpacing: AppSpacing.sm,
-      childAspectRatio: 1.2,
-      children: [
-        SummaryCard(
-          label: "Today's Sales",
-          value: '\$${summary.todaySales.toStringAsFixed(2)}',
-          icon: LucideIcons.dollarSign,
-          growthPercent: summary.todaySalesGrowth,
+        const SizedBox(height: AppSpacing.md),
+        FadeSlideIn(
+          delay: next(),
+          child: InventoryHealthCard(
+            lowStockCount: snapshot.inventoryOverview.lowStockCount,
+            outOfStockCount: snapshot.inventoryOverview.outOfStockCount,
+          ),
         ),
-        SummaryCard(
-          label: 'This Week',
-          value: '\$${summary.thisWeekSales.toStringAsFixed(2)}',
-          icon: LucideIcons.calendarDays,
-          growthPercent: summary.thisWeekGrowth,
-        ),
-        SummaryCard(
-          label: 'This Month',
-          value: '\$${summary.thisMonthSales.toStringAsFixed(2)}',
-          icon: LucideIcons.calendarRange,
-          growthPercent: summary.thisMonthGrowth,
-        ),
-        SummaryCard(
-          label: 'Total Revenue',
-          value: '\$${summary.totalRevenue.toStringAsFixed(2)}',
-          icon: LucideIcons.wallet,
-          growthPercent: summary.totalRevenueGrowth,
-        ),
-      ],
-    );
-  }
-}
-
-class _OrderSummaryGrid extends StatelessWidget {
-  const _OrderSummaryGrid({required this.summary});
-
-  final OrderSummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: AppSpacing.sm,
-      crossAxisSpacing: AppSpacing.sm,
-      childAspectRatio: 1.2,
-      children: [
-        SummaryCard(
-          label: "Today's Orders",
-          value: '${summary.todayOrders}',
-          icon: LucideIcons.shoppingBag,
-        ),
-        SummaryCard(
-          label: 'Completed',
-          value: '${summary.completedOrders}',
-          icon: LucideIcons.checkCircle2,
-        ),
-        SummaryCard(
-          label: 'Cancelled',
-          value: '${summary.cancelledOrders}',
-          icon: LucideIcons.xCircle,
-        ),
-        SummaryCard(
-          label: 'Average Order Value',
-          value: '\$${summary.averageOrderValue.toStringAsFixed(2)}',
-          icon: LucideIcons.calculator,
-        ),
-      ],
-    );
-  }
-}
-
-class _InventoryOverviewGrid extends StatelessWidget {
-  const _InventoryOverviewGrid({required this.overview});
-
-  final InventoryOverview overview;
-
-  @override
-  Widget build(BuildContext context) {
-    final productsLabel = overview.isApproximate
-        ? '${overview.productsCount}+'
-        : '${overview.productsCount}';
-
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: AppSpacing.sm,
-      crossAxisSpacing: AppSpacing.sm,
-      childAspectRatio: 1.2,
-      children: [
-        SummaryCard(
-            label: 'Products', value: productsLabel, icon: LucideIcons.package),
-        SummaryCard(
-            label: 'Low Stock',
-            value: '${overview.lowStockCount}',
-            icon: LucideIcons.triangleAlert),
-        SummaryCard(
-            label: 'Out Of Stock',
-            value: '${overview.outOfStockCount}',
-            icon: LucideIcons.packageX),
-        SummaryCard(
-            label: 'Categories',
-            value: '${overview.categoriesCount}',
-            icon: LucideIcons.tags),
-      ],
-    );
-  }
-}
-
-class _TopProductsList extends StatelessWidget {
-  const _TopProductsList({required this.products});
-
-  final List<TopProduct> products;
-
-  @override
-  Widget build(BuildContext context) {
-    if (products.isEmpty) {
-      return const AppCard(
-        child:
-            EmptyReportsView(message: 'No products sold in this period yet.'),
-      );
-    }
-    return Column(
-      children: [
-        for (final product in products.take(10)) ...[
-          TopProductTile(product: product),
-          const SizedBox(height: AppSpacing.sm),
+        if (!hasActivity) ...[
+          const SizedBox(height: AppSpacing.md),
+          FadeSlideIn(delay: next(), child: const ReportsEmptyState()),
+        ] else ...[
+          const SizedBox(height: AppSpacing.md),
+          FadeSlideIn(
+              delay: next(), child: SalesTrendCard(points: salesTrendPoints)),
+          const SizedBox(height: AppSpacing.md),
+          FadeSlideIn(
+              delay: next(),
+              child: RevenueBreakdownCard(slices: breakdownSlices)),
+          const SizedBox(height: AppSpacing.md),
+          FadeSlideIn(
+              delay: next(), child: BestSellersCard(rows: bestSellerRows)),
+          const SizedBox(height: AppSpacing.md),
+          FadeSlideIn(
+            delay: next(),
+            child: BusinessInsightsCard(insights: demo?.insights ?? const []),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          FadeSlideIn(
+            delay: next(),
+            child: _RecentTransactionsSection(transactions: recentTransactions),
+          ),
         ],
+        const SizedBox(height: AppSpacing.md),
+        FadeSlideIn(delay: next(), child: const CategoryPerformanceCard()),
+        const SizedBox(height: AppSpacing.md),
+        FadeSlideIn(delay: next(), child: const PeakHoursCard()),
+        const SizedBox(height: AppSpacing.md),
+        FadeSlideIn(delay: next(), child: const BusinessHealthScoreCard()),
+        const SizedBox(height: AppSpacing.md),
+        FadeSlideIn(delay: next(), child: const ExportActionsCard()),
       ],
     );
   }
+
+  List<
+      ({
+        String name,
+        String? category,
+        int unitsSold,
+        double revenue,
+        double progress
+      })> _demoBestSellerRows(DemoBusinessSnapshot demo) {
+    final sellers = demo.bestSellers.where((p) => p.unitsSold > 0).toList();
+    if (sellers.isEmpty) return const [];
+    final maxUnits = sellers.first.unitsSold;
+    return [
+      for (final p in sellers)
+        (
+          name: p.name,
+          category: p.category,
+          unitsSold: p.unitsSold,
+          revenue: p.revenue,
+          progress: maxUnits == 0 ? 0.0 : p.unitsSold / maxUnits,
+        ),
+    ];
+  }
 }
 
-class _RecentTransactionsList extends StatelessWidget {
-  const _RecentTransactionsList({required this.transactions});
+class _RecentTransactionsSection extends StatelessWidget {
+  const _RecentTransactionsSection({required this.transactions});
 
   final List<RecentTransaction> transactions;
 
   @override
   Widget build(BuildContext context) {
-    if (transactions.isEmpty) {
-      return const AppCard(
-        child: EmptyReportsView(
-            message: 'No transactions recorded in this period yet.'),
-      );
-    }
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final transaction in transactions.take(20)) ...[
+        const SectionHeader(title: 'Recent Transactions'),
+        for (final transaction in transactions.take(10)) ...[
           TransactionTile(transaction: transaction),
           const SizedBox(height: AppSpacing.sm),
         ],
       ],
-    );
-  }
-}
-
-class _QuickReportsGrid extends StatelessWidget {
-  const _QuickReportsGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: AppSpacing.sm,
-      crossAxisSpacing: AppSpacing.sm,
-      childAspectRatio: 2.4,
-      children: const [
-        _QuickReportButton(
-            icon: LucideIcons.calendarDays, label: 'Daily Report'),
-        _QuickReportButton(
-            icon: LucideIcons.calendarRange, label: 'Weekly Report'),
-        _QuickReportButton(
-            icon: LucideIcons.calendarClock, label: 'Monthly Report'),
-        _QuickReportButton(
-            icon: LucideIcons.fileSpreadsheet, label: 'Export CSV'),
-        _QuickReportButton(icon: LucideIcons.fileText, label: 'Export PDF'),
-      ],
-    );
-  }
-}
-
-class _QuickReportButton extends StatelessWidget {
-  const _QuickReportButton({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Coming Soon')),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.primary, size: 18),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              label,
-              style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

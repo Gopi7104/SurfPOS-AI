@@ -9,7 +9,8 @@ Feature-first modules — one folder per business capability. Each feature is (o
 | `dashboard/` | Daily snapshot: sales, top products, low stock, AI insights | [05_FEATURES.md § 3](../../../docs/05_FEATURES.md#3-dashboard) |
 | `inventory/` | Product catalog + per-store stock, manual adjustments | [05_FEATURES.md § 4](../../../docs/05_FEATURES.md#4-inventory-management) |
 | `barcode/` | Camera-based barcode scanning for billing & inventory lookup | [05_FEATURES.md § 5](../../../docs/05_FEATURES.md#5-barcode-scanner) |
-| `invoice_ai/` | AI (OCR + Gemini) supplier invoice scanning and review | [05_FEATURES.md § 6](../../../docs/05_FEATURES.md#6-ai-invoice-scanner), [16_AI_MODULE.md](../../../docs/16_AI_MODULE.md) |
+| `ai/` | SurfAI chat assistant (OpenRouter) | [16_AI_MODULE.md](../../../docs/16_AI_MODULE.md) |
+| `invoice_ai/` | AI (OCR + OpenRouter) supplier invoice scanning and review | [05_FEATURES.md § 6](../../../docs/05_FEATURES.md#6-ai-invoice-scanner), [16_AI_MODULE.md](../../../docs/16_AI_MODULE.md) |
 | `billing/` | Checkout/payment-collection flow | [05_FEATURES.md § 7](../../../docs/05_FEATURES.md#7-billing) |
 | `cart/` | In-progress local cart state before checkout | [05_FEATURES.md § 8](../../../docs/05_FEATURES.md#8-cart) |
 | `payments/` | Surfboard Payments status/collection UI | [05_FEATURES.md § 9](../../../docs/05_FEATURES.md#9-payments), [15_SURFBOARD_INTEGRATION.md](../../../docs/15_SURFBOARD_INTEGRATION.md) |

@@ -7,10 +7,13 @@ import '../../../app/themes/app_spacing.dart';
 import '../../../core/widgets/app_bars/app_top_bar.dart';
 import '../../../core/widgets/empty_states/error_state.dart';
 import '../../../core/widgets/loading/app_loading_indicator.dart';
+import '../../ai/widgets/ai_developer_section.dart';
 import '../../authentication/providers/auth_providers.dart';
+import '../../demo_data/providers/demo_data_providers.dart';
 import '../models/diagnostics_snapshot.dart';
 import '../providers/settings_providers.dart';
 import '../widgets/connection_status_card.dart';
+import '../widgets/settings_info_page.dart';
 import '../widgets/settings_navigation_tile.dart';
 import '../widgets/settings_value_tile.dart';
 
@@ -52,6 +55,13 @@ Device: ${d.deviceDescription}
     ));
   }
 
+  /// Clears the generated demo business dataset — previously this button
+  /// actually called [SettingsController.resetToDefaults] (resetting every
+  /// Settings preference, not demo data, despite its "Reset Demo Data"
+  /// label). Fixed to match what it says: it now clears
+  /// [DemoDataController]'s own dataset, the same real action Settings
+  /// Home's "Clear Demo Data" tile already uses — "Reset Settings" in the
+  /// Danger Zone is the correct place for resetting preferences.
   Future<void> _confirmResetDemoData(
       BuildContext context, WidgetRef ref, String uid) async {
     final confirmed = await showDialog<bool>(
@@ -59,8 +69,8 @@ Device: ${d.deviceDescription}
       builder: (context) => AlertDialog(
         title: const Text('Reset Demo Data?'),
         content: const Text(
-            'This clears this device\'s saved Settings preferences back to '
-            'defaults. It does not touch your Customers list, Inventory, or '
+            'This clears the generated demo business dataset from this '
+            'device. It does not touch your Customers list, Inventory, or '
             'any online account data.'),
         actions: [
           TextButton(
@@ -73,10 +83,10 @@ Device: ${d.deviceDescription}
       ),
     );
     if (confirmed != true) return;
-    await ref.read(settingsControllerProvider(uid).notifier).resetToDefaults();
+    await ref.read(demoDataControllerProvider(uid).notifier).clear();
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Settings reset to defaults.')),
+      const SnackBar(content: Text('Demo data reset.')),
     );
   }
 
@@ -132,10 +142,21 @@ Device: ${d.deviceDescription}
           SettingsValueTile(label: 'Build Number', value: d.buildNumber),
           SettingsValueTile(label: 'Device', value: d.deviceDescription),
           const SizedBox(height: AppSpacing.sm + 2),
+          const AiDeveloperSection(),
+          const SizedBox(height: AppSpacing.sm + 2),
           SettingsNavigationTile(
             title: 'View Logs',
-            onTap: () => ScaffoldMessenger.of(context)
-                .showSnackBar(const SnackBar(content: Text('Coming Soon'))),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const SettingsInfoPage(
+                title: 'View Logs',
+                summary:
+                    'There\'s no in-app log viewer today — backend logs go to the server console (pino), and the Flutter app doesn\'t buffer its own logs for on-device viewing.',
+                requirements: [
+                  'Requires adding an in-memory/on-disk log buffer to the app and a viewer screen for it — real infrastructure work, not a toggle.',
+                  'Use "Export Debug Report" below for a shareable snapshot in the meantime.',
+                ],
+              ),
+            )),
           ),
           SettingsNavigationTile(
             title: 'Copy Device Info',

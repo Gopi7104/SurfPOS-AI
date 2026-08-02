@@ -113,7 +113,7 @@
 **Workflow:**
 1. User photographs a supplier invoice.
 2. App uploads via `POST /invoice-scans` → backend stores it in Firebase Storage, kicks off async processing.
-3. Backend runs OCR → raw text → Gemini structuring → `{name, qty, unitPrice}` line items.
+3. Backend runs OCR → raw text → OpenRouter structuring → `{name, qty, unitPrice}` line items.
 4. Backend fuzzy-matches each item against `products`, attaching `matchConfidence`.
 5. Scan status flips to `pending_review`; app shows a review screen: each line item, matched product, quantity, cost, and a supplier picker (matched against `suppliers/{merchantId}` — see [03_DATABASE_DESIGN.md § 4.6](03_DATABASE_DESIGN.md#46-supplierssmerchantidsupplierid), creating a new Supplier record if none matches).
 6. Merchant confirms → `POST /invoice-scans/:scanId/confirm` (now includes `supplierId`, see [04_API_DOCUMENTATION.md § 8](04_API_DOCUMENTATION.md#8-ai-invoice-scanner)) → backend creates an `order` and increments `inventory`.
@@ -229,7 +229,7 @@
 
 **Workflow:**
 1. A scheduled backend job aggregates raw `sales` into `analytics/{storeId}/{period}` rollups.
-2. Periodically, the backend sends recent aggregates to Gemini for insight generation (see [16_AI_MODULE.md](16_AI_MODULE.md)).
+2. Periodically, the backend sends recent aggregates to OpenRouter for insight generation (see [16_AI_MODULE.md](16_AI_MODULE.md)).
 3. Insights surface on the Dashboard and in Reports.
 
 **UI:** Insight cards with icon/severity, tap-through to the relevant product/report.

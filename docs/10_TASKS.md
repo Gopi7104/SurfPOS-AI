@@ -16,7 +16,7 @@ Every task has: **Priority** (P0 = blocking/critical, P1 = important, P2 = nice-
 |---|---|---|---|---|---|
 | P.1 | Firebase project setup (Auth, RTDB, Storage) + `database.rules.json` skeleton (application data only) | P0 | Auth + RTDB: Done (backend + frontend wired, both live-verified against the real `surfpos-ai` project); Storage: deliberately deferred — `FIREBASE_STORAGE_BUCKET` intentionally left unset for now, revisit when Storage is actually needed (Receipts/AI invoice images) | — | Claude |
 | P.2 | Surfboard Payments sandbox/developer account + API credentials + official API documentation | P0 | Not Started | — | Unassigned |
-| P.3 | Gemini API key provisioning (blocks Phase 13 only) | P0 | Not Started | — | Unassigned |
+| P.3 | OpenRouter API key provisioning (blocks Phase 13 only) | P0 | Not Started | — | Unassigned |
 | P.4 | Resolve remaining [ADR-009](08_ARCHITECTURE_DECISIONS.md#adr-009--pending-decisions-to-record-here-once-made) items relevant to near-term phases (real-time client strategy — blocks Phase 8/12) | P0 | Not Started | — | Unassigned |
 
 ## Phase 1 — Backend Foundation ✅ Done
@@ -161,7 +161,7 @@ Every task has: **Priority** (P0 = blocking/critical, P1 = important, P2 = nice-
 | # | Task | Priority | Status | Dependencies | Owner |
 |---|---|---|---|---|---|
 | 13.1 | OCR integration | P0 | Not Started | P.3, P.4 (OCR provider choice) | Unassigned |
-| 13.2 | Gemini structuring prompt + product/supplier matching | P0 | Not Started | 13.1, Phase 7.4 | Unassigned |
+| 13.2 | OpenRouter structuring prompt + product/supplier matching | P0 | Not Started | 13.1, Phase 7.4 | Unassigned |
 | 13.3 | Invoice scan review + confirm/reject endpoints; purchase Order creation on confirm | P0 | Not Started | 13.2 | Unassigned |
 | 13.4 | AI business insights generation over Analytics rollups | P1 | Not Started | Phase 12, 13.2 | Unassigned |
 

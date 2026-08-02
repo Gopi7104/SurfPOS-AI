@@ -24,6 +24,10 @@ function createFakePaymentRepository(overrides = {}) {
     setPaymentUrl: vi.fn().mockResolvedValue(undefined),
     getCheckoutItems: vi.fn().mockResolvedValue(ITEMS),
     setCheckoutItems: vi.fn().mockResolvedValue(undefined),
+    // Defaults to "no webhook has arrived yet" so existing tests keep exercising the Fetch Order
+    // Status poll path unchanged; getCheckoutStatus's webhook-cache-first tests override this.
+    getWebhookStatus: vi.fn().mockResolvedValue(null),
+    setWebhookStatus: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -455,6 +459,38 @@ describe('payment.service', () => {
         paymentStatus: 'PAYMENT_COMPLETED',
         transactionId: 'txn_1',
       });
+    });
+
+    it('returns a cached webhook status and never calls Fetch Order Status when one exists', async () => {
+      // Confirmed live: Fetch Order Status can lag a real completed payment by minutes on
+      // Surfboard's sandbox — a cached webhook result must win outright, not just be preferred.
+      const cachedStatus = {
+        orderId: 'order_1',
+        orderStatus: 'PAYMENT_COMPLETED',
+        paymentStatus: 'PAYMENT_COMPLETED',
+        paymentId: 'pay_1',
+        paymentMethod: 'CARD',
+        amount: '200',
+        failureReason: null,
+        transactionId: 'txn_1',
+      };
+      const paymentClient = createFakePaymentClient();
+      const service = createPaymentService({
+        paymentClient,
+        mapper: realMapper,
+        paymentRepository: createFakePaymentRepository({
+          getWebhookStatus: vi.fn().mockResolvedValue(cachedStatus),
+        }),
+        merchantService: createFakeMerchantService(),
+        storeService: createFakeStoreService(),
+        billingService: createFakeBillingService(),
+        logger: createFakeLogger(),
+      });
+
+      const status = await service.getCheckoutStatus('uid_1', 'order_1');
+
+      expect(status).toEqual(cachedStatus);
+      expect(paymentClient.getOrderStatus).not.toHaveBeenCalled();
     });
   });
 

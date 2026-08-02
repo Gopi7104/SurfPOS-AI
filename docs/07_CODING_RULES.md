@@ -86,11 +86,11 @@ Full tree: [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md). Full layer contract
 
 ## 11. Security
 
-- No secret (Gemini API key, Surfboard API key/secret, Firebase service-account JSON) is ever committed or bundled into the Flutter app — backend environment variables only.
+- No secret (OpenRouter API key, Surfboard API key/secret, Firebase service-account JSON) is ever committed or bundled into the Flutter app — backend environment variables only.
 - Every backend route (except the three explicitly public ones in [04_API_DOCUMENTATION.md § 1](04_API_DOCUMENTATION.md#1-conventions)) verifies the Firebase ID token before doing anything else.
 - Every backend handler re-checks that the authenticated user's `merchantId`/`storeId`/`role` **reference** actually owns/permits the resource being accessed — a valid token alone is never sufficient authorization.
 - Firebase Security Rules are a second, independent enforcement layer **for application data only** — they have nothing to say about Merchant/Store/Device/Payment data, since that never reaches Firebase (see [03_DATABASE_DESIGN.md § 8](03_DATABASE_DESIGN.md#8-security-rules-summary)). Authorization for Surfboard-owned resources is enforced entirely in the backend's Integration Layer + Surfboard's own API-level auth.
-- All third-party HTTP calls (Surfboard, Gemini, OCR provider) use HTTPS, verify webhook signatures where applicable, and time out rather than hang indefinitely.
+- All third-party HTTP calls (Surfboard, OpenRouter, OCR provider) use HTTPS, verify webhook signatures where applicable, and time out rather than hang indefinitely.
 
 ## 12. Performance
 
@@ -98,7 +98,7 @@ Full tree: [17_FOLDER_STRUCTURE.md](17_FOLDER_STRUCTURE.md). Full layer contract
 - **Backend (Firebase):** never run an unbounded RTDB read — always scope reads by `merchantId`/`storeId` reference and index-backed queries per [03_DATABASE_DESIGN.md § 7](03_DATABASE_DESIGN.md#7-indexes).
 - **Backend (Surfboard):** every Integration Client call is a network round-trip to an external system — batch/parallelize where Surfboard's API allows it, and never call Surfboard synchronously inside a tight loop (e.g. never fetch Store details once per cart item). Short-lived in-process caching is allowed for read-heavy, slow-changing data (e.g. Payment Methods); RTDB persistence is not (see § 8).
 - Analytics are **precomputed**, never calculated live from raw sales on every request.
-- AI (OCR/Gemini) calls are async/background jobs with a status field.
+- AI (OCR/OpenRouter) calls are async/background jobs with a status field.
 
 ## 13. Flutter Best Practices
 

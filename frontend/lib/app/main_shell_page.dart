@@ -26,7 +26,30 @@ class MainShellPage extends StatefulWidget {
 class _MainShellPageState extends State<MainShellPage> {
   int _currentIndex = 0;
 
+  // Owned here (not inside DashboardPage) so the floating "New Sale" FAB —
+  // a sibling of `body` docked by AppMainScaffold, painted on top of
+  // whichever tab is showing — can drive Dashboard's own scroll position
+  // when a drag starts on the FAB itself instead of on the list beneath
+  // it. See `AppFab.onVerticalDrag`'s header comment for why Flutter's
+  // hit-testing otherwise drops that gesture entirely.
+  final ScrollController _dashboardScrollController = ScrollController();
+
   void _goToTab(int index) => setState(() => _currentIndex = index);
+
+  void _handleFabVerticalDrag(double dy) {
+    if (_currentIndex != 0 || !_dashboardScrollController.hasClients) return;
+    final position = _dashboardScrollController.position;
+    _dashboardScrollController.jumpTo(
+      (position.pixels - dy)
+          .clamp(position.minScrollExtent, position.maxScrollExtent),
+    );
+  }
+
+  @override
+  void dispose() {
+    _dashboardScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,10 +58,13 @@ class _MainShellPageState extends State<MainShellPage> {
       onNavTap: _goToTab,
       onNewSale: () => _goToTab(
           1), // Billing tab — "New Bill"/"Start New Sale" both land there.
+      onFabVerticalDrag: _handleFabVerticalDrag,
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          DashboardPage(onNavigateToTab: _goToTab),
+          DashboardPage(
+              onNavigateToTab: _goToTab,
+              scrollController: _dashboardScrollController),
           const BillingPage(),
           const InventoryHomePage(),
           const ReportsHomePage(),

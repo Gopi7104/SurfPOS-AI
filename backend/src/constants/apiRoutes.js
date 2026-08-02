@@ -13,4 +13,5 @@ module.exports = Object.freeze({
   PAYMENTS: '/payments',
   PAYMENT_REDIRECT: '/payments/redirect',
   WEBHOOKS: '/webhooks',
+  AI: '/ai',
 });

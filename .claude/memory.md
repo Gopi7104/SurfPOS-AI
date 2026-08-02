@@ -65,7 +65,7 @@ _(For the user/project owner — surface these rather than guessing when they be
 
 - The git repository for this project is **independent** of the user's home-directory-rooted mega-repo (`C:/Users/velan`) that also tracks an unrelated "FinTwin AI" project with its own remote (`Velan0404/FinTwin-AI`) — this repo (`SurfPOS AI`) has its own `.git`, pushed to `Gopi7104/SurfPOS-AI`. Don't confuse the two if either comes up.
 - Observed git history shows someone ran `git pull origin main` and switched between `velan`/`gopi` branches outside of this session between two of my turns — local branch state can change without my involvement; always re-check before assuming.
-- `LICENSE`, Firebase project, Surfboard credentials, and Gemini API key are all real placeholders/TBDs right now, not oversights — don't treat their absence as a bug to silently fix.
+- `LICENSE`, Firebase project, Surfboard credentials, and OpenRouter API key are all real placeholders/TBDs right now, not oversights — don't treat their absence as a bug to silently fix.
 - `npm audit` on `backend/` shows moderate/high advisories entirely inside `firebase-admin`'s own transitive Google Cloud client deps (`google-gax`/`gaxios`/`gcp-metadata`/`uuid`), even at the latest `firebase-admin@14.2.0` — not actionable from this repo right now, re-check next time `firebase-admin` is bumped.
 
 ## Future Ideas

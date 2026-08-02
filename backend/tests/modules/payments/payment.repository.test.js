@@ -66,4 +66,29 @@ describe('payment.repository', () => {
 
     await expect(repository.getCheckoutItems('order_2')).resolves.toBeNull();
   });
+
+  it('getWebhookStatus() returns null when no terminal webhook has arrived for this order', async () => {
+    const repository = createPaymentRepository({ getDb: () => createFakeDb() });
+
+    await expect(repository.getWebhookStatus('order_1')).resolves.toBeNull();
+  });
+
+  it('setWebhookStatus() persists the domain status and getWebhookStatus() reads it back', async () => {
+    const fakeDb = createFakeDb();
+    const repository = createPaymentRepository({ getDb: () => fakeDb });
+    const status = { orderId: 'order_1', paymentStatus: 'PAYMENT_COMPLETED' };
+
+    await repository.setWebhookStatus('order_1', status);
+
+    await expect(repository.getWebhookStatus('order_1')).resolves.toEqual(status);
+  });
+
+  it('scopes cached webhook statuses to the given orderId', async () => {
+    const fakeDb = createFakeDb();
+    const repository = createPaymentRepository({ getDb: () => fakeDb });
+
+    await repository.setWebhookStatus('order_1', { paymentStatus: 'PAYMENT_COMPLETED' });
+
+    await expect(repository.getWebhookStatus('order_2')).resolves.toBeNull();
+  });
 });

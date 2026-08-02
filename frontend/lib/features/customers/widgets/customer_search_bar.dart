@@ -7,9 +7,14 @@ import '../../../core/widgets/text_fields/app_search_field.dart';
 /// how Reports/Inventory each supply their own hint to the same shared
 /// field rather than a new implementation.
 class CustomerSearchBar extends StatelessWidget {
-  const CustomerSearchBar({this.controller, this.onChanged, super.key});
+  const CustomerSearchBar(
+      {this.controller, this.focusNode, this.onChanged, super.key});
 
   final TextEditingController? controller;
+
+  /// Lets the Hero's search shortcut focus this field directly — see
+  /// `CustomerListPage`.
+  final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
 
   @override
@@ -17,6 +22,7 @@ class CustomerSearchBar extends StatelessWidget {
     return AppSearchField(
       hint: 'Search by name, phone, email, or customer ID',
       controller: controller,
+      focusNode: focusNode,
       onChanged: onChanged,
     );
   }

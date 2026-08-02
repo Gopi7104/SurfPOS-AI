@@ -20,10 +20,10 @@ No formal sprint cadence has been established yet. Work to date has proceeded as
 
 ## Progress Summary
 
-**Frontend UI track:** Documentation and structure are complete (18-file `/docs` knowledge base, full enterprise folder scaffold, `.claude/` knowledge base). **The frontend now has real code**: a complete custom design system (colors, typography, spacing/radius/motion tokens, shadows, `ThemeData`) and a full reusable widget library (buttons, cards, text fields, dialogs, bottom sheets, loading/skeletons, empty/error states, app bars, bottom navigation, the Surfboard brand mark), plus the Splash screen as the first of 26 planned screens (see the premium-UI design brief in `docs/09_PROMPT_HISTORY.md`). No backend, Firebase, or Surfboard code exists yet; no Firebase project, Surfboard credentials, or Gemini API key have been provisioned.
+**Frontend UI track:** Documentation and structure are complete (18-file `/docs` knowledge base, full enterprise folder scaffold, `.claude/` knowledge base). **The frontend now has real code**: a complete custom design system (colors, typography, spacing/radius/motion tokens, shadows, `ThemeData`) and a full reusable widget library (buttons, cards, text fields, dialogs, bottom sheets, loading/skeletons, empty/error states, app bars, bottom navigation, the Surfboard brand mark), plus the Splash screen as the first of 26 planned screens (see the premium-UI design brief in `docs/09_PROMPT_HISTORY.md`). No backend, Firebase, or Surfboard code exists yet; no Firebase project, Surfboard credentials, or OpenRouter API key have been provisioned.
 
 **Backend/docs track:** Following the Surfboard-alignment documentation pass (Surfboard confirmed as system of record for Merchant/Store/Device/Payment/Branding/Tips/Payment Methods — see [decision.md § D-016](decision.md#d-016--surfboard-is-the-system-of-record-for-merchant-store-device-payment-branding-tips-and-payment-methods)), Phase 2 built the real HTTP infrastructure every future Surfboard-owned domain client will use: base client with retry/timeout/logging/auth-header-placeholder, request builder/response parser/request-ID utilities, a webhook signature verifier, a typed `SurfboardApiError` + error mapper, and a `BaseMapper` contract. All six domain clients (auth/merchant/payment/store/device/branding) now inherit a fully working `request()` but still have **zero domain methods** — Merchant/Store/Payment/Inventory/Billing/AI remain untouched, exactly as scoped. 48 new unit tests, full lint/format/test/build pipeline green, and a live manual verification (real Express app + mocked `fetch`) confirmed the whole pipeline — including error mapping through the real `error.middleware.js` — behaves correctly.
-Documentation and structure are complete (18-file `/docs` knowledge base, full enterprise folder scaffold, `.claude/` knowledge base). **The frontend now has real code**: a complete custom design system (colors, typography, spacing/radius/motion tokens, shadows, `ThemeData`) and a full reusable widget library (buttons, cards, text fields, dialogs, bottom sheets, loading/skeletons, empty/error states, app bars, bottom navigation, the Surfboard brand mark), plus the Splash screen as the first of 26 planned screens (see the premium-UI design brief in `docs/09_PROMPT_HISTORY.md`). No backend, Firebase, or Surfboard code exists yet; no Firebase project, Surfboard credentials, or Gemini API key have been provisioned.
+Documentation and structure are complete (18-file `/docs` knowledge base, full enterprise folder scaffold, `.claude/` knowledge base). **The frontend now has real code**: a complete custom design system (colors, typography, spacing/radius/motion tokens, shadows, `ThemeData`) and a full reusable widget library (buttons, cards, text fields, dialogs, bottom sheets, loading/skeletons, empty/error states, app bars, bottom navigation, the Surfboard brand mark), plus the Splash screen as the first of 26 planned screens (see the premium-UI design brief in `docs/09_PROMPT_HISTORY.md`). No backend, Firebase, or Surfboard code exists yet; no Firebase project, Surfboard credentials, or OpenRouter API key have been provisioned.
 Following the Surfboard-alignment documentation pass (Surfboard confirmed as system of record for Merchant/Store/Device/Payment/Branding/Tips/Payment Methods — see [decision.md § D-016](decision.md#d-016--surfboard-is-the-system-of-record-for-merchant-store-device-payment-branding-tips-and-payment-methods)), Phase 2 built the real HTTP infrastructure every future Surfboard-owned domain client will use: base client with retry/timeout/logging/auth-header-placeholder, request builder/response parser/request-ID utilities, a webhook signature verifier, a typed `SurfboardApiError` + error mapper, and a `BaseMapper` contract. All six domain clients (auth/merchant/payment/store/device/branding) now inherit a fully working `request()` but still have **zero domain methods** — Merchant/Store/Payment/Inventory/Billing/AI remain untouched, exactly as scoped. 48 new unit tests, full lint/format/test/build pipeline green, and a live manual verification (real Express app + mocked `fetch`) confirmed the whole pipeline — including error mapping through the real `error.middleware.js` — behaves correctly.
 
 ## Completed
@@ -64,12 +64,12 @@ Following the Surfboard-alignment documentation pass (Surfboard confirmed as sys
 - `go_router` navigation wiring — deferred until there's more than one screen to route between (see `.claude/decision.md` ADR-007, still Proposed).
 - State management (Riverpod) — not yet introduced; Splash has no state to manage yet.
 - Phase 1 data/backend work (auth integration, product catalog, inventory, barcode scanner, cart/billing, Surfboard payment integration, receipts, dashboard, settings, staff accounts) — see [docs/10_TASKS.md](../docs/10_TASKS.md) Phase 1.
-- Phase 0 remaining foundation tasks: resolving [decision.md § ADR-009-equivalent open items](decision.md), Firebase project creation, Surfboard sandbox credentials, Gemini API key.
+- Phase 0 remaining foundation tasks: resolving [decision.md § ADR-009-equivalent open items](decision.md), Firebase project creation, Surfboard sandbox credentials, OpenRouter API key.
 - Propagating the Sweden/SEK market decision ([decision.md § D-010](decision.md#d-010--sweden-sek-selected-instead-of-inr)) into the affected `/docs` files.
 
 **Backend/docs track:**
 - Everything in `docs/22_DEVELOPMENT_ROADMAP.md` Phase 3 (Client Authentication) onward — **explicitly on hold pending user approval**, not just unstarted.
-- Prerequisites: Firebase project creation, Surfboard sandbox credentials + official API docs, Gemini API key.
+- Prerequisites: Firebase project creation, Surfboard sandbox credentials + official API docs, OpenRouter API key.
 - Remaining open technical decisions: OCR provider, production font, real-time client strategy (see [decision.md](decision.md), `docs/08_ARCHITECTURE_DECISIONS.md § ADR-009`).
 - Confirming the SDK's placeholder auth-header scheme and webhook signature scheme against real Surfboard documentation.
 
@@ -110,7 +110,7 @@ Following the Surfboard-alignment documentation pass (Surfboard confirmed as sys
 
 1. **Get explicit user approval before starting Phase 3 (Client Authentication)** — the single blocking priority right now.
 2. Once approved: Phase 3 (Client Authentication) per `docs/22_DEVELOPMENT_ROADMAP.md`.
-3. Provision Firebase project, Surfboard sandbox credentials + official API docs, Gemini API key.
+3. Provision Firebase project, Surfboard sandbox credentials + official API docs, OpenRouter API key.
 4. Decide and record remaining technical decisions (OCR provider, font, real-time client strategy) in [decision.md](decision.md).
 5. Agree a branch/merge strategy for `main` / `velan` / `gopi`.
 
@@ -119,7 +119,7 @@ Following the Surfboard-alignment documentation pass (Surfboard confirmed as sys
 Per `docs/10_TASKS.md`:
 
 - Phase 3 (Client Authentication) — 3.1 Firebase Auth integration, 3.2 `GET /auth/me`, 3.3 staff invite flow.
-- Prerequisites (P.1–P.4) — Firebase project, Surfboard sandbox + docs, Gemini key, real-time strategy decision — still open, block Phase 4+.
+- Prerequisites (P.1–P.4) — Firebase project, Surfboard sandbox + docs, OpenRouter key, real-time strategy decision — still open, block Phase 4+.
 
 ## Upcoming Milestones
 

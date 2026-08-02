@@ -201,7 +201,7 @@ class PaymentMapper {
       paymentStatus: payment.paymentStatus ?? null,
       paymentId: payment.paymentId ?? null,
       paymentMethod: payment.paymentMethod ?? null,
-      amount: payment.amount ?? null,
+      amount: payment.amount !== null && payment.amount !== undefined ? Number(payment.amount) : null,
       failureReason: payment.failureReason ?? null,
       transactionId: transaction.transactionId ?? null,
     };
@@ -213,6 +213,59 @@ class PaymentMapper {
    */
   toCancelDomain(raw = {}) {
     return { paymentStatus: raw.data?.paymentStatus ?? null };
+  }
+
+  /**
+   * Maps a Surfboard per-order webhook body (`controlFunctions.callBackUrl` —
+   * web-guides/webhooks-notifications.md's "Order Payment Completed/Failed/Cancelled" events) to
+   * the SAME domain shape {@link toOrderStatusDomain} returns, so `payment.service.js` can treat a
+   * cached webhook result and a live Fetch Order Status poll identically. Confirmed live: the
+   * hosted Payment Page's own redirect can fire *before* Fetch Order Status reflects the
+   * completed payment — a real, sometimes multi-minute propagation lag on Surfboard's sandbox —
+   * while the webhook itself carries the same outcome with no such lag (it's the event, not a
+   * queryable projection of one). Only recognizes the three terminal event types (`.completed`,
+   * `.failed`, `.cancelled`) — `webhook.controller.js` only ever calls this for those, on purpose:
+   * Surfboard's own docs say a terminal payment status must never be overwritten by a later,
+   * non-terminal event, so no non-terminal event needs a cached projection at all.
+   * @param {{ eventType?: string, data?: object }} body
+   * @returns {{ orderId: string|null, orderStatus: string|null, paymentStatus: string|null, paymentId: string|null, paymentMethod: string|null, amount: number|null, failureReason: string|null, transactionId: string|null }|null}
+   *   `null` when `eventType` isn't one of the three terminal events this app persists.
+   */
+  toWebhookStatusDomain(body = {}) {
+    const eventType = body.eventType ?? null;
+    const data = body.data ?? {};
+
+    const terminalStatusByEventType = {
+      'order.paymentcompleted': 'PAYMENT_COMPLETED',
+      'order.paymentfailed': 'PAYMENT_FAILED',
+      'order.paymentcancelled': 'PAYMENT_CANCELLED',
+    };
+    const paymentStatus = terminalStatusByEventType[eventType] ?? null;
+    if (!paymentStatus || !data.orderId) return null;
+
+    // The completed event nests transaction/amount details under `transactionDetails`; failed/
+    // cancelled instead use `failedTransactionDetails`/`cancelledTransactionDetails` (all arrays
+    // of one, per the bundled webhook reference) — never more than one populated per event.
+    const transaction =
+      (data.transactionDetails ??
+        data.failedTransactionDetails ??
+        data.cancelledTransactionDetails ??
+        [])[0] ?? {};
+
+    return {
+      orderId: data.orderId,
+      orderStatus: data.orderStatus ?? paymentStatus,
+      paymentStatus,
+      paymentId: data.paymentId ?? null,
+      paymentMethod: data.paymentMethod ?? null,
+      // Surfboard sends this as a numeric string in the webhook body (unlike Fetch Order Status's
+      // numeric `payments[].amount`) — coerced here so both sources match this mapper's documented
+      // `number|null` contract; the Flutter client's `OrderStatusModel` does a strict `as num?` cast
+      // and throws on a string, which silently broke every poll once a webhook cached the status.
+      amount: data.amount !== null && data.amount !== undefined ? Number(data.amount) : null,
+      failureReason: data.failureReason ?? null,
+      transactionId: transaction.transactionId ?? null,
+    };
   }
 }
 

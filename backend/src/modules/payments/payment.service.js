@@ -243,13 +243,33 @@ function createPaymentService({
    */
   async function getCheckoutStatus(uid, orderId) {
     const { paymentTrace } = require('../../utils/paymentTrace'); // TEMPORARY — see paymentTrace.js
+    paymentTrace(10, 'entered', { orderId });
+
+    // A terminal outcome cached from Surfboard's webhook (see webhook.controller.js) always wins
+    // over a fresh Fetch Order Status call — confirmed live that the latter can lag the actual
+    // completed payment by anywhere from tens of seconds to several minutes on the sandbox, well
+    // past how long the Flutter app polls for. Skipping the Surfboard call entirely here is also
+    // strictly faster for the already-common case where the webhook beat this call to it.
+    const cached = await paymentRepository.getWebhookStatus(orderId);
+    if (cached) {
+      paymentTrace(11, 'result', {
+        orderId,
+        source: 'webhook-cache',
+        orderStatus: cached.orderStatus,
+        paymentStatus: cached.paymentStatus,
+        paymentId: cached.paymentId,
+        transactionId: cached.transactionId,
+      });
+      return cached;
+    }
+
     const merchantId = await merchantService.getMerchantId(uid);
-    paymentTrace(10, 'entered', { orderId, merchantId });
     const raw = await paymentClient.getOrderStatus(merchantId, orderId);
     paymentTrace(10, 'exited', { orderId, rawSurfboardResponse: raw });
     const domain = mapper.toOrderStatusDomain(raw);
     paymentTrace(11, 'result', {
       orderId,
+      source: 'poll',
       orderStatus: domain.orderStatus,
       paymentStatus: domain.paymentStatus,
       paymentId: domain.paymentId,

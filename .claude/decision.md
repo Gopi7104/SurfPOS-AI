@@ -61,7 +61,7 @@ Copy this block for every new decision:
 - **Decision Number:** D-002
 - **Date:** 2026-07-29
 - **Decision:** Node.js + Express.js as a thin, stateless REST API layer.
-- **Reason:** The backend's job is orchestration (Firebase Admin SDK, Gemini API, OCR, Surfboard Payments) — I/O-bound, not CPU-bound — which suits Node's async model well.
+- **Reason:** The backend's job is orchestration (Firebase Admin SDK, OpenRouter API, OCR, Surfboard Payments) — I/O-bound, not CPU-bound — which suits Node's async model well.
 - **Alternatives Considered:** Python (FastAPI/Django); Go; Java/Spring.
 - **Pros:** Naturally async, well suited to orchestrating multiple external calls per request; huge ecosystem for HTTP clients/SDKs.
 - **Cons:** Not ideal for CPU-heavy work (e.g. in-process image processing), which would need to be isolated if ever required.
@@ -138,21 +138,21 @@ Copy this block for every new decision:
 - **Impact:** `invoiceScans/{scanId}` schema, `invoice_ai/` frontend feature, `modules/ai/` backend module — see [docs/16_AI_MODULE.md](../docs/16_AI_MODULE.md).
 - **Status:** Accepted
 - **Owner:** Velan (project owner)
-- **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-004](../docs/08_ARCHITECTURE_DECISIONS.md#adr-004--why-ai-ocr--gemini-for-invoice-scanning-vs-manual-entry-only)
+- **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-004](../docs/08_ARCHITECTURE_DECISIONS.md#adr-004--why-ai-ocr--openrouter-for-invoice-scanning-vs-manual-entry-only)
 
-### D-008 — Gemini AI selected
+### D-008 — OpenRouter AI selected
 
 - **Decision Number:** D-008
 - **Date:** 2026-07-29
-- **Decision:** Gemini API is the AI reasoning engine used to (a) structure raw OCR text into line items and match them to the product catalog, and (b) generate plain-language business insights from aggregated sales data.
+- **Decision:** OpenRouter API is the AI reasoning engine used to (a) structure raw OCR text into line items and match them to the product catalog, and (b) generate plain-language business insights from aggregated sales data.
 - **Reason:** Needed a capable general-purpose LLM for both structured-extraction and natural-language-generation tasks behind a single API, orchestrated entirely server-side.
 - **Alternatives Considered:** OpenAI GPT models; a smaller task-specific/open-source model self-hosted by the backend.
 - **Pros:** One provider/API surface for both AI responsibilities; strong structured-output capability for the extraction task.
-- **Cons:** External dependency and per-call cost; output must always be validated before being trusted (see [docs/16_AI_MODULE.md § 3](../docs/16_AI_MODULE.md#3-gemini-prompting)).
-- **Impact:** `backend/src/modules/ai/` (Gemini service, prompt templates) — see [docs/16_AI_MODULE.md](../docs/16_AI_MODULE.md).
+- **Cons:** External dependency and per-call cost; output must always be validated before being trusted (see [docs/16_AI_MODULE.md § 3](../docs/16_AI_MODULE.md#3-openrouter-prompting)).
+- **Impact:** `backend/src/modules/ai/` (OpenRouter service, prompt templates) — see [docs/16_AI_MODULE.md](../docs/16_AI_MODULE.md).
 - **Status:** Accepted
 - **Owner:** Velan (project owner)
-- **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-004](../docs/08_ARCHITECTURE_DECISIONS.md#adr-004--why-ai-ocr--gemini-for-invoice-scanning-vs-manual-entry-only) (Gemini is named there as part of the OCR pipeline decision; this entry isolates the model/provider choice specifically)
+- **Cross-reference:** [docs/08_ARCHITECTURE_DECISIONS.md § ADR-004](../docs/08_ARCHITECTURE_DECISIONS.md#adr-004--why-ai-ocr--openrouter-for-invoice-scanning-vs-manual-entry-only) (OpenRouter is named there as part of the OCR pipeline decision; this entry isolates the model/provider choice specifically)
 
 ### D-009 — Surfboard Payments integration
 

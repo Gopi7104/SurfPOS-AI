@@ -53,11 +53,18 @@ class DashboardTabTargets {
 /// and delegates actions (retry, refresh, tab navigation, demo generation)
 /// to the relevant controller.
 class DashboardPage extends ConsumerWidget {
-  const DashboardPage({this.onNavigateToTab, super.key});
+  const DashboardPage({this.onNavigateToTab, this.scrollController, super.key});
 
   /// Lets Quick Actions switch the shell's active tab. `null` in contexts
   /// where the page isn't hosted inside the tab shell (e.g. widget tests).
   final ValueChanged<int>? onNavigateToTab;
+
+  /// Externally-owned controller for the main content `ListView` — lets
+  /// [MainShellPage] drive Dashboard's scroll position from outside (see
+  /// [AppFab.onVerticalDrag]). `null` (the default, and what every widget
+  /// test uses) falls back to an internally-owned controller, unchanged
+  /// from before.
+  final ScrollController? scrollController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -91,7 +98,10 @@ class DashboardPage extends ConsumerWidget {
             ),
           ),
         _ => _DashboardBody(
-            uid: uid, data: state.value!, onNavigateToTab: onNavigateToTab),
+            uid: uid,
+            data: state.value!,
+            onNavigateToTab: onNavigateToTab,
+            scrollController: scrollController),
       },
     );
   }
@@ -109,13 +119,55 @@ class DashboardPage extends ConsumerWidget {
   }
 }
 
-class _DashboardBody extends ConsumerWidget {
+class _DashboardBody extends ConsumerStatefulWidget {
   const _DashboardBody(
-      {required this.uid, required this.data, this.onNavigateToTab});
+      {required this.uid,
+      required this.data,
+      this.onNavigateToTab,
+      this.scrollController});
 
   final String uid;
   final DashboardState data;
   final ValueChanged<int>? onNavigateToTab;
+  final ScrollController? scrollController;
+
+  @override
+  ConsumerState<_DashboardBody> createState() => _DashboardBodyState();
+}
+
+class _DashboardBodyState extends ConsumerState<_DashboardBody> {
+  // A dedicated ScrollController — not a bare `ListView(...)` with no
+  // controller. Without one, `ScrollView.primary` defaults to `true` and
+  // this ListView silently inherits the single `PrimaryScrollController`
+  // that Flutter's Navigator creates ONE of per route (see
+  // `_ModalScopeState` in `widgets/routes.dart`). Since `MainShellPage`
+  // keeps all 6 tabs mounted at once in an `IndexedStack` within that SAME
+  // route, every tab's root `ListView` — Dashboard, Billing, Inventory,
+  // Reports, Customers, Settings — would otherwise all attach to that one
+  // shared controller. Giving Dashboard its own controller (and
+  // `primary: false`) makes it the sole, unambiguous owner of its own
+  // scroll position, immune to any cross-tab interference — "exactly one
+  // primary vertical scrollable" per screen.
+  //
+  // Usually created and owned right here — except `MainShellPage` supplies
+  // its own externally so it can drive this same position when a drag
+  // starts on the floating "New Sale" button instead of on the list itself
+  // (see `AppFab.onVerticalDrag`); an externally-supplied controller is
+  // the caller's to dispose, not ours.
+  late final ScrollController _scrollController =
+      widget.scrollController ?? ScrollController();
+
+  String get uid => widget.uid;
+  DashboardState get data => widget.data;
+  ValueChanged<int>? get onNavigateToTab => widget.onNavigateToTab;
+
+  @override
+  void dispose() {
+    if (widget.scrollController == null) {
+      _scrollController.dispose();
+    }
+    super.dispose();
+  }
 
   Future<void> _generateDemoData(WidgetRef ref) {
     return ref.read(demoDataControllerProvider(uid).notifier).generate(
@@ -125,7 +177,7 @@ class _DashboardBody extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     if (!data.hasMerchant) {
       return DashboardPage._scrollable(
         EmptyState(
@@ -165,6 +217,8 @@ class _DashboardBody extends ConsumerWidget {
           ];
 
     return ListView(
+      controller: _scrollController,
+      primary: false,
       padding: const EdgeInsets.fromLTRB(
           AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xxl * 2),
       children: [

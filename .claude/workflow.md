@@ -42,9 +42,9 @@
 
 ## 7. Integration
 
-- Third-party integrations (Surfboard Payments, Gemini, OCR) are each isolated behind their own backend module/service (`backend/src/modules/surfboard/`, `backend/src/modules/ai/`) — never called directly from a controller (see [docs/07_CODING_RULES.md § 8](../docs/07_CODING_RULES.md#8-never-duplicate-logic--always-reuse-services)).
+- Third-party integrations (Surfboard Payments, OpenRouter, OCR) are each isolated behind their own backend module/service (`backend/src/modules/surfboard/`, `backend/src/modules/ai/`) — never called directly from a controller (see [docs/07_CODING_RULES.md § 8](../docs/07_CODING_RULES.md#8-never-duplicate-logic--always-reuse-services)).
 - Webhooks (Surfboard payment status) must verify signatures and be idempotent — see [docs/15_SURFBOARD_INTEGRATION.md § 5](../docs/15_SURFBOARD_INTEGRATION.md#5-webhooks).
-- AI outputs (Gemini structuring, OCR text) are always validated before being trusted/stored, and anything affecting inventory/money always requires human confirmation (see [decision.md § D-007](decision.md#d-007--ai-invoice-ocr-approach)).
+- AI outputs (OpenRouter structuring, OCR text) are always validated before being trusted/stored, and anything affecting inventory/money always requires human confirmation (see [decision.md § D-007](decision.md#d-007--ai-invoice-ocr-approach)).
 
 ## 8. Deployment
 

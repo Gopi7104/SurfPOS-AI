@@ -14,7 +14,7 @@ These are environment/credential setup, not application code — they must exist
 
 - Firebase project created (Auth, Realtime Database, Storage) — see [14_DEVELOPER_GUIDE.md § 5](14_DEVELOPER_GUIDE.md#5-firebase-setup).
 - Surfboard Payments sandbox/developer account + API credentials + confirmed API documentation.
-- Gemini API key (only blocks Phase 13, not Phase 2–12).
+- OpenRouter API key (only blocks Phase 13, not Phase 2–12).
 - Remaining open ADR-009 items that block specific later phases (OCR provider blocks Phase 13 only; production font blocks nothing backend-related).
 
 ---
@@ -81,7 +81,7 @@ Precomputed rollup jobs over `sales`/`inventory` (Firebase-owned), Dashboard/Rep
 
 ## Phase 13 — AI
 
-OCR + Gemini invoice scanning, product matching, business insight generation — unchanged in shape from [16_AI_MODULE.md](16_AI_MODULE.md), sequenced last since it's the most speculative/least-blocking-to-everything-else capability, and still has an open ADR-009 item (OCR provider choice).
+OCR + OpenRouter invoice scanning, product matching, business insight generation — unchanged in shape from [16_AI_MODULE.md](16_AI_MODULE.md), sequenced last since it's the most speculative/least-blocking-to-everything-else capability, and still has an open ADR-009 item (OCR provider choice).
 
 ---
 

@@ -7,6 +7,11 @@ import '../../../core/widgets/loading/skeleton_list.dart';
 /// flight — same skeleton-loading convention as
 /// `DashboardLoadingSkeleton`/`ReportsLoadingSkeleton`, reusing the shared
 /// [SkeletonList] rather than a new row shimmer implementation.
+///
+/// `shrinkWrap: true` since this now sits inside `CustomerListPage`'s own
+/// outer `ListView` (Hero/KPI grid/search all scroll together) rather than
+/// being the sole scrollable body — see [SkeletonList]'s own header
+/// comment for this exact "embedded inside another scrollable" case.
 class CustomerLoadingSkeleton extends StatelessWidget {
   const CustomerLoadingSkeleton({super.key});
 
@@ -14,7 +19,7 @@ class CustomerLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Padding(
       padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      child: SkeletonList(itemCount: 8),
+      child: SkeletonList(itemCount: 8, shrinkWrap: true),
     );
   }
 }
