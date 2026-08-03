@@ -257,27 +257,41 @@ class _CustomerDetailsBody extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
         FadeSlideIn(
           delay: next(),
-          child: GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 3,
-            mainAxisSpacing: AppSpacing.sm,
-            crossAxisSpacing: AppSpacing.sm,
-            childAspectRatio: 1.0,
-            children: [
-              CustomerSummaryCard(
-                  label: 'Lifetime Spend',
-                  value: '\$${customer.lifetimeSpend.toStringAsFixed(2)}',
-                  icon: LucideIcons.dollarSign),
-              CustomerSummaryCard(
-                  label: 'Total Orders',
-                  value: '${customer.totalOrders}',
-                  icon: LucideIcons.shoppingBag),
-              CustomerSummaryCard(
-                  label: 'Avg. Order Value',
-                  value: '\$${customer.averageOrderValue.toStringAsFixed(2)}',
-                  icon: LucideIcons.calculator),
-            ],
+          // IntrinsicHeight + a Row of Expanded cards, not GridView.count's
+          // fixed `childAspectRatio` — that squared every cell to the same
+          // height regardless of its content, so "Avg. Order Value" (the
+          // one label long enough to wrap to two lines) reliably overflowed
+          // the card's bottom edge. Sizing each card to its own natural
+          // height instead (the same pattern Dashboard/Reports already use
+          // for their own Orders/Customers row) can't overflow, regardless
+          // of label length or screen width.
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: CustomerSummaryCard(
+                      label: 'Lifetime Spend',
+                      value: '\$${customer.lifetimeSpend.toStringAsFixed(2)}',
+                      icon: LucideIcons.dollarSign),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: CustomerSummaryCard(
+                      label: 'Total Orders',
+                      value: '${customer.totalOrders}',
+                      icon: LucideIcons.shoppingBag),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: CustomerSummaryCard(
+                      label: 'Avg. Order Value',
+                      value:
+                          '\$${customer.averageOrderValue.toStringAsFixed(2)}',
+                      icon: LucideIcons.calculator),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: AppSpacing.md),

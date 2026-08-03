@@ -9,6 +9,13 @@ import '../models/receipt_model.dart';
 /// `print_bluetooth_thermal` directly (same Repository/Controller split
 /// every other feature in this app follows).
 abstract class ReceiptRepository {
+  /// Whether Bluetooth permission is *already* granted — a read-only check,
+  /// never shows the OS permission dialog (see
+  /// `ReceiptRepositoryImpl.hasBluetoothPermission`'s header comment for why
+  /// that distinction matters). Lets a caller avoid triggering a fresh
+  /// permission *request* from a context where it isn't safe to.
+  Future<bool> hasBluetoothPermission();
+
   /// Android: every Bluetooth device bonded to this phone. iOS: nearby
   /// devices (see `print_bluetooth_thermal`'s own doc comment) — either way,
   /// this is what "a Bluetooth printer is already paired" is checked

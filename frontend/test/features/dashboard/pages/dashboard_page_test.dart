@@ -298,4 +298,102 @@ void main() {
     final offsetAfter = scrollable.position.pixels;
     expect(offsetAfter, greaterThan(offsetBefore));
   });
+
+  // Sanity check mirroring the Revenue chart's own regression test, for the
+  // Payment Breakdown donut: `PieChart` was the one chart on this page left
+  // at fl_chart's default touch-enabled setting when `BarChart`/`LineChart`
+  // were patched (see `payment_breakdown_section.dart`'s header comment).
+  // Note this widget test doesn't actually reproduce the gesture-arena
+  // competition itself (confirmed by temporarily re-enabling touch on all
+  // three charts — this test still passes either way in this harness), so
+  // it only guards against a plain regression in the drag-still-scrolls
+  // behavior, not the specific touch/arena interaction; the fix here mirrors
+  // the already-established, previously device-confirmed pattern rather
+  // than a fresh repro.
+  testWidgets(
+      'a vertical drag starting on the Payment Breakdown donut still scrolls the Dashboard',
+      (tester) async {
+    useTallTestSurface(tester);
+    const uid = 'uid-2';
+    final now = DateTime.now();
+    final snapshot = DemoBusinessSnapshot(
+      merchantName: 'Blue Wave Surf Shop',
+      storeName: 'Main Street Store',
+      generatedAt: now,
+      categories: const ['Surfboards'],
+      products: const [
+        DemoProduct(
+          id: 'p1',
+          name: 'Longboard',
+          category: 'Surfboards',
+          price: 100,
+          costPrice: 60,
+          stockQuantity: 50,
+          lowStockThreshold: 5,
+          unitsSold: 3,
+          colorSeed: 0,
+        ),
+      ],
+      customers: const [
+        DemoCustomer(
+            id: 'c1', name: 'Alex Rider', totalSpend: 300, totalOrders: 3),
+      ],
+      sales: [
+        DemoSale(
+          id: 's1',
+          receiptNumber: 'R-1',
+          time: now,
+          amount: 100,
+          costAmount: 60,
+          paymentMethod: 'Card',
+          productId: 'p1',
+          productName: 'Longboard',
+          customerName: 'Alex Rider',
+          status: TransactionStatus.successful,
+        ),
+      ],
+      receipts: const [],
+    );
+    final fakeStorage = _FakeSecureStorageService({
+      'demo_data.snapshot.$uid': jsonEncode(snapshot.toJson()),
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          dashboardRepositoryProvider.overrideWithValue(
+            FakeDashboardRepository(
+                loadDashboard: () async => testDashboardState()),
+          ),
+          authRepositoryProvider.overrideWithValue(
+            FakeAuthRepository(
+                restoreSession: () async => testAuthUser(uid: uid)),
+          ),
+          secureStorageServiceProvider.overrideWithValue(fakeStorage),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: DashboardPage()),
+        ),
+      ),
+    );
+    await _settle(tester);
+
+    final chartFinder = find.byType(PieChart);
+    expect(chartFinder, findsOneWidget);
+
+    final scrollableFinder = find.byType(Scrollable).first;
+    final scrollable = tester.state<ScrollableState>(scrollableFinder);
+    final offsetBefore = scrollable.position.pixels;
+
+    // Drag starting from the donut's own center — this is exactly the
+    // gesture that used to be swallowed by fl_chart's internal pan
+    // recognizer instead of reaching the ListView.
+    await tester.dragFrom(tester.getCenter(chartFinder), const Offset(0, -200));
+    await _settle(tester);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final offsetAfter = scrollable.position.pixels;
+    expect(offsetAfter, greaterThan(offsetBefore));
+  });
 }

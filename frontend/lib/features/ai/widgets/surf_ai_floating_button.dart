@@ -45,7 +45,17 @@ class SurfAiBadge extends StatelessWidget {
 /// pulses outward every few seconds; tapping gives a haptic tick, a
 /// Material ripple, and a [Hero] flight into [SurfAiChatPage].
 class SurfAiFloatingButton extends StatefulWidget {
-  const SurfAiFloatingButton({super.key});
+  const SurfAiFloatingButton({this.onVerticalDrag, super.key});
+
+  /// Fired with the drag's `delta.dy` when a vertical drag starts on this
+  /// button — `null` (the default) leaves it exactly as before. Painted on
+  /// top of Dashboard's scrollable content in a `Stack` (see `DashboardPage`),
+  /// so a touch starting inside its bounds is claimed outright and the
+  /// content underneath never gets a chance to scroll — same dead-zone
+  /// problem `AppFab.onVerticalDrag` exists to work around, for the same
+  /// reason. Wiring this callback lets the host forward the drag to its own
+  /// scroll position instead.
+  final ValueChanged<double>? onVerticalDrag;
 
   @override
   State<SurfAiFloatingButton> createState() => _SurfAiFloatingButtonState();
@@ -103,46 +113,51 @@ class _SurfAiFloatingButtonState extends State<SurfAiFloatingButton>
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 72,
-      height: 72,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          AnimatedBuilder(
-            animation: _pulseController,
-            builder: (context, child) => Opacity(
-              opacity: _pulseOpacity.value,
-              child: Transform.scale(
-                scale: _pulseScale.value,
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.secondary,
+    return GestureDetector(
+      onVerticalDragUpdate: widget.onVerticalDrag == null
+          ? null
+          : (details) => widget.onVerticalDrag!(details.delta.dy),
+      child: SizedBox(
+        width: 72,
+        height: 72,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            AnimatedBuilder(
+              animation: _pulseController,
+              builder: (context, child) => Opacity(
+                opacity: _pulseOpacity.value,
+                child: Transform.scale(
+                  scale: _pulseScale.value,
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.secondary,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          AnimatedBuilder(
-            animation: _breathController,
-            builder: (context, child) =>
-                Transform.scale(scale: _breath.value, child: child),
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: () => _open(context),
-                child: const Hero(
-                  tag: surfAiHeroTag,
-                  child: SurfAiBadge(),
+            AnimatedBuilder(
+              animation: _breathController,
+              builder: (context, child) =>
+                  Transform.scale(scale: _breath.value, child: child),
+              child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => _open(context),
+                  child: const Hero(
+                    tag: surfAiHeroTag,
+                    child: SurfAiBadge(),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

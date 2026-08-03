@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/themes/app_colors.dart';
-import '../../../app/themes/app_shadows.dart';
 import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
+import '../../../core/widgets/cards/app_card.dart';
 import '../../../core/widgets/headers/section_header.dart';
 import '../../demo_data/models/business_insight.dart';
 
 /// The Business Insights section — one dynamic card per insight ("Revenue
-/// up 18% from yesterday", best-selling category, top customer, ...),
-/// each with a tinted icon and a colored accent bar rather than a plain
-/// chip, so they read as genuine cards. Shows 2–4 at a time.
+/// up 18% from yesterday", best-selling category, top customer, ...), each
+/// a plain [AppCard] with a tinted icon, matching the flat card style
+/// every other Dashboard row (Low Stock, Recent Transactions) already
+/// uses — Phase UI/UX 3 dropped the colored left-border accent bar this
+/// section used to have, which was the one section visually out of step
+/// with the rest of the page. Shows up to 4 at a time.
 class BusinessInsightsSection extends StatelessWidget {
   const BusinessInsightsSection({required this.insights, super.key});
 
@@ -68,14 +71,8 @@ class _InsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(AppSpacing.sm + 2),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border(left: BorderSide(color: _accent, width: 3)),
-        boxShadow: AppShadows.card,
-      ),
       child: Row(
         children: [
           Container(

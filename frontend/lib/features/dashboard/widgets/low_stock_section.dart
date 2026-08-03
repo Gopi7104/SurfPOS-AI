@@ -91,7 +91,24 @@ class _LowStockCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          OutlinedButton(onPressed: onRestock, child: const Text('Restock')),
+          OutlinedButton(
+            onPressed: onRestock,
+            style: OutlinedButton.styleFrom(
+              // The app-wide OutlinedButtonTheme defaults to a full-width,
+              // `Size.fromHeight`-based minimum (every other OutlinedButton
+              // in this app fills its row) — this is an inline,
+              // content-width button sitting directly in a Row, so without
+              // this override it forces a taller-than-intended row and
+              // fights the compact 44px icon it sits beside. Same fix as
+              // `features/inventory/widgets/low_stock_section.dart`'s own
+              // Quick Restock button.
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              foregroundColor: AppColors.primary,
+            ),
+            child: const Text('Restock'),
+          ),
         ],
       ),
     );

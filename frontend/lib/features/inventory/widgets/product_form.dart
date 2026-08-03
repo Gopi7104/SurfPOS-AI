@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../../../app/themes/app_colors.dart';
@@ -68,7 +70,7 @@ class _ProductFormState extends State<ProductForm> {
           _composeEnrichedDescription(widget.prefill) ??
           '');
   late final _skuController =
-      TextEditingController(text: widget.initial?.sku ?? '');
+      TextEditingController(text: widget.initial?.sku ?? _generateSku());
   late final _barcodeController = TextEditingController(
       text: widget.initial?.barcode ?? widget.prefill?.barcode ?? '');
   late final _categoryController = TextEditingController(
@@ -120,6 +122,24 @@ class _ProductFormState extends State<ProductForm> {
     _stockController.dispose();
     _lowStockController.dispose();
     super.dispose();
+  }
+
+  /// An effectively-unique SKU for a brand-new product (Add mode only —
+  /// Edit/Duplicate always pass [ProductForm.initial], so its real saved
+  /// SKU wins via the `??` above) — millisecond timestamp + a short random
+  /// suffix, so the merchant never has to type one, and two products added
+  /// back-to-back still can't collide. The backend remains the source of
+  /// truth for uniqueness (`InventoryService.assertSkuAvailable`); this
+  /// only saves manual entry, it doesn't replace that check.
+  static String _generateSku() {
+    final millis =
+        DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase();
+    final suffix = Random()
+        .nextInt(0xFFFF)
+        .toRadixString(36)
+        .padLeft(3, '0')
+        .toUpperCase();
+    return 'SKU-$millis-$suffix';
   }
 
   double? _parseNonNegative(String text) {

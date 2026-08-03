@@ -23,7 +23,6 @@ import '../models/dashboard_state.dart';
 import '../providers/dashboard_low_stock_provider.dart';
 import '../providers/dashboard_providers.dart';
 import '../widgets/business_insights_section.dart';
-import '../widgets/business_metrics_bento.dart';
 import '../widgets/dashboard_activity_empty_state.dart';
 import '../widgets/dashboard_hero_section.dart';
 import '../widgets/dashboard_loading_skeleton.dart';
@@ -32,7 +31,6 @@ import '../widgets/low_stock_section.dart';
 import '../widgets/payment_breakdown_section.dart';
 import '../widgets/recent_transactions_section.dart';
 import '../widgets/revenue_chart_section.dart';
-import '../widgets/sales_trend_section.dart';
 import '../widgets/top_selling_products_section.dart';
 
 /// Tab indices in [AppMainScaffold.items] (Dashboard, Billing, Inventory,
@@ -48,10 +46,17 @@ class DashboardTabTargets {
 }
 
 /// The Merchant Dashboard — the app's home screen, redesigned (Phase
-/// UI/UX 2) around one gradient hero card as the visual focus, dynamic
-/// insight cards, a horizontally-scrollable quick actions row, and an
-/// asymmetric "bento" metrics layout, in place of the old plain banner +
-/// four identical stat cards. Real, live figures still come from
+/// UI/UX 2, refined Phase UI/UX 3) around one gradient hero card as the
+/// visual focus, dynamic insight cards, and a horizontally-scrollable
+/// quick actions row, in place of the old plain banner + four identical
+/// stat cards. Phase UI/UX 3 also dropped two sections that duplicated
+/// data shown elsewhere on this same screen: the "bento" metrics grid
+/// (Today's Sales/Orders/Average Order/Customers — all already in the
+/// hero's own stat pills) and the 14-day Sales Trend line chart (the same
+/// revenue-over-time data the Revenue Chart above it already plots, just
+/// at a fixed bucketing instead of the Revenue Chart's own Today/Week/
+/// Month toggle) — one section per distinct piece of information, not two
+/// showing the same numbers back to back. Real, live figures still come from
 /// [DashboardController] (merchant/store), Inventory, and Customers, all
 /// read-only exactly as before; every sales/revenue/transaction-shaped
 /// section prefers real data from [SalesLedgerSnapshot] (Phase CRM-2 —
@@ -93,6 +98,18 @@ class DashboardPage extends ConsumerWidget {
     final state = ref.watch(provider);
     final notifier = ref.read(provider.notifier);
 
+    // Mirrors `MainShellPage._handleFabVerticalDrag` exactly — see
+    // `SurfAiFloatingButton.onVerticalDrag`'s header comment for why this
+    // button needs the same forwarding the "New Sale" FAB already has.
+    void handleFabVerticalDrag(double dy) {
+      if (scrollController == null || !scrollController!.hasClients) return;
+      final position = scrollController!.position;
+      scrollController!.jumpTo(
+        (position.pixels - dy)
+            .clamp(position.minScrollExtent, position.maxScrollExtent),
+      );
+    }
+
     return Stack(
       children: [
         RefreshIndicator(
@@ -124,10 +141,12 @@ class DashboardPage extends ConsumerWidget {
         // already the centered "New Sale" FAB (`FloatingActionButtonLocation.centerFloat`) and
         // can only ever hold one widget; sitting above it, offset right, keeps both visible
         // without overlapping, and a small corner overlay never blocks cards or scrolling.
-        const Positioned(
+        Positioned(
           bottom: 100,
           right: AppSpacing.md,
-          child: SurfAiFloatingButton(),
+          child: SurfAiFloatingButton(
+            onVerticalDrag: handleFabVerticalDrag,
+          ),
         ),
       ],
     );
@@ -271,13 +290,6 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
       ];
     }
 
-    final salesTrendPoints = hasRealSales
-        ? [
-            for (final p in ledger.salesTrend14Days)
-              DemoTrendPoint(label: p.label, amount: p.amount)
-          ]
-        : (demo?.salesTrend ?? const <DemoTrendPoint>[]);
-
     final paymentBreakdownSlices = hasRealSales
         ? [
             for (final s in ledger.paymentBreakdown)
@@ -363,17 +375,6 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
           ),
         ],
         const SizedBox(height: AppSpacing.md),
-        FadeSlideIn(
-          delay: const Duration(milliseconds: 100),
-          child: BusinessMetricsBento(
-            todaySales: todayRevenue,
-            todayOrders: todayOrders,
-            averageOrderValue: averageOrderValue,
-            customersCount:
-                demo?.customersCount ?? (customerStats?.totalCustomers ?? 0),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
         if (!hasActivity) ...[
           FadeSlideIn(
             delay: const Duration(milliseconds: 120),
@@ -387,11 +388,6 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
           FadeSlideIn(
             delay: const Duration(milliseconds: 120),
             child: RevenueChartSection(trendFor: revenueTrendFor),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 140),
-            child: SalesTrendSection(points: salesTrendPoints),
           ),
           const SizedBox(height: AppSpacing.md),
           FadeSlideIn(

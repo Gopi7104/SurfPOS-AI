@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/themes/app_colors.dart';
-import '../../../app/themes/app_shadows.dart';
 import '../../../app/themes/app_spacing.dart';
 import '../../../app/themes/app_typography.dart';
+import '../../../core/widgets/cards/app_card.dart';
 import '../../../core/widgets/headers/section_header.dart';
 import '../../demo_data/models/business_insight.dart';
 import 'empty_reports_view.dart';
@@ -14,8 +14,11 @@ import 'empty_reports_view.dart';
 /// each one is derived — a growth comparison, a top category/customer, a
 /// fastest mover, a low-stock count), never generated fresh here. Mirrors
 /// `dashboard/widgets/business_insights_section.dart`'s exact visual
-/// treatment, kept as a Reports-local copy for module encapsulation.
-/// Shows the brief's literal fallback copy when there's nothing to report.
+/// treatment (a plain [AppCard] with a tinted icon, no colored accent
+/// border — Phase UI/UX 7 dropped that border on both to match the flat
+/// card style the rest of each page already uses), kept as a Reports-local
+/// copy for module encapsulation. Shows the brief's literal fallback copy
+/// when there's nothing to report.
 class BusinessInsightsCard extends StatelessWidget {
   const BusinessInsightsCard({required this.insights, super.key});
 
@@ -81,14 +84,8 @@ class _InsightTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(AppSpacing.sm + 2),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border(left: BorderSide(color: _accent, width: 3)),
-        boxShadow: AppShadows.card,
-      ),
       child: Row(
         children: [
           Container(

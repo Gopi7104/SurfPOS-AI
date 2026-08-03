@@ -16,13 +16,10 @@ import '../models/recent_transaction.dart';
 import '../models/reports_state.dart';
 import '../providers/reports_providers.dart';
 import '../widgets/best_sellers_card.dart';
-import '../widgets/business_health_score_card.dart';
 import '../widgets/business_insights_card.dart';
-import '../widgets/category_performance_card.dart';
 import '../widgets/export_actions_card.dart';
 import '../widgets/inventory_health_card.dart';
 import '../widgets/kpi_showcase_card.dart';
-import '../widgets/peak_hours_card.dart';
 import '../widgets/analytics_hero_header.dart';
 import '../widgets/report_filter_bar.dart';
 import '../widgets/reports_empty_state.dart';
@@ -50,6 +47,17 @@ import '../widgets/transaction_tile.dart';
 /// `ReportsRepositoryImpl`'s header comment). Demo data still wins when
 /// present, unchanged from before, purely so a merchant exploring the app
 /// pre-launch keeps seeing a fully populated UI.
+///
+/// Phase UI/UX 7 removed every section that was a permanent, never-real
+/// placeholder rather than an honest "not tracked yet" state — Category
+/// Performance, Peak Business Hours, and Business Health Score were fake
+/// dimmed chart mockups with zero real data source, ever, for any
+/// merchant (see each widget's own now-deleted header comment); the
+/// Refund Rate/Inventory Value stat pills and Inventory Health's
+/// Overstock/Dead Stock/Avg. Stock Age cards were the same thing in
+/// miniature — hardcoded with no `value` ever passed in. It also dropped
+/// the Key Metrics section's own Revenue card, which duplicated the
+/// figure [AnalyticsHeroHeader] already shows immediately above it.
 class ReportsHomePage extends ConsumerWidget {
   const ReportsHomePage({super.key});
 
@@ -217,10 +225,6 @@ class _ReportsBody extends ConsumerWidget {
             children: [
               const SectionHeader(title: 'Key Metrics'),
               Builder(builder: (context) {
-                final revenue =
-                    demo?.todaySales ?? snapshot.salesSummary.todaySales;
-                final revenueGrowth = demo?.todaySalesGrowth ??
-                    snapshot.salesSummary.todaySalesGrowth;
                 final customersCount =
                     (demo?.customersCount ?? customerStats?.totalCustomers ?? 0)
                         .toDouble();
@@ -230,20 +234,6 @@ class _ReportsBody extends ConsumerWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    KpiHighlightCard(
-                      label: 'Revenue',
-                      icon: Icons.attach_money_rounded,
-                      value: revenue,
-                      formatter: (v) => '\$${v.toStringAsFixed(0)}',
-                      growthPercent: revenueGrowth,
-                      insight: revenueGrowth == null
-                          ? null
-                          : '${revenueGrowth >= 0 ? '+' : ''}${revenueGrowth.toStringAsFixed(0)}% vs yesterday',
-                      sparklineValues: demo != null
-                          ? _recentAmounts(demo.salesTrend, 7)
-                          : const [],
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
                     IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -304,18 +294,6 @@ class _ReportsBody extends ConsumerWidget {
                           ? null
                           : (growth.abs() / 100).clamp(0.0, 1.0),
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    const Row(
-                      children: [
-                        KpiStatPill(
-                            label: 'Refund Rate',
-                            icon: Icons.assignment_return_rounded),
-                        SizedBox(width: AppSpacing.sm),
-                        KpiStatPill(
-                            label: 'Inventory Value',
-                            icon: Icons.inventory_2_rounded),
-                      ],
-                    ),
                   ],
                 );
               }),
@@ -355,12 +333,6 @@ class _ReportsBody extends ConsumerWidget {
             child: _RecentTransactionsSection(transactions: recentTransactions),
           ),
         ],
-        const SizedBox(height: AppSpacing.md),
-        FadeSlideIn(delay: next(), child: const CategoryPerformanceCard()),
-        const SizedBox(height: AppSpacing.md),
-        FadeSlideIn(delay: next(), child: const PeakHoursCard()),
-        const SizedBox(height: AppSpacing.md),
-        FadeSlideIn(delay: next(), child: const BusinessHealthScoreCard()),
         const SizedBox(height: AppSpacing.md),
         FadeSlideIn(delay: next(), child: const ExportActionsCard()),
       ],

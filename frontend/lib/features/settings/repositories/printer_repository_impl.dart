@@ -28,12 +28,22 @@ class PrinterRepositoryImpl implements PrinterRepository {
   /// and every method below calls it first so none of them can reach that
   /// hang. iOS/macOS/Windows have no such gap, so they keep using the
   /// plugin's own check.
+  ///
+  /// Requests `BLUETOOTH_SCAN` too, not just `BLUETOOTH_CONNECT` — confirmed
+  /// live (Android 13) that the plugin's native `connect()` unconditionally
+  /// calls `BluetoothAdapter.cancelDiscovery()` before opening the RFCOMM
+  /// socket, which itself requires `BLUETOOTH_SCAN` and fails with
+  /// `connect: false` otherwise, even though this app never scans for new
+  /// devices itself.
   Future<bool> _hasBluetoothPermission() async {
     if (!Platform.isAndroid) {
       return PrintBluetoothThermal.isPermissionBluetoothGranted;
     }
-    final status = await Permission.bluetoothConnect.request();
-    return status.isGranted;
+    final statuses = await [
+      Permission.bluetoothConnect,
+      Permission.bluetoothScan,
+    ].request();
+    return statuses.values.every((status) => status.isGranted);
   }
 
   @override

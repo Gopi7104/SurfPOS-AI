@@ -6,12 +6,13 @@ import '../../../core/widgets/headers/section_header.dart';
 import 'kpi_card.dart';
 import 'kpi_grid.dart';
 
-/// Inventory Health — Low Stock/Out of Stock are real, live figures
+/// Inventory Health — Low Stock/Out of Stock, real live figures
 /// (`ReportsSnapshot.inventoryOverview`, read straight from
-/// `InventoryRepository`); Overstock/Dead Stock/Inventory Value/Average
-/// Stock Age have no data source anywhere yet, so they render as the same
-/// honest "coming soon" [KpiCard] placeholder state as the KPI section
-/// above — never an invented count or dollar figure.
+/// `InventoryRepository`). Used to also show Overstock/Dead Stock/
+/// Inventory Value/Average Stock Age as permanent "coming soon" [KpiCard]
+/// placeholders — removed in Phase UI/UX 7 along with this page's other
+/// never-real placeholder sections (see `ReportsHomePage`'s header
+/// comment) since none of the four ever had a data source to back them.
 class InventoryHealthCard extends StatelessWidget {
   const InventoryHealthCard({
     required this.lowStockCount,
@@ -43,10 +44,6 @@ class InventoryHealthCard extends StatelessWidget {
             iconColor: AppColors.error,
             iconBackground: AppColors.errorContainer,
           ),
-          const KpiCard(label: 'Overstock', icon: LucideIcons.boxes),
-          const KpiCard(label: 'Dead Stock', icon: LucideIcons.packageMinus),
-          const KpiCard(label: 'Inventory Value', icon: LucideIcons.wallet),
-          const KpiCard(label: 'Avg. Stock Age', icon: LucideIcons.clock),
         ]),
       ],
     );

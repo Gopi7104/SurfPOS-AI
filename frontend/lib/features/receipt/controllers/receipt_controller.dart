@@ -18,10 +18,24 @@ class ReceiptController
   /// Checks for an already-paired printer and, if one is found, prints
   /// immediately — the spec's "if a Bluetooth printer is already paired,
   /// print automatically". Call once when the Receipt screen first loads.
+  ///
+  /// Never triggers a Bluetooth permission *request* itself — this runs
+  /// automatically (no direct user tap), and requesting from that kind of
+  /// context is what used to leave this screen stuck on "Checking for a
+  /// paired printer…" forever on some devices (see
+  /// `ReceiptRepositoryImpl.hasBluetoothPermission`'s header comment). If
+  /// permission isn't already granted, this goes straight to
+  /// [PrinterStatus.notConnected] instead — the merchant can still tap
+  /// "Connect Printer" themselves, a real tap, which safely requests it the
+  /// same way Settings' Printer page already does.
   Future<void> checkPrinterAndAutoPrint(ReceiptModel receipt) async {
     state = state.copyWith(printerStatus: PrinterStatus.checking);
     try {
       final repository = ref.read(receiptRepositoryProvider);
+      if (!await repository.hasBluetoothPermission()) {
+        state = state.copyWith(printerStatus: PrinterStatus.notConnected);
+        return;
+      }
       final printers = await repository.pairedPrinters();
       if (printers.isEmpty) {
         state = state.copyWith(

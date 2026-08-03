@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/paired_printer_model.dart';
 import '../models/receipt_model.dart';
 import 'receipt_repository.dart';
+import 'thermal_receipt_formatter.dart';
 
 /// Neither WhatsApp nor Gmail/Mail expose a public API to receive a file
 /// attachment via a deep link — the OS share sheet (`share_plus`) is the
@@ -36,13 +37,48 @@ import 'receipt_repository.dart';
 /// side never replies to the platform channel in that case. `_hasPermission`
 /// below performs the real request (via `permission_handler`) and every
 /// method calls it first so none of them can reach that hang.
+///
+/// Requests `BLUETOOTH_SCAN` too, not just `BLUETOOTH_CONNECT` — confirmed
+/// live (Android 13) that the plugin's native `connect()` unconditionally
+/// calls `BluetoothAdapter.cancelDiscovery()` before opening the RFCOMM
+/// socket, which itself requires `BLUETOOTH_SCAN` and fails with
+/// `connect: false` otherwise, even though this app never scans for new
+/// devices itself.
 class ReceiptRepositoryImpl implements ReceiptRepository {
   Future<bool> _hasPermission() async {
     if (!Platform.isAndroid) {
       return PrintBluetoothThermal.isPermissionBluetoothGranted;
     }
-    final status = await Permission.bluetoothConnect.request();
-    return status.isGranted;
+    final statuses = await [
+      Permission.bluetoothConnect,
+      Permission.bluetoothScan,
+    ].request();
+    return statuses.values.every((status) => status.isGranted);
+  }
+
+  /// A read-only *check* — never a `.request()` — for whether Bluetooth
+  /// permission is already granted. `ReceiptController.checkPrinterAndAutoPrint`
+  /// runs automatically the instant the Receipt screen mounts, right after a
+  /// payment completes — on some OEM Android builds (confirmed on a MIUI
+  /// device), a permission dialog triggered by that kind of automatic,
+  /// no-direct-user-tap code path never resolves, which is what left the
+  /// Receipt screen's "Checking for a paired printer…" spinner stuck forever
+  /// until the merchant backed out to Settings' Printer page and connected
+  /// from there instead — a real button tap, which the OS is willing to show
+  /// a permission dialog for. Checking first and skipping the auto-connect
+  /// entirely when permission isn't already granted (see
+  /// [ReceiptController.checkPrinterAndAutoPrint]) avoids ever firing that
+  /// request from the automatic path; tapping "Connect Printer" still goes
+  /// through [connect]/[pairedPrinters]'s own `_hasPermission`, a real
+  /// request, from a real tap — exactly the path that already works today.
+  @override
+  Future<bool> hasBluetoothPermission() async {
+    if (!Platform.isAndroid) {
+      return PrintBluetoothThermal.isPermissionBluetoothGranted;
+    }
+    final connectStatus = await Permission.bluetoothConnect.status;
+    final scanStatus = await Permission.bluetoothScan.status;
+    return connectStatus.isGranted && scanStatus.isGranted;
   }
 
   @override
@@ -68,6 +104,27 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
     return PrintBluetoothThermal.connectionStatus;
   }
 
+  /// Printable template — premium retail-POS layout (Square/Toast/Shopify
+  /// style): compact centered header (merchant/store/tagline + Receipt #/
+  /// Txn ID/Date/Time, one line each, never wrapping — long IDs truncate
+  /// with `...` instead, see [ThermalReceiptFormatter.printKeyValue]), a
+  /// real ITEM/QTY/AMOUNT product table with word-wrapped long names, an
+  /// emphasized centered/bold/double-size grand TOTAL, grouped payment
+  /// details, and a clean footer. Every section is built via
+  /// [ThermalReceiptFormatter] — see that class's header comment for how
+  /// it stays width-agnostic (58mm/80mm) without hardcoded spacing.
+  ///
+  /// Every field printed here already exists on [ReceiptModel] — nothing
+  /// invented. Approval/Ref No map the same way the in-app
+  /// `ReceiptSummaryCard` labels them (paymentId/orderId respectively, just
+  /// under shorter print-friendly labels here).
+  /// Deliberately omits a store logo (this app's only logo asset is a
+  /// full-color/gradient PNG that would dither poorly on a 1-bit thermal
+  /// printer — text-only branding is the safer default) and a QR code
+  /// (there's no hosted "digital receipt" page to link to) and any social/
+  /// website/support contact line (no such field exists on this model or
+  /// anywhere else this repository can reach) — printing any of those
+  /// would mean fabricating data this app doesn't actually have.
   @override
   Future<void> printReceipt(ReceiptModel receipt) async {
     if (!await _hasPermission()) {
@@ -79,47 +136,61 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
     }
 
     final profile = await CapabilityProfile.load();
-    final generator = Generator(PaperSize.mm58, profile);
+    const paperSize = PaperSize.mm58;
+    final generator = Generator(paperSize, profile);
+    final f = ThermalReceiptFormatter(generator, paperSize);
     final bytes = <int>[];
 
-    bytes.addAll(generator.text(
-      receipt.merchantName,
-      styles: const PosStyles(
-          align: PosAlign.center,
-          bold: true,
-          height: PosTextSize.size2,
-          width: PosTextSize.size2),
+    bytes.addAll(f.printHeader(
+      merchantName: receipt.merchantName,
+      storeName: receipt.storeName,
+      receiptNo: receipt.orderId,
+      transactionId: receipt.transactionId,
+      date: _formatReceiptDate(receipt.completedAt),
+      time: _formatReceiptTime(receipt.completedAt),
     ));
-    bytes.addAll(generator.text(receipt.storeName,
-        styles: const PosStyles(align: PosAlign.center)));
-    bytes.addAll(generator.hr());
-    bytes.addAll(generator.text('Order: ${receipt.orderId}'));
-    if (receipt.paymentId != null) {
-      bytes.addAll(generator.text('Payment: ${receipt.paymentId}'));
-    }
-    if (receipt.transactionId != null) {
-      bytes.addAll(generator.text('Txn: ${receipt.transactionId}'));
-    }
-    bytes.addAll(generator.text(_formatDateTime(receipt.completedAt)));
-    bytes.addAll(generator.hr());
 
-    for (final item in receipt.items) {
-      bytes.addAll(generator.row([
-        PosColumn(text: '${item.quantity}x ${item.productName}', width: 8),
-        PosColumn(
-            text: item.lineTotal.toStringAsFixed(2),
-            width: 4,
-            styles: const PosStyles(align: PosAlign.right)),
-      ]));
+    if (receipt.customerName != null || receipt.customerPhone != null) {
+      if (receipt.customerName != null) {
+        bytes.addAll(f.printKeyValue('Customer', receipt.customerName!));
+      }
+      if (receipt.customerPhone != null) {
+        bytes.addAll(f.printKeyValue('Phone', receipt.customerPhone!));
+      }
+      bytes.addAll(f.printDivider());
     }
-    bytes.addAll(generator.hr());
-    bytes.addAll(_totalRow(generator, 'Subtotal', receipt.subtotal));
-    bytes.addAll(_totalRow(generator, 'Discount', -receipt.discountTotal));
-    bytes.addAll(_totalRow(generator, 'Tax', receipt.taxTotal));
-    bytes.addAll(_totalRow(generator, 'Total', receipt.total, bold: true));
-    bytes.addAll(generator.hr());
-    bytes.addAll(generator.text('Payment Method: ${receipt.paymentMethod}'));
-    bytes.addAll(generator.text('Status: ${receipt.paymentStatus}'));
+
+    bytes.addAll(f.printProductTableHeader());
+    bytes.addAll(f.printDivider());
+    for (final item in receipt.items) {
+      if (item.productName.length <= f.singleLineItemChars) {
+        bytes.addAll(
+            f.printProductRow(item.productName, item.quantity, item.lineTotal));
+      } else {
+        bytes.addAll(f.printWrappedProduct(
+            item.productName, item.quantity, item.lineTotal));
+      }
+    }
+    bytes.addAll(f.printDivider());
+
+    bytes.addAll(f.printTotals(
+      subtotal: receipt.subtotal,
+      discount: receipt.discountTotal,
+      tax: receipt.taxTotal,
+      total: receipt.total,
+    ));
+
+    bytes.addAll(f.printKeyValue('Payment', receipt.paymentMethod));
+    bytes.addAll(f.printKeyValue('Status', receipt.paymentStatus.toUpperCase(),
+        boldValue: true));
+    bytes.addAll(f.printKeyValue('Ref No', receipt.orderId));
+    if (receipt.paymentId != null) {
+      bytes.addAll(f.printKeyValue('Approval', receipt.paymentId!));
+    }
+    bytes.addAll(f.printDivider());
+
+    bytes.addAll(f.printFooter());
+
     bytes.addAll(generator.feed(2));
     bytes.addAll(generator.cut());
 
@@ -129,15 +200,35 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
     }
   }
 
-  List<int> _totalRow(Generator generator, String label, double amount,
-      {bool bold = false}) {
-    return generator.row([
-      PosColumn(text: label, width: 8, styles: PosStyles(bold: bold)),
-      PosColumn(
-          text: amount.toStringAsFixed(2),
-          width: 4,
-          styles: PosStyles(align: PosAlign.right, bold: bold)),
-    ]);
+  /// `03 Aug 2026` — the printed template's own date format, distinct from
+  /// [_formatDateTime] (still used unchanged by [buildReceiptPdf]/the PDF
+  /// share flow, which this redesign doesn't touch).
+  String _formatReceiptDate(DateTime dateTime) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final day = dateTime.day.toString().padLeft(2, '0');
+    return '$day ${months[dateTime.month - 1]} ${dateTime.year}';
+  }
+
+  /// `11:13 AM` — the printed template's own time format, same scope note
+  /// as [_formatReceiptDate].
+  String _formatReceiptTime(DateTime dateTime) {
+    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+    final hour12 = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$hour12:$minute $period';
   }
 
   @override

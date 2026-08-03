@@ -91,6 +91,36 @@ void main() {
           PrinterStatus.notConnected);
     });
 
+    // Regression test for the "Receipt screen stuck on Checking for a
+    // paired printer… forever" bug: the automatic on-mount check must never
+    // attempt to request Bluetooth permission itself — if it isn't already
+    // granted, it goes straight to notConnected instead of ever calling
+    // pairedPrinters()/connect() (see `ReceiptRepositoryImpl
+    // .hasBluetoothPermission`'s header comment for the full root cause).
+    test(
+        'checkPrinterAndAutoPrint() skips straight to notConnected when Bluetooth permission is not yet granted, never touching pairedPrinters()',
+        () async {
+      var pairedPrintersCalled = false;
+      final container = _makeContainer(FakeReceiptRepository(
+        hasBluetoothPermission: () async => false,
+        pairedPrinters: () async {
+          pairedPrintersCalled = true;
+          return const [
+            PairedPrinterModel(name: 'Front Counter', macAddress: 'AA:BB')
+          ];
+        },
+      ));
+      addTearDown(container.dispose);
+
+      await container
+          .read(receiptControllerProvider(_uidA).notifier)
+          .checkPrinterAndAutoPrint(_receipt);
+
+      expect(pairedPrintersCalled, isFalse);
+      expect(container.read(receiptControllerProvider(_uidA)).printerStatus,
+          PrinterStatus.notConnected);
+    });
+
     test(
         'checkPrinterAndAutoPrint() surfaces a repository failure as the error status',
         () async {

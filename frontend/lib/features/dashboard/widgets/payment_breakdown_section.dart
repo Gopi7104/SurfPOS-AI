@@ -41,6 +41,15 @@ class PaymentBreakdownSection extends StatelessWidget {
                   height: 132,
                   child: PieChart(
                     PieChartData(
+                      // Touch/tooltip handling deliberately disabled to
+                      // match `revenue_chart_section.dart`/
+                      // `sales_trend_section.dart`'s own `BarTouchData`/
+                      // `LineTouchData(enabled: false)` — this donut was the
+                      // one chart on this page still left at fl_chart's
+                      // default (touch enabled), which risks the same
+                      // gesture-arena competition with the ancestor
+                      // ListView's scroll those two comments describe.
+                      pieTouchData: PieTouchData(enabled: false),
                       sectionsSpace: 3,
                       centerSpaceRadius: 38,
                       sections: [

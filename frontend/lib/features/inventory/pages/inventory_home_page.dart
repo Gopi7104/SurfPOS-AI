@@ -195,11 +195,21 @@ class _InventoryHomePageState extends ConsumerState<InventoryHomePage> {
           ),
         ],
       ),
-      floatingActionButton: AppFab(
-        icon: Icons.add_rounded,
-        label: 'Add Product',
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AddProductEntryPage()),
+      floatingActionButton: Padding(
+        // This page's own Scaffold has no bottomNavigationBar of its own, but
+        // it's hosted inside AppMainScaffold's `extendBody: true` shell,
+        // whose opaque 64px AppBottomNavBar paints on top of it — without
+        // this, the FAB's default position sits behind/under that bar,
+        // invisible until the keyboard's own bottom-inset avoidance happens
+        // to push it into view while the search field is focused.
+        padding:
+            EdgeInsets.only(bottom: 64 + MediaQuery.of(context).padding.bottom),
+        child: AppFab(
+          icon: Icons.add_rounded,
+          label: 'Add Product',
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AddProductEntryPage()),
+          ),
         ),
       ),
       body: notOnboarded

@@ -67,8 +67,9 @@ void main() {
     });
 
     testWidgets(
-        'never prefills store-specific fields — merchant must enter price, '
-        'cost, tax, stock, SKU, and low-stock threshold themselves',
+        'never prefills store-specific fields from the scan — merchant must '
+        'enter price, cost, tax, stock, and low-stock threshold themselves '
+        '(SKU is auto-generated instead, not left for manual entry)',
         (tester) async {
       _useVeryTallTestSurface(tester);
       final prefill = testLookupResult();
@@ -86,16 +87,19 @@ void main() {
       ));
       expect(priceField.controller?.text, isEmpty);
 
+      // SKU is the one field auto-filled even on the scan path — a
+      // generated, effectively-unique value, not seeded from the scan
+      // result (`ProductLookupResult` has no SKU of its own).
       final skuField = tester.widget<TextField>(find.descendant(
         of: find.widgetWithText(AppTextField, 'SKU'),
         matching: find.byType(TextField),
       ));
-      expect(skuField.controller?.text, isEmpty);
+      expect(skuField.controller?.text, isNotEmpty);
     });
 
     testWidgets(
-        'a plain "Enter Manually" form (no prefill) starts every field blank',
-        (tester) async {
+        'a plain "Enter Manually" form (no prefill) starts every field blank '
+        'except SKU, which is auto-generated', (tester) async {
       _useVeryTallTestSurface(tester);
       await tester.pumpWidget(_wrap(
         child: ProductForm(uid: 'uid-a', onSubmit: (_) {}),
@@ -104,6 +108,26 @@ void main() {
 
       expect(find.textContaining('Brand:'), findsNothing);
       expect(find.textContaining('Ingredients:'), findsNothing);
+
+      final skuField = tester.widget<TextField>(find.descendant(
+        of: find.widgetWithText(AppTextField, 'SKU'),
+        matching: find.byType(TextField),
+      ));
+      expect(skuField.controller?.text, isNotEmpty);
+    });
+
+    testWidgets(
+        'Edit mode keeps the product\'s real saved SKU, never regenerates it',
+        (tester) async {
+      _useVeryTallTestSurface(tester);
+      final product = testProduct(sku: 'EXISTING-SKU-123');
+
+      await tester.pumpWidget(_wrap(
+        child: ProductForm(uid: 'uid-a', initial: product, onSubmit: (_) {}),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('EXISTING-SKU-123'), findsOneWidget);
     });
   });
 }

@@ -10,6 +10,7 @@ import 'package:surfpos_ai/features/receipt/repositories/receipt_repository.dart
 /// (which don't have platform-channel handlers in `flutter test`).
 class FakeReceiptRepository implements ReceiptRepository {
   FakeReceiptRepository({
+    Future<bool> Function()? hasBluetoothPermission,
     Future<List<PairedPrinterModel>> Function()? pairedPrinters,
     Future<bool> Function(String macAddress)? connect,
     Future<bool> Function()? isConnected,
@@ -18,7 +19,8 @@ class FakeReceiptRepository implements ReceiptRepository {
     Future<void> Function(Uint8List pdfBytes,
             {required String fileName, String? text, String? subject})?
         shareReceiptPdf,
-  })  : _pairedPrinters = pairedPrinters ?? (() async => const []),
+  })  : _hasBluetoothPermission = hasBluetoothPermission ?? (() async => true),
+        _pairedPrinters = pairedPrinters ?? (() async => const []),
         _connect = connect ?? ((macAddress) async => true),
         _isConnected = isConnected ?? (() async => false),
         _printReceipt = printReceipt ?? ((receipt) async {}),
@@ -26,6 +28,7 @@ class FakeReceiptRepository implements ReceiptRepository {
         _shareReceiptPdf = shareReceiptPdf ??
             ((pdfBytes, {required fileName, text, subject}) async {});
 
+  final Future<bool> Function() _hasBluetoothPermission;
   final Future<List<PairedPrinterModel>> Function() _pairedPrinters;
   final Future<bool> Function(String macAddress) _connect;
   final Future<bool> Function() _isConnected;
@@ -35,6 +38,9 @@ class FakeReceiptRepository implements ReceiptRepository {
       {required String fileName,
       String? text,
       String? subject}) _shareReceiptPdf;
+
+  @override
+  Future<bool> hasBluetoothPermission() => _hasBluetoothPermission();
 
   @override
   Future<List<PairedPrinterModel>> pairedPrinters() => _pairedPrinters();
