@@ -35,6 +35,7 @@ dependencies:
   mobile_scanner: ^7.4.0
   package_info_plus: ^10.2.1
   pdf: ^3.13.0
+  permission_handler: ^11.3.1
   print_bluetooth_thermal: ^1.2.2
   share_plus: ^13.3.0
   url_launcher: ^6.3.1

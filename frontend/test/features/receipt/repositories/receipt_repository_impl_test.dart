@@ -86,19 +86,55 @@ void main() {
 
   group('connect / isConnected', () {
     test('connect() reports the native connect result', () async {
-      mockChannel({'connect': (_) => true});
+      mockChannel({
+        'ispermissionbluetoothgranted': (_) => true,
+        'connect': (_) => true,
+      });
       expect(await repository.connect('AA:BB:CC:DD:EE:FF'), isTrue);
     });
 
     test('isConnected() reports the native connection status', () async {
-      mockChannel({'connectionstatus': (_) => true});
+      mockChannel({
+        'ispermissionbluetoothgranted': (_) => true,
+        'connectionstatus': (_) => true,
+      });
       expect(await repository.isConnected(), isTrue);
+    });
+
+    // Regression coverage: `connectionstatus`/`connect` hang forever (no
+    // platform-channel reply at all) when called while Bluetooth permission
+    // is missing — see this file's header comment. Never registering a
+    // handler for them here proves these calls short-circuit on the
+    // permission check and never reach the native side while denied.
+    test(
+        'connect() returns false without touching the native side when permission is denied',
+        () async {
+      mockChannel({'ispermissionbluetoothgranted': (_) => false});
+      expect(await repository.connect('AA:BB:CC:DD:EE:FF'), isFalse);
+    });
+
+    test(
+        'isConnected() returns false without touching the native side when permission is denied',
+        () async {
+      mockChannel({'ispermissionbluetoothgranted': (_) => false});
+      expect(await repository.isConnected(), isFalse);
     });
   });
 
   group('printReceipt', () {
+    test('throws without touching the native side when permission is denied',
+        () async {
+      mockChannel({'ispermissionbluetoothgranted': (_) => false});
+
+      expect(
+          () => repository.printReceipt(_receipt), throwsA(isA<StateError>()));
+    });
+
     test('throws when no printer is connected', () async {
-      mockChannel({'connectionstatus': (_) => false});
+      mockChannel({
+        'ispermissionbluetoothgranted': (_) => true,
+        'connectionstatus': (_) => false,
+      });
 
       expect(
           () => repository.printReceipt(_receipt), throwsA(isA<StateError>()));
@@ -107,6 +143,7 @@ void main() {
     test('writes ESC/POS bytes when connected and the printer accepts them',
         () async {
       mockChannel({
+        'ispermissionbluetoothgranted': (_) => true,
         'connectionstatus': (_) => true,
         'writebytes': (_) => true,
       });
@@ -116,6 +153,7 @@ void main() {
 
     test('throws when the printer rejects the bytes', () async {
       mockChannel({
+        'ispermissionbluetoothgranted': (_) => true,
         'connectionstatus': (_) => true,
         'writebytes': (_) => false,
       });

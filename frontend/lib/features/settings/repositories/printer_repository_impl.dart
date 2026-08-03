@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
 import '../models/paired_printer_info.dart';
@@ -14,10 +17,28 @@ import 'printer_repository.dart';
 /// restricted feature's internals to Settings for no real benefit, since
 /// the two need different things from the same underlying package.
 class PrinterRepositoryImpl implements PrinterRepository {
+  /// `print_bluetooth_thermal`'s own `isPermissionBluetoothGranted` only
+  /// *checks* `BLUETOOTH_CONNECT` on Android 12+ — it never shows the
+  /// runtime permission dialog (the plugin's native request call is dead
+  /// code), so without this, permission can never actually be granted and
+  /// every other plugin method (`connectionStatus`, `connect`, etc.) hangs
+  /// forever when called while permission is missing, since the plugin's
+  /// native side never replies to the platform channel in that case. This
+  /// both requests (showing the OS dialog if not yet decided) and checks,
+  /// and every method below calls it first so none of them can reach that
+  /// hang. iOS/macOS/Windows have no such gap, so they keep using the
+  /// plugin's own check.
+  Future<bool> _hasBluetoothPermission() async {
+    if (!Platform.isAndroid) {
+      return PrintBluetoothThermal.isPermissionBluetoothGranted;
+    }
+    final status = await Permission.bluetoothConnect.request();
+    return status.isGranted;
+  }
+
   @override
   Future<List<PairedPrinterInfo>> pairedPrinters() async {
-    final granted = await PrintBluetoothThermal.isPermissionBluetoothGranted;
-    if (!granted) return [];
+    if (!await _hasBluetoothPermission()) return [];
 
     final devices = await PrintBluetoothThermal.pairedBluetooths;
     return [
@@ -27,15 +48,22 @@ class PrinterRepositoryImpl implements PrinterRepository {
   }
 
   @override
-  Future<bool> connect(String macAddress) {
+  Future<bool> connect(String macAddress) async {
+    if (!await _hasBluetoothPermission()) return false;
     return PrintBluetoothThermal.connect(macPrinterAddress: macAddress);
   }
 
   @override
-  Future<bool> isConnected() => PrintBluetoothThermal.connectionStatus;
+  Future<bool> isConnected() async {
+    if (!await _hasBluetoothPermission()) return false;
+    return PrintBluetoothThermal.connectionStatus;
+  }
 
   @override
   Future<void> testPrint(PrinterPaperSize paperSize) async {
+    if (!await _hasBluetoothPermission()) {
+      throw StateError('Bluetooth permission is required to use a printer.');
+    }
     final connected = await isConnected();
     if (!connected) {
       throw StateError('No printer connected.');

@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -24,13 +26,28 @@ import 'receipt_repository.dart';
 /// 12+, legacy `BLUETOOTH`/`BLUETOOTH_ADMIN`) come from
 /// `print_bluetooth_thermal`'s own bundled AndroidManifest via Android's
 /// manifest merger — not duplicated in this app's manifest.
-/// [PrintBluetoothThermal.isPermissionBluetoothGranted] triggers the Android
-/// 12+ runtime prompt itself, so every method below checks it first.
+///
+/// [PrintBluetoothThermal.isPermissionBluetoothGranted] only *checks*
+/// `BLUETOOTH_CONNECT` on Android 12+ — verified against the plugin's own
+/// native source, its runtime-request call is dead code, so it can never
+/// actually show the OS permission dialog. Without a real request, every
+/// other plugin method (`connectionStatus`, `connect`, `writeBytes`) hangs
+/// forever when called while permission is missing — the plugin's native
+/// side never replies to the platform channel in that case. `_hasPermission`
+/// below performs the real request (via `permission_handler`) and every
+/// method calls it first so none of them can reach that hang.
 class ReceiptRepositoryImpl implements ReceiptRepository {
+  Future<bool> _hasPermission() async {
+    if (!Platform.isAndroid) {
+      return PrintBluetoothThermal.isPermissionBluetoothGranted;
+    }
+    final status = await Permission.bluetoothConnect.request();
+    return status.isGranted;
+  }
+
   @override
   Future<List<PairedPrinterModel>> pairedPrinters() async {
-    final granted = await PrintBluetoothThermal.isPermissionBluetoothGranted;
-    if (!granted) return [];
+    if (!await _hasPermission()) return [];
 
     final devices = await PrintBluetoothThermal.pairedBluetooths;
     return [
@@ -40,15 +57,22 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
   }
 
   @override
-  Future<bool> connect(String macAddress) {
+  Future<bool> connect(String macAddress) async {
+    if (!await _hasPermission()) return false;
     return PrintBluetoothThermal.connect(macPrinterAddress: macAddress);
   }
 
   @override
-  Future<bool> isConnected() => PrintBluetoothThermal.connectionStatus;
+  Future<bool> isConnected() async {
+    if (!await _hasPermission()) return false;
+    return PrintBluetoothThermal.connectionStatus;
+  }
 
   @override
   Future<void> printReceipt(ReceiptModel receipt) async {
+    if (!await _hasPermission()) {
+      throw StateError('Bluetooth permission is required to use a printer.');
+    }
     final connected = await isConnected();
     if (!connected) {
       throw StateError('No printer connected.');
