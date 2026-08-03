@@ -6,40 +6,33 @@ import '../controllers/customer_list_controller.dart';
 import '../models/customer_model.dart';
 import '../models/customer_purchase.dart';
 import '../models/customer_stats.dart';
-import '../repositories/customer_local_storage.dart';
-import '../repositories/customer_purchase_local_storage.dart';
+import '../repositories/customer_api_storage.dart';
+import '../repositories/customer_purchase_api_storage.dart';
 import '../repositories/customer_repository.dart';
 import '../repositories/customer_repository_impl.dart';
 
 /// DI wiring for the Customers feature — the only place these concrete
 /// classes are constructed (see docs/07_CODING_RULES.md § 3), reusing the
-/// authentication feature's shared [secureStorageServiceProvider] rather
-/// than redeclaring a second `SecureStorageService`.
-///
-/// Both are `.family`, not plain [Provider]s, because the local-storage
-/// key itself embeds the uid (see [CustomerLocalStorage]) — a plain
-/// singleton would hand every uid the same instance, but the uid is only
-/// known at read time, exactly what `.family` provides (mirrors
-/// `merchantOnboardingLocalStorageProvider`/
-/// `merchantOnboardingRepositoryProvider`).
-final customerLocalStorageProvider =
-    Provider.family<CustomerLocalStorage, String>((ref, uid) {
-  return CustomerLocalStorage(ref.watch(secureStorageServiceProvider), uid);
+/// authentication feature's shared [apiClientProvider]. Customer/purchase
+/// data is persisted server-side in Firebase (see
+/// backend/src/modules/customers/customerData.repository.js) — scoped to
+/// the caller's merchant via their auth token, not a per-device local key —
+/// so it survives logout/reinstall/a new device instead of living only on
+/// one device's secure storage.
+final customerApiStorageProvider = Provider<CustomerApiStorage>((ref) {
+  return CustomerApiStorage(ref.watch(apiClientProvider));
 });
 
-/// Phase CRM-1 — the purchase-history store `CustomerRepositoryImpl.
-/// recordPurchase`/`getPurchaseHistory`/`getFavoriteProducts` read/write.
-final customerPurchaseLocalStorageProvider =
-    Provider.family<CustomerPurchaseLocalStorage, String>((ref, uid) {
-  return CustomerPurchaseLocalStorage(
-      ref.watch(secureStorageServiceProvider), uid);
+final customerPurchaseApiStorageProvider =
+    Provider<CustomerPurchaseApiStorage>((ref) {
+  return CustomerPurchaseApiStorage(ref.watch(apiClientProvider));
 });
 
 final customerRepositoryProvider =
     Provider.family<CustomerRepository, String>((ref, uid) {
   return CustomerRepositoryImpl(
-    localStorage: ref.watch(customerLocalStorageProvider(uid)),
-    purchaseLocalStorage: ref.watch(customerPurchaseLocalStorageProvider(uid)),
+    localStorage: ref.watch(customerApiStorageProvider),
+    purchaseLocalStorage: ref.watch(customerPurchaseApiStorageProvider),
   );
 });
 

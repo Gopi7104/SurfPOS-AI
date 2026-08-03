@@ -3,8 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:surfpos_ai/core/storage/secure_storage_service.dart';
 import 'package:surfpos_ai/features/authentication/providers/auth_providers.dart';
+import 'package:surfpos_ai/features/customers/models/customer_model.dart';
+import 'package:surfpos_ai/features/customers/models/customer_purchase.dart';
 import 'package:surfpos_ai/features/customers/models/customer_query.dart';
 import 'package:surfpos_ai/features/customers/providers/customer_providers.dart';
+import 'package:surfpos_ai/features/customers/repositories/customer_api_storage.dart';
+import 'package:surfpos_ai/features/customers/repositories/customer_purchase_api_storage.dart';
 import 'package:surfpos_ai/features/payments/models/checkout_item.dart';
 import 'package:surfpos_ai/features/payments/models/checkout_result_model.dart';
 import 'package:surfpos_ai/features/payments/models/order_status_model.dart';
@@ -13,7 +17,9 @@ import 'package:surfpos_ai/features/payments/providers/payment_providers.dart';
 import 'package:surfpos_ai/features/payments/repositories/payment_repository.dart';
 import 'package:surfpos_ai/features/receipt/models/receipt_line_item.dart';
 import 'package:surfpos_ai/features/receipt/providers/receipt_providers.dart';
+import 'package:surfpos_ai/features/reports/models/sales_record.dart';
 import 'package:surfpos_ai/features/reports/providers/sales_ledger_providers.dart';
+import 'package:surfpos_ai/features/reports/repositories/sales_ledger_api_storage.dart';
 
 import '../../merchant/presentation/screens/test_surface.dart';
 import '../../receipt/fakes/fake_receipt_repository.dart';
@@ -33,6 +39,46 @@ class _FakeSecureStorageService implements SecureStorageService {
 
   @override
   Future<void> deleteAll() async => _values.clear();
+}
+
+/// In-memory doubles for the Firebase-backed API storage classes customer/
+/// sales-ledger data now persists through (see backend/src/modules/
+/// customers/, backend/src/modules/reports/) — same "implements the
+/// concrete class" pattern as [_FakeSecureStorageService] above.
+class _FakeCustomerApiStorage implements CustomerApiStorage {
+  List<CustomerModel> _items = [];
+
+  @override
+  Future<List<CustomerModel>> readAll() async => _items;
+
+  @override
+  Future<void> writeAll(List<CustomerModel> customers) async {
+    _items = customers;
+  }
+}
+
+class _FakeCustomerPurchaseApiStorage implements CustomerPurchaseApiStorage {
+  List<CustomerPurchase> _items = [];
+
+  @override
+  Future<List<CustomerPurchase>> readAll() async => _items;
+
+  @override
+  Future<void> writeAll(List<CustomerPurchase> purchases) async {
+    _items = purchases;
+  }
+}
+
+class _FakeSalesLedgerApiStorage implements SalesLedgerApiStorage {
+  List<SalesRecord> _items = [];
+
+  @override
+  Future<List<SalesRecord>> readAll() async => _items;
+
+  @override
+  Future<void> writeAll(List<SalesRecord> records) async {
+    _items = records;
+  }
 }
 
 const _items = [CheckoutItem(productId: 'p1', quantity: 1)];
@@ -211,6 +257,11 @@ void main() {
         receiptRepositoryProvider.overrideWithValue(FakeReceiptRepository()),
         secureStorageServiceProvider
             .overrideWithValue(_FakeSecureStorageService()),
+        customerApiStorageProvider.overrideWithValue(_FakeCustomerApiStorage()),
+        customerPurchaseApiStorageProvider
+            .overrideWithValue(_FakeCustomerPurchaseApiStorage()),
+        salesLedgerApiStorageProvider
+            .overrideWithValue(_FakeSalesLedgerApiStorage()),
       ]);
       addTearDown(container.dispose);
 

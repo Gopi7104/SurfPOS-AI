@@ -1,12 +1,12 @@
 import '../models/sales_record.dart';
-import 'sales_ledger_local_storage.dart';
+import 'sales_ledger_api_storage.dart';
 import 'sales_ledger_repository.dart';
 
 class SalesLedgerRepositoryImpl implements SalesLedgerRepository {
-  SalesLedgerRepositoryImpl({required SalesLedgerLocalStorage localStorage})
+  SalesLedgerRepositoryImpl({required SalesLedgerApiStorage localStorage})
       : _localStorage = localStorage;
 
-  final SalesLedgerLocalStorage _localStorage;
+  final SalesLedgerApiStorage _localStorage;
 
   @override
   Future<void> recordSale(SalesRecord record) async {

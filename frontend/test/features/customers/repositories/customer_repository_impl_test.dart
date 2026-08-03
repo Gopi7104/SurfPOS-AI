@@ -1,37 +1,44 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:surfpos_ai/core/storage/secure_storage_service.dart';
 import 'package:surfpos_ai/features/customers/models/customer_draft.dart';
 import 'package:surfpos_ai/features/customers/models/customer_model.dart';
 import 'package:surfpos_ai/features/customers/models/customer_query.dart';
-import 'package:surfpos_ai/features/customers/repositories/customer_local_storage.dart';
-import 'package:surfpos_ai/features/customers/repositories/customer_purchase_local_storage.dart';
+import 'package:surfpos_ai/features/customers/models/customer_purchase.dart';
+import 'package:surfpos_ai/features/customers/repositories/customer_api_storage.dart';
+import 'package:surfpos_ai/features/customers/repositories/customer_purchase_api_storage.dart';
 import 'package:surfpos_ai/features/customers/repositories/customer_repository_impl.dart';
 
-/// In-memory [SecureStorageService] double — no platform channel involved,
-/// same pattern `product_image_local_storage_test.dart` already uses.
-class _FakeSecureStorageService implements SecureStorageService {
-  final Map<String, String> _values = {};
+/// In-memory doubles for the Firebase-backed API storage classes — no real
+/// HTTP call involved, same "implements the concrete class, override just
+/// its public readAll/writeAll" pattern `product_image_local_storage_test.dart`
+/// already uses for [SecureStorageService].
+class _FakeCustomerApiStorage implements CustomerApiStorage {
+  List<CustomerModel> _items = [];
 
   @override
-  Future<void> write(String key, String value) async => _values[key] = value;
+  Future<List<CustomerModel>> readAll() async => _items;
 
   @override
-  Future<String?> read(String key) async => _values[key];
-
-  @override
-  Future<void> delete(String key) async => _values.remove(key);
-
-  @override
-  Future<void> deleteAll() async => _values.clear();
+  Future<void> writeAll(List<CustomerModel> customers) async {
+    _items = customers;
+  }
 }
 
-const _uid = 'uid-1';
+class _FakeCustomerPurchaseApiStorage implements CustomerPurchaseApiStorage {
+  List<CustomerPurchase> _items = [];
+
+  @override
+  Future<List<CustomerPurchase>> readAll() async => _items;
+
+  @override
+  Future<void> writeAll(List<CustomerPurchase> purchases) async {
+    _items = purchases;
+  }
+}
 
 CustomerRepositoryImpl _repository() {
-  final storage = _FakeSecureStorageService();
   return CustomerRepositoryImpl(
-    localStorage: CustomerLocalStorage(storage, _uid),
-    purchaseLocalStorage: CustomerPurchaseLocalStorage(storage, _uid),
+    localStorage: _FakeCustomerApiStorage(),
+    purchaseLocalStorage: _FakeCustomerPurchaseApiStorage(),
   );
 }
 
@@ -40,7 +47,7 @@ CustomerRepositoryImpl _repository() {
 /// `memberSince`/`lastPurchaseAt` precisely — needed to exercise the
 /// "established, not new" side of [computeCustomerSegments].
 Future<CustomerModel> _seedCustomer(
-  CustomerLocalStorage localStorage, {
+  _FakeCustomerApiStorage localStorage, {
   required String id,
   required DateTime memberSince,
 }) async {
@@ -233,11 +240,10 @@ void main() {
   group('CustomerRepositoryImpl — getStats', () {
     test('computes real returningCustomers/inactiveCustomers/lifetimeRevenue',
         () async {
-      final storage = _FakeSecureStorageService();
-      final localStorage = CustomerLocalStorage(storage, _uid);
+      final localStorage = _FakeCustomerApiStorage();
       final repository = CustomerRepositoryImpl(
         localStorage: localStorage,
-        purchaseLocalStorage: CustomerPurchaseLocalStorage(storage, _uid),
+        purchaseLocalStorage: _FakeCustomerPurchaseApiStorage(),
       );
       final longAgo = DateTime.now().subtract(const Duration(days: 200));
       final returning = await _seedCustomer(localStorage,

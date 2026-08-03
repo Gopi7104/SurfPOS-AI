@@ -1,9 +1,9 @@
 import '../models/sales_record.dart';
 
 /// Seam between Payments' success hook and wherever the sales ledger
-/// actually lives — local-storage-only for now (see
-/// [SalesLedgerLocalStorage]'s header comment), mirroring
-/// `CustomerRepository`'s role for the Customers feature.
+/// actually lives — Firebase-backed via the backend's `/reports/sales`
+/// endpoint, mirroring `CustomerRepository`'s role for the Customers
+/// feature.
 abstract class SalesLedgerRepository {
   /// Called once per completed sale (real Surfboard checkout or a Test
   /// Payment), right when payment succeeds — the one and only write path

@@ -3,23 +3,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../authentication/providers/auth_providers.dart';
 import '../models/sales_ledger_snapshot.dart';
 import '../models/sales_record.dart';
-import '../repositories/sales_ledger_local_storage.dart';
+import '../repositories/sales_ledger_api_storage.dart';
 import '../repositories/sales_ledger_repository.dart';
 import '../repositories/sales_ledger_repository_impl.dart';
 
-/// DI wiring for the real sales ledger (Phase CRM-2) — mirrors
-/// `customerPurchaseLocalStorageProvider`/`customerRepositoryProvider`'s own
-/// `.family`-by-uid shape exactly, for the same reason (the local-storage
-/// key embeds the uid, only known at read time).
-final salesLedgerLocalStorageProvider =
-    Provider.family<SalesLedgerLocalStorage, String>((ref, uid) {
-  return SalesLedgerLocalStorage(ref.watch(secureStorageServiceProvider), uid);
+/// DI wiring for the real sales ledger (Phase CRM-2) — reuses the
+/// authentication feature's shared [apiClientProvider]. Persisted
+/// server-side in Firebase (see
+/// backend/src/modules/reports/salesLedger.repository.js), scoped to the
+/// caller's merchant via their auth token, so Dashboard/Reports data
+/// survives logout/reinstall/a new device instead of living only on one
+/// device's secure storage.
+final salesLedgerApiStorageProvider = Provider<SalesLedgerApiStorage>((ref) {
+  return SalesLedgerApiStorage(ref.watch(apiClientProvider));
 });
 
 final salesLedgerRepositoryProvider =
     Provider.family<SalesLedgerRepository, String>((ref, uid) {
   return SalesLedgerRepositoryImpl(
-      localStorage: ref.watch(salesLedgerLocalStorageProvider(uid)));
+      localStorage: ref.watch(salesLedgerApiStorageProvider));
 });
 
 /// Every recorded sale for this merchant — watched by both Dashboard (via

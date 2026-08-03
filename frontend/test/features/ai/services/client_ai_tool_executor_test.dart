@@ -8,7 +8,11 @@ import 'package:surfpos_ai/features/ai/models/ai_chat_reply.dart';
 import 'package:surfpos_ai/features/ai/services/client_ai_tool_executor.dart';
 import 'package:surfpos_ai/features/billing/providers/billing_providers.dart';
 import 'package:surfpos_ai/features/customers/models/customer_draft.dart';
+import 'package:surfpos_ai/features/customers/models/customer_model.dart';
+import 'package:surfpos_ai/features/customers/models/customer_purchase.dart';
 import 'package:surfpos_ai/features/customers/providers/customer_providers.dart';
+import 'package:surfpos_ai/features/customers/repositories/customer_api_storage.dart';
+import 'package:surfpos_ai/features/customers/repositories/customer_purchase_api_storage.dart';
 import 'package:surfpos_ai/features/demo_data/models/demo_business_snapshot.dart';
 import 'package:surfpos_ai/features/demo_data/models/demo_customer.dart';
 import 'package:surfpos_ai/features/demo_data/models/demo_product.dart';
@@ -47,6 +51,37 @@ class _FakeSecureStorageService implements SecureStorageService {
 
   @override
   Future<void> deleteAll() async => _values.clear();
+}
+
+/// In-memory doubles for the Firebase-backed customer API storage classes —
+/// customer/purchase data now persists server-side (see
+/// backend/src/modules/customers/), not via [SecureStorageService], so
+/// `customerRepositoryProvider` no longer flows through
+/// [secureStorageServiceProvider] and needs these overridden directly
+/// instead — same "implements the concrete class" pattern as
+/// `_FakeSecureStorageService` above.
+class _FakeCustomerApiStorage implements CustomerApiStorage {
+  List<CustomerModel> _items = [];
+
+  @override
+  Future<List<CustomerModel>> readAll() async => _items;
+
+  @override
+  Future<void> writeAll(List<CustomerModel> customers) async {
+    _items = customers;
+  }
+}
+
+class _FakeCustomerPurchaseApiStorage implements CustomerPurchaseApiStorage {
+  List<CustomerPurchase> _items = [];
+
+  @override
+  Future<List<CustomerPurchase>> readAll() async => _items;
+
+  @override
+  Future<void> writeAll(List<CustomerPurchase> purchases) async {
+    _items = purchases;
+  }
 }
 
 class _FakeReportsRepository implements ReportsRepository {
@@ -88,6 +123,9 @@ ProviderContainer _makeContainer({
   return ProviderContainer(overrides: [
     secureStorageServiceProvider
         .overrideWithValue(_FakeSecureStorageService(storageSeed)),
+    customerApiStorageProvider.overrideWithValue(_FakeCustomerApiStorage()),
+    customerPurchaseApiStorageProvider
+        .overrideWithValue(_FakeCustomerPurchaseApiStorage()),
     if (reportsSnapshot != null)
       reportsRepositoryProvider(_uid)
           .overrideWithValue(_FakeReportsRepository(reportsSnapshot)),

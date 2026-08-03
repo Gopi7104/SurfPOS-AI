@@ -1,31 +1,26 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:surfpos_ai/core/storage/secure_storage_service.dart';
 import 'package:surfpos_ai/features/reports/models/sales_record.dart';
-import 'package:surfpos_ai/features/reports/repositories/sales_ledger_local_storage.dart';
+import 'package:surfpos_ai/features/reports/repositories/sales_ledger_api_storage.dart';
 import 'package:surfpos_ai/features/reports/repositories/sales_ledger_repository_impl.dart';
 
-class _FakeSecureStorageService implements SecureStorageService {
-  final Map<String, String> _values = {};
+/// In-memory double for the Firebase-backed API storage class — no real
+/// HTTP call involved, same "implements the concrete class, override just
+/// its public readAll/writeAll" pattern `product_image_local_storage_test.dart`
+/// already uses for [SecureStorageService].
+class _FakeSalesLedgerApiStorage implements SalesLedgerApiStorage {
+  List<SalesRecord> _items = [];
 
   @override
-  Future<void> write(String key, String value) async => _values[key] = value;
+  Future<List<SalesRecord>> readAll() async => _items;
 
   @override
-  Future<String?> read(String key) async => _values[key];
-
-  @override
-  Future<void> delete(String key) async => _values.remove(key);
-
-  @override
-  Future<void> deleteAll() async => _values.clear();
+  Future<void> writeAll(List<SalesRecord> records) async {
+    _items = records;
+  }
 }
 
-const _uid = 'uid-1';
-
 SalesLedgerRepositoryImpl _repository() {
-  final storage = _FakeSecureStorageService();
-  return SalesLedgerRepositoryImpl(
-      localStorage: SalesLedgerLocalStorage(storage, _uid));
+  return SalesLedgerRepositoryImpl(localStorage: _FakeSalesLedgerApiStorage());
 }
 
 void main() {

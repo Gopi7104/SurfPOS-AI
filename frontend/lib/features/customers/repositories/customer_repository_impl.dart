@@ -10,16 +10,16 @@ import '../models/customer_segment.dart';
 import '../models/customer_stats.dart';
 import '../models/customer_status.dart';
 import '../models/loyalty.dart';
-import 'customer_local_storage.dart';
-import 'customer_purchase_local_storage.dart';
+import 'customer_api_storage.dart';
+import 'customer_purchase_api_storage.dart';
 import 'customer_repository.dart';
 
-/// Reads/writes the whole customer list via [CustomerLocalStorage], and the
-/// whole purchase-history list via [CustomerPurchaseLocalStorage] (Phase
-/// CRM-1) — no `/customers` backend endpoint exists yet (Phase 6 scope:
-/// "use local storage for now"). Every write is read-modify-write-the-
-/// whole-list, same simplification `ProductImageLocalStorage`/product
-/// filtering already use for this app's target small-retailer scale.
+/// Reads/writes the whole customer list via [CustomerApiStorage], and the
+/// whole purchase-history list via [CustomerPurchaseApiStorage] (Firebase-
+/// backed, see backend/src/modules/customers/ — previously per-device
+/// secure storage only). Every write is read-modify-write-the-whole-list,
+/// same simplification `ProductImageLocalStorage`/product filtering already
+/// use for this app's target small-retailer scale.
 ///
 /// [recordPurchase] is the *only* write path for a customer's lifetime
 /// stats (`lifetimeSpend`/`totalOrders`/`lastPurchaseAt`) and loyalty
@@ -30,13 +30,13 @@ import 'customer_repository.dart';
 /// is that missing call, not a redesign of anything else.
 class CustomerRepositoryImpl implements CustomerRepository {
   CustomerRepositoryImpl({
-    required CustomerLocalStorage localStorage,
-    required CustomerPurchaseLocalStorage purchaseLocalStorage,
+    required CustomerApiStorage localStorage,
+    required CustomerPurchaseApiStorage purchaseLocalStorage,
   })  : _localStorage = localStorage,
         _purchaseLocalStorage = purchaseLocalStorage;
 
-  final CustomerLocalStorage _localStorage;
-  final CustomerPurchaseLocalStorage _purchaseLocalStorage;
+  final CustomerApiStorage _localStorage;
+  final CustomerPurchaseApiStorage _purchaseLocalStorage;
 
   static const _idAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 

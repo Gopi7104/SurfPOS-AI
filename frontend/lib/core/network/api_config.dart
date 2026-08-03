@@ -17,12 +17,10 @@ import '../config/app_environment.dart';
 ///  2. [AppEnvironment.development] only: `API_BASE_URL` from `frontend/.env`
 ///     (loaded by [initialize], via `flutter_dotenv`) — the day-to-day
 ///     development mechanism. `.env` is git-ignored and personal (see
-///     `.env.example` for the template, which defaults to `127.0.0.1:4000`
-///     for USB development via `adb reverse` — see
-///     docs/23_ENVIRONMENT_CONFIGURATION.md § 4a). Testing over Wi-Fi
-///     instead: when your machine's LAN IP changes (different Wi-Fi, mobile
-///     hotspot, router DHCP renewal), edit the one line in `.env` and
-///     hot-restart — no source change, no rebuild flags.
+///     `.env.example` for the template, which defaults to the deployed
+///     Render backend — see docs/23_ENVIRONMENT_CONFIGURATION.md). Running
+///     the backend locally instead (USB/Wi-Fi/emulator) is still supported —
+///     just point this at the relevant local address.
 ///
 /// If neither resolves, [baseUrl] throws rather than silently guessing an
 /// address — a wrong-but-plausible-looking default is worse than a loud,
@@ -68,7 +66,7 @@ abstract final class ApiConfig {
 
     throw StateError(
       'No backend API_BASE_URL is configured for ${AppEnvironment.current.name}. '
-      '${AppEnvironment.current.isDevelopment ? 'Copy frontend/.env.example to frontend/.env (defaults to http://127.0.0.1:4000 for USB development — run adb reverse tcp:4000 tcp:4000 or frontend/scripts/run_usb.sh), or set API_BASE_URL to your machine\'s current LAN IP for Wi-Fi testing, or run with --dart-define=API_BASE_URL=... for a one-off override.' : 'Staging/production builds must supply --dart-define=API_BASE_URL=https://your-backend.example — see docs/23_ENVIRONMENT_CONFIGURATION.md.'}',
+      '${AppEnvironment.current.isDevelopment ? 'Copy frontend/.env.example to frontend/.env (defaults to the deployed Render backend), or set API_BASE_URL to a local address if running the backend locally, or run with --dart-define=API_BASE_URL=... for a one-off override.' : 'Staging/production builds must supply --dart-define=API_BASE_URL=https://your-backend.example — see docs/23_ENVIRONMENT_CONFIGURATION.md.'}',
     );
   }
 }

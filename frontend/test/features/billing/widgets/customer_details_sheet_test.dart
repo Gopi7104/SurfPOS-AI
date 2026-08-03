@@ -7,7 +7,11 @@ import 'package:surfpos_ai/features/authentication/providers/auth_providers.dart
 import 'package:surfpos_ai/features/billing/models/customer_details.dart';
 import 'package:surfpos_ai/features/billing/widgets/customer_details_sheet.dart';
 import 'package:surfpos_ai/features/customers/models/customer_draft.dart';
+import 'package:surfpos_ai/features/customers/models/customer_model.dart';
+import 'package:surfpos_ai/features/customers/models/customer_purchase.dart';
 import 'package:surfpos_ai/features/customers/providers/customer_providers.dart';
+import 'package:surfpos_ai/features/customers/repositories/customer_api_storage.dart';
+import 'package:surfpos_ai/features/customers/repositories/customer_purchase_api_storage.dart';
 
 class _FakeSecureStorageService implements SecureStorageService {
   final Map<String, String> _values = {};
@@ -24,6 +28,40 @@ class _FakeSecureStorageService implements SecureStorageService {
   @override
   Future<void> deleteAll() async => _values.clear();
 }
+
+/// In-memory doubles for the Firebase-backed customer API storage classes —
+/// see client_ai_tool_executor_test.dart's identical fakes for why
+/// `customerRepositoryProvider` needs these overridden directly now instead
+/// of flowing through [secureStorageServiceProvider].
+class _FakeCustomerApiStorage implements CustomerApiStorage {
+  List<CustomerModel> _items = [];
+
+  @override
+  Future<List<CustomerModel>> readAll() async => _items;
+
+  @override
+  Future<void> writeAll(List<CustomerModel> customers) async {
+    _items = customers;
+  }
+}
+
+class _FakeCustomerPurchaseApiStorage implements CustomerPurchaseApiStorage {
+  List<CustomerPurchase> _items = [];
+
+  @override
+  Future<List<CustomerPurchase>> readAll() async => _items;
+
+  @override
+  Future<void> writeAll(List<CustomerPurchase> purchases) async {
+    _items = purchases;
+  }
+}
+
+List<Override> _customerStorageOverrides() => [
+      customerApiStorageProvider.overrideWithValue(_FakeCustomerApiStorage()),
+      customerPurchaseApiStorageProvider
+          .overrideWithValue(_FakeCustomerPurchaseApiStorage()),
+    ];
 
 const _uid = 'uid-1';
 
@@ -54,6 +92,7 @@ void main() {
     final container = ProviderContainer(overrides: [
       secureStorageServiceProvider
           .overrideWithValue(_FakeSecureStorageService()),
+      ..._customerStorageOverrides(),
     ]);
     addTearDown(container.dispose);
 
@@ -72,6 +111,7 @@ void main() {
     final container = ProviderContainer(overrides: [
       secureStorageServiceProvider
           .overrideWithValue(_FakeSecureStorageService()),
+      ..._customerStorageOverrides(),
     ]);
     addTearDown(container.dispose);
     await container.read(customerRepositoryProvider(_uid)).createCustomer(
@@ -101,6 +141,7 @@ void main() {
     final container = ProviderContainer(overrides: [
       secureStorageServiceProvider
           .overrideWithValue(_FakeSecureStorageService()),
+      ..._customerStorageOverrides(),
     ]);
     addTearDown(container.dispose);
 

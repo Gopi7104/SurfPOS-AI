@@ -36,5 +36,11 @@ class AuthLocalStorage {
     return raw == 'true';
   }
 
-  Future<void> clear() => _storage.deleteAll();
+  // Only this class's own keys — NOT deleteAll(). The same FlutterSecureStorage
+  // keychain also holds customers/reports/inventory/settings/demo-data caches (each under
+  // their own key prefix); deleteAll() here was wiping every one of those on every logout.
+  Future<void> clear() => Future.wait([
+        _storage.delete(_userKey),
+        _storage.delete(_loggedInKey),
+      ]);
 }

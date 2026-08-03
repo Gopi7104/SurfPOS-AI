@@ -3,11 +3,11 @@ import 'customer_status.dart';
 import 'customer_tag.dart';
 import 'membership_tier.dart';
 
-/// A single customer profile. Persisted today via
-/// [CustomerLocalStorage]'s JSON blob (see [toJson]/[fromJson]) — field
-/// names here are the same friendly, UI-facing shape a future backend
-/// response would use, so swapping the repository's data source later
-/// never requires touching this model or any widget that reads it.
+/// A single customer profile. Persisted via the backend's Firebase-backed
+/// `/customers` endpoint as one JSON blob (see [toJson]/[fromJson]) — field
+/// names here are the same friendly, UI-facing shape, so swapping the
+/// repository's data source never requires touching this model or any
+/// widget that reads it.
 class CustomerModel {
   const CustomerModel({
     required this.id,
